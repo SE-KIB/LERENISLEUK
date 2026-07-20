@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LerenIsLeuk — Wiskunde voor technici</title>
+<style>
+:root{
+  --ground:#f4f8fb; --surface:#ffffff; --surface-2:#eef5fa;
+  --ink:#0f2436; --ink-soft:#43596b; --ink-faint:#7c8ea0;
+  --line:#d7e3ec; --line-soft:#e7eef4;
+  --brand:#1789c4; --brand-deep:#0d5f8a; --brand-tint:#e2f1fa;
+  --accent:#f26a4b; --accent-deep:#d8492a; --accent-tint:#fdeae4;
+  --good:#1f9d6b; --good-tint:#e2f4ec; --bad:#d64545; --bad-tint:#fbe6e6;
+  --shadow:0 1px 2px rgba(15,36,54,.06), 0 8px 24px -12px rgba(15,36,54,.22);
+  --shadow-lg:0 24px 60px -22px rgba(13,95,138,.45);
+  --radius:14px; --maxw:1140px;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#0b1620; --surface:#122536; --surface-2:#17303f;
+    --ink:#eaf2f8; --ink-soft:#a9bccb; --ink-faint:#6f8494;
+    --line:#25404f; --line-soft:#1d3444;
+    --brand:#39a7dd; --brand-deep:#7cc9ee; --brand-tint:#13303f;
+    --accent:#ff7d5e; --accent-deep:#ff9376; --accent-tint:#3a2019;
+    --good:#3bc487; --good-tint:#15332a; --bad:#f2726f; --bad-tint:#33191b;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+    --shadow-lg:0 28px 70px -24px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="light"]{
+  --ground:#f4f8fb; --surface:#ffffff; --surface-2:#eef5fa; --ink:#0f2436; --ink-soft:#43596b;
+  --ink-faint:#7c8ea0; --line:#d7e3ec; --line-soft:#e7eef4; --brand:#1789c4; --brand-deep:#0d5f8a;
+  --brand-tint:#e2f1fa; --accent:#f26a4b; --accent-deep:#d8492a; --accent-tint:#fdeae4;
+  --good:#1f9d6b; --good-tint:#e2f4ec; --bad:#d64545; --bad-tint:#fbe6e6;
+  --shadow:0 1px 2px rgba(15,36,54,.06), 0 8px 24px -12px rgba(15,36,54,.22);
+  --shadow-lg:0 24px 60px -22px rgba(13,95,138,.45);
+}
+:root[data-theme="dark"]{
+  --ground:#0b1620; --surface:#122536; --surface-2:#17303f; --ink:#eaf2f8; --ink-soft:#a9bccb;
+  --ink-faint:#6f8494; --line:#25404f; --line-soft:#1d3444; --brand:#39a7dd; --brand-deep:#7cc9ee;
+  --brand-tint:#13303f; --accent:#ff7d5e; --accent-deep:#ff9376; --accent-tint:#3a2019;
+  --good:#3bc487; --good-tint:#15332a; --bad:#f2726f; --bad-tint:#33191b;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  --shadow-lg:0 28px 70px -24px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--sans); color:var(--ink); background:var(--ground);
+  line-height:1.55; -webkit-font-smoothing:antialiased; font-size:16px;
+  min-height:100vh;
+}
+h1,h2,h3{margin:0; line-height:1.15; letter-spacing:-.02em; text-wrap:balance; font-weight:800}
+p{margin:0}
+button{font-family:inherit; cursor:pointer}
+.tnum{font-variant-numeric:tabular-nums}
+.hidden{display:none !important}
+a{color:var(--brand-deep)}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:40; background:color-mix(in srgb,var(--surface) 88%, transparent);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+}
+.topbar-in{max-width:var(--maxw); margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:16px}
+.brand{display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:-.02em; font-size:18px; color:var(--ink)}
+.logo{width:34px; height:34px; border-radius:9px; background:linear-gradient(140deg,var(--brand),var(--brand-deep));
+  display:grid; place-items:center; color:#fff; font-weight:800; box-shadow:0 4px 12px -4px var(--brand); flex:0 0 auto}
+.brand small{display:block; font-size:11px; font-weight:600; color:var(--ink-faint); letter-spacing:.02em}
+.spacer{flex:1}
+.iconbtn{background:var(--surface-2); border:1px solid var(--line); color:var(--ink-soft); width:38px; height:38px;
+  border-radius:10px; display:grid; place-items:center; font-size:16px; transition:.15s}
+.iconbtn:hover{color:var(--ink); border-color:var(--brand)}
+.userchip{display:flex; align-items:center; gap:9px; padding:5px 12px 5px 5px; border:1px solid var(--line);
+  border-radius:999px; background:var(--surface-2); font-weight:600; font-size:14px; color:var(--ink)}
+.avatar{width:30px; height:30px; border-radius:50%; background:linear-gradient(140deg,var(--accent),var(--accent-deep));
+  color:#fff; display:grid; place-items:center; font-size:13px; font-weight:800; flex:0 0 auto}
+.linkbtn{background:none; border:none; color:var(--ink-soft); font-weight:600; font-size:14px; padding:8px 10px; border-radius:8px}
+.linkbtn:hover{color:var(--brand-deep); background:var(--surface-2)}
+
+/* ---------- login ---------- */
+.login-wrap{min-height:100vh; display:grid; grid-template-columns:1.05fr .95fr}
+@media (max-width:880px){.login-wrap{grid-template-columns:1fr}}
+.login-aside{
+  position:relative; overflow:hidden; color:#eaf6fd; padding:48px;
+  background:radial-gradient(120% 120% at 15% 10%,#1789c4 0%,#0d5f8a 55%,#093f5c 100%);
+  display:flex; flex-direction:column; justify-content:space-between;
+}
+@media (max-width:880px){.login-aside{display:none}}
+.login-aside canvas{position:absolute; inset:0; width:100%; height:100%; opacity:.5}
+.aside-top{position:relative; z-index:2; display:flex; align-items:center; gap:11px; font-weight:800; font-size:19px}
+.aside-mid{position:relative; z-index:2; max-width:420px}
+.aside-mid .eyebrow{text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700; color:#a9dcf5; margin-bottom:16px}
+.aside-mid h2{font-size:clamp(30px,3.6vw,44px); color:#fff; line-height:1.08}
+.aside-mid p{margin-top:16px; color:#cfeaf8; font-size:16px; max-width:380px}
+.aside-stats{position:relative; z-index:2; display:flex; gap:30px}
+.aside-stats .n{font-size:26px; font-weight:800; color:#fff}
+.aside-stats .l{font-size:12.5px; color:#a9dcf5; letter-spacing:.02em}
+
+.login-main{display:grid; place-items:center; padding:40px 24px; background:var(--ground); position:relative}
+.themebtn{position:absolute; top:20px; right:22px}
+.login-card{width:100%; max-width:400px}
+.login-card .mobile-brand{display:none}
+@media (max-width:880px){.login-card .mobile-brand{display:flex; margin-bottom:26px}}
+.login-card h1{font-size:27px}
+.login-card .sub{color:var(--ink-soft); margin-top:8px; font-size:15px}
+.sso{display:grid; gap:10px; margin-top:26px}
+.sso-btn{display:flex; align-items:center; gap:11px; justify-content:center; padding:11px 14px; border-radius:11px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink); font-weight:650; font-size:14.5px; transition:.15s}
+.sso-btn:hover{border-color:var(--brand); background:var(--surface-2); transform:translateY(-1px)}
+.sso-btn .g{width:19px; height:19px; flex:0 0 auto}
+.divider{display:flex; align-items:center; gap:14px; color:var(--ink-faint); font-size:12.5px; margin:22px 0; font-weight:600}
+.divider::before,.divider::after{content:""; height:1px; flex:1; background:var(--line)}
+.field{margin-bottom:15px}
+.field label{display:block; font-size:13px; font-weight:700; color:var(--ink-soft); margin-bottom:7px}
+.field input{width:100%; padding:12px 13px; border:1px solid var(--line); border-radius:11px; background:var(--surface);
+  color:var(--ink); font-size:15px; font-family:inherit; transition:.15s}
+.field input:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 22%,transparent)}
+.field .lbl-row{display:flex; justify-content:space-between; align-items:center}
+.field .lbl-row a{font-size:12.5px; font-weight:600}
+.row-between{display:flex; align-items:center; justify-content:space-between; margin:4px 0 20px}
+.check{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-soft); font-weight:600}
+.check input{width:16px; height:16px; accent-color:var(--brand)}
+.btn-primary{width:100%; padding:13px; border:none; border-radius:11px; background:linear-gradient(180deg,var(--brand),var(--brand-deep));
+  color:#fff; font-weight:750; font-size:15.5px; box-shadow:0 8px 20px -8px var(--brand); transition:.15s}
+.btn-primary:hover{transform:translateY(-1px); box-shadow:0 12px 26px -8px var(--brand)}
+.btn-primary:active{transform:translateY(0)}
+.signup-line{text-align:center; margin-top:22px; font-size:14px; color:var(--ink-soft)}
+.signup-line button{background:none; border:none; color:var(--brand-deep); font-weight:750; font-size:14px; padding:0}
+.demo-hint{margin-top:18px; padding:11px 13px; border-radius:10px; background:var(--brand-tint); border:1px dashed color-mix(in srgb,var(--brand) 45%,transparent);
+  font-size:12.5px; color:var(--brand-deep); display:flex; gap:8px; align-items:flex-start}
+
+/* ---------- app / dashboard ---------- */
+.app{max-width:var(--maxw); margin:0 auto; padding:26px 20px 80px}
+.welcome{display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin:6px 0 22px; flex-wrap:wrap}
+.welcome h1{font-size:26px}
+.welcome p{color:var(--ink-soft); margin-top:5px; font-size:14.5px}
+.stat-strip{display:flex; gap:12px; flex-wrap:wrap}
+.stat{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 16px; min-width:120px; box-shadow:var(--shadow)}
+.stat .n{font-size:22px; font-weight:800; letter-spacing:-.02em}
+.stat .l{font-size:12px; color:var(--ink-faint); font-weight:600; letter-spacing:.02em; margin-top:1px}
+.stat.accent .n{color:var(--accent-deep)}
+
+.section-head{display:flex; align-items:center; gap:12px; margin:30px 2px 15px}
+.section-head h2{font-size:17px}
+.section-head .bar{width:26px; height:3px; border-radius:2px; background:var(--accent)}
+.section-head .count{margin-left:auto; font-size:12.5px; color:var(--ink-faint); font-weight:600}
+
+.grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
+@media (max-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:460px){.grid{grid-template-columns:1fr}}
+
+.card{position:relative; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface);
+  padding:16px 16px 14px; min-height:132px; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  transition:transform .16s, box-shadow .16s, border-color .16s; text-align:left; width:100%; color:inherit; font-family:inherit}
+.card.live{cursor:pointer}
+.card.live:hover{transform:translateY(-3px); box-shadow:var(--shadow-lg); border-color:var(--brand)}
+.card.live:focus-visible{outline:3px solid color-mix(in srgb,var(--brand) 55%,transparent); outline-offset:2px}
+.card .num{font-size:12px; font-weight:800; color:var(--brand-deep); letter-spacing:.02em; margin-bottom:6px}
+.card h3{font-size:15.5px; font-weight:750; letter-spacing:-.01em; line-height:1.25}
+.card .meta{margin-top:auto; padding-top:12px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-faint); font-weight:600}
+.card .pill{margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 8px; border-radius:999px; font-weight:700}
+.pill.done{background:var(--good-tint); color:var(--good)}
+.pill.busy{background:var(--brand-tint); color:var(--brand-deep)}
+.pill.new{background:var(--accent-tint); color:var(--accent-deep)}
+.pill.soon{background:var(--surface-2); color:var(--ink-faint)}
+.progress{height:5px; border-radius:3px; background:var(--line-soft); overflow:hidden; margin-top:11px}
+.progress > i{display:block; height:100%; border-radius:3px; background:linear-gradient(90deg,var(--brand),var(--brand-deep))}
+.card.soon{border-style:dashed; background:var(--surface-2)}
+.card.soon h3,.card.soon .num{color:var(--ink-faint)}
+.card .bookmark{position:absolute; top:-1px; right:15px; width:16px; height:26px; background:var(--accent);
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%); box-shadow:0 3px 6px -2px rgba(0,0,0,.25)}
+
+/* featured intro card */
+.featured{grid-column:span 1; background:linear-gradient(150deg,var(--accent),var(--accent-deep)); color:#fff;
+  border:none; box-shadow:0 14px 30px -14px var(--accent-deep)}
+.featured .num,.featured h3{color:#fff}
+.featured .kick{font-size:11px; text-transform:uppercase; letter-spacing:.14em; font-weight:800; opacity:.85; margin-bottom:8px}
+.featured p{font-size:12.5px; color:rgba(255,255,255,.9); margin-top:6px}
+.featured .go{margin-top:auto; padding-top:12px; font-size:12.5px; font-weight:800; display:flex; align-items:center; gap:6px}
+
+/* ---------- quiz ---------- */
+.quiz{max-width:760px; margin:0 auto; padding:26px 20px 90px}
+.back{display:inline-flex; align-items:center; gap:7px; background:none; border:none; color:var(--ink-soft); font-weight:650; font-size:14px; padding:6px 0; margin-bottom:12px}
+.back:hover{color:var(--brand-deep)}
+.quiz-head{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); margin-bottom:22px}
+.quiz-head .num{font-size:12px; font-weight:800; color:var(--brand-deep); letter-spacing:.03em}
+.quiz-head h1{font-size:23px; margin-top:4px}
+.quiz-head p{color:var(--ink-soft); font-size:14px; margin-top:8px}
+.qbar{height:6px; border-radius:4px; background:var(--line-soft); overflow:hidden; margin-top:16px}
+.qbar > i{display:block; height:100%; background:linear-gradient(90deg,var(--brand),var(--brand-deep)); transition:width .3s}
+.qmeta{display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-faint); font-weight:600; margin-top:8px}
+
+.qcard{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow)}
+.qtag{display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--brand-deep); background:var(--brand-tint); padding:4px 9px; border-radius:6px}
+.qtext{font-size:19px; font-weight:700; margin:14px 0 4px; line-height:1.4; letter-spacing:-.01em}
+.qtext .m{font-family:var(--mono); background:var(--surface-2); padding:1px 6px; border-radius:5px; font-size:.92em; font-weight:600}
+.opts{display:grid; gap:10px; margin-top:20px}
+.opt{display:flex; align-items:center; gap:13px; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px;
+  background:var(--surface); text-align:left; font-size:15.5px; color:var(--ink); font-weight:600; transition:.13s; width:100%; font-family:inherit}
+.opt:hover:not(:disabled){border-color:var(--brand); background:var(--surface-2)}
+.opt .key{width:26px; height:26px; border-radius:7px; background:var(--surface-2); border:1px solid var(--line);
+  display:grid; place-items:center; font-size:13px; font-weight:800; color:var(--ink-soft); flex:0 0 auto; transition:.13s}
+.opt .mark{margin-left:auto; font-weight:800; font-size:17px; opacity:0}
+.opt.correct{border-color:var(--good); background:var(--good-tint)}
+.opt.correct .key{background:var(--good); border-color:var(--good); color:#fff}
+.opt.correct .mark{opacity:1; color:var(--good)}
+.opt.wrong{border-color:var(--bad); background:var(--bad-tint)}
+.opt.wrong .key{background:var(--bad); border-color:var(--bad); color:#fff}
+.opt.wrong .mark{opacity:1; color:var(--bad)}
+.opt:disabled{cursor:default}
+.explain{margin-top:18px; padding:14px 16px; border-radius:11px; border-left:3px solid var(--brand); background:var(--brand-tint);
+  font-size:14px; color:var(--ink); display:none}
+.explain.show{display:block}
+.explain b{color:var(--brand-deep)}
+.qfoot{display:flex; justify-content:space-between; align-items:center; margin-top:22px}
+.score{font-size:13.5px; color:var(--ink-soft); font-weight:650}
+.btn-next{padding:11px 22px; border:none; border-radius:10px; background:linear-gradient(180deg,var(--brand),var(--brand-deep));
+  color:#fff; font-weight:750; font-size:14.5px; box-shadow:0 8px 18px -8px var(--brand); transition:.15s}
+.btn-next:hover{transform:translateY(-1px)}
+.btn-next:disabled{opacity:.4; cursor:not-allowed; transform:none; box-shadow:none}
+
+/* results */
+.result{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:34px; text-align:center; box-shadow:var(--shadow)}
+.result .ring{width:130px; height:130px; margin:6px auto 18px; position:relative}
+.result .ring svg{transform:rotate(-90deg)}
+.result .ring .pct{position:absolute; inset:0; display:grid; place-items:center; font-size:30px; font-weight:800}
+.result h2{font-size:24px}
+.result p{color:var(--ink-soft); margin-top:8px}
+.result .acts{display:flex; gap:12px; justify-content:center; margin-top:24px; flex-wrap:wrap}
+.btn-ghost{padding:11px 20px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font-weight:700; font-size:14.5px}
+.btn-ghost:hover{border-color:var(--brand); color:var(--brand-deep)}
+
+.footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
+.footer .spacer{flex:1}
+@media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginView">
+  <div class="login-wrap">
+    <aside class="login-aside">
+      <canvas id="mathCanvas"></canvas>
+      <div class="aside-top"><span>📐</span> LerenIsLeuk</div>
+      <div class="aside-mid">
+        <div class="eyebrow">Wiskunde voor technici</div>
+        <h2>Van breuken tot integralen — in jouw tempo.</h2>
+        <p>Interactieve modules, directe feedback en uitgewerkte voorbeelden. Precies afgestemd op de techniekopleiding.</p>
+      </div>
+      <div class="aside-stats">
+        <div><div class="n tnum">18</div><div class="l">modules</div></div>
+        <div><div class="n tnum">240+</div><div class="l">opgaven</div></div>
+        <div><div class="n tnum">4.8</div><div class="l">beoordeling</div></div>
+      </div>
+    </aside>
+
+    <main class="login-main">
+      <button class="iconbtn themebtn" id="themeToggle" title="Wissel thema" aria-label="Wissel thema">🌙</button>
+      <div class="login-card">
+        <div class="brand mobile-brand"><span class="logo">π</span><div>LerenIsLeuk<small>Wiskunde voor technici</small></div></div>
+        <h1 id="loginTitle">Welkom terug</h1>
+        <p class="sub" id="loginSub">Log in om verder te gaan met je modules.</p>
+
+        <div class="sso">
+          <button class="sso-btn" data-sso="Google">
+            <svg class="g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.5 30.1 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.8 6c1.9-5.6 7.1-9.8 13.7-9.8z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 6.9l7.1 5.5c4.2-3.9 6.2-9.6 6.2-16.9z"/><path fill="#FBBC05" d="M10.3 28.3c-.5-1.4-.8-2.9-.8-4.3s.3-3 .8-4.3l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.5 10.3l7.8-6z"/><path fill="#34A853" d="M24 48c6.1 0 11.3-2 15-5.5l-7.1-5.5c-2 1.4-4.6 2.2-7.9 2.2-6.6 0-11.8-4.2-13.7-9.8l-7.8 6C6.4 42.6 14.6 48 24 48z"/></svg>
+            Doorgaan met Google
+          </button>
+          <button class="sso-btn" data-sso="Microsoft">
+            <svg class="g" viewBox="0 0 23 23"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M12 1h10v10H12z"/><path fill="#00A4EF" d="M1 12h10v10H1z"/><path fill="#FFB900" d="M12 12h10v10H12z"/></svg>
+            Doorgaan met Microsoft
+          </button>
+          <button class="sso-btn" data-sso="Schoolaccount">
+            <svg class="g" viewBox="0 0 24 24" fill="none" stroke="#1789c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            Inloggen met schoolaccount
+          </button>
+        </div>
+
+        <div class="divider">of met e-mail</div>
+
+        <form id="loginForm">
+          <div class="field">
+            <label for="email">E-mailadres</label>
+            <input type="email" id="email" placeholder="jij@school.nl" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <div class="lbl-row"><label for="pw">Wachtwoord</label><a href="#" id="forgot">Vergeten?</a></div>
+            <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" required>
+          </div>
+          <div class="row-between">
+            <label class="check"><input type="checkbox" id="remember" checked> Onthoud mij</label>
+          </div>
+          <button type="submit" class="btn-primary" id="submitBtn">Inloggen</button>
+        </form>
+
+        <div class="signup-line" id="signupLine">Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button></div>
+
+        <div class="demo-hint"><span>💡</span><div><b>Demo:</b> elk e-mailadres en wachtwoord werkt. Of gebruik één van de knoppen hierboven om direct rond te kijken.</div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="appView" class="hidden">
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand"><span class="logo">π</span><div>LerenIsLeuk<small>Wiskunde voor technici</small></div></div>
+      <div class="spacer"></div>
+      <button class="linkbtn" id="homeLink">Modules</button>
+      <button class="iconbtn" id="themeToggle2" title="Wissel thema" aria-label="Wissel thema">🌙</button>
+      <div class="userchip"><span class="avatar" id="avatar">S</span><span id="username">Student</span></div>
+      <button class="iconbtn" id="logoutBtn" title="Uitloggen" aria-label="Uitloggen">⏻</button>
+    </div>
+  </header>
+
+  <!-- dashboard -->
+  <div id="dashView" class="app">
+    <div class="welcome">
+      <div>
+        <h1 id="greeting">Goedemiddag 👋</h1>
+        <p>Werken met Wiskunde voor technici — kies een module en ga verder waar je gebleven was.</p>
+      </div>
+      <div class="stat-strip">
+        <div class="stat"><div class="n tnum" id="statDone">1</div><div class="l">afgerond</div></div>
+        <div class="stat"><div class="n tnum" id="statBusy">1</div><div class="l">mee bezig</div></div>
+        <div class="stat accent"><div class="n tnum" id="statStreak">3</div><div class="l">dagen streak 🔥</div></div>
+      </div>
+    </div>
+
+    <div class="section-head"><span class="bar"></span><h2>Jouw leerlijn</h2><span class="count" id="courseCount"></span></div>
+    <div class="grid" id="courseGrid"></div>
+
+    <div class="section-head"><span class="bar"></span><h2>Verdieping &amp; keuzemodules</h2><span class="count">binnenkort</span></div>
+    <div class="grid" id="soonGrid"></div>
+  </div>
+
+  <!-- quiz -->
+  <div id="quizView" class="quiz hidden"></div>
+
+  <footer class="footer">
+    <span>© 2026 LerenIsLeuk</span><span class="spacer"></span>
+    <span>Wiskunde voor technici · demo-omgeving</span>
+  </footer>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const COURSES = [
+  {n:"1", t:"Rekenen met getallen", tag:"live", status:"done", prog:100, desc:"Breuken, machten en wetenschappelijke notatie."},
+  {n:"2", t:"Algebra", tag:"live", status:"busy", prog:45, desc:"Herleiden, ontbinden in factoren en formules."},
+  {n:"3", t:"Vergelijkingen I", tag:"live", status:"new", prog:0, desc:"Lineaire en kwadratische vergelijkingen."},
+  {n:"4", t:"Inleiding functies", tag:"soon", status:"soon", prog:0},
+  {n:"5", t:"Functies I", tag:"soon", status:"soon", prog:0},
+  {n:"6", t:"Vergelijkingen en ongelijkheden met grafieken", tag:"soon", status:"soon", prog:0},
+  {n:"7", t:"Differentiëren I", tag:"soon", status:"soon", prog:0, bookmark:true},
+  {n:"8", t:"Integreren I", tag:"soon", status:"soon", prog:0},
+];
+const SOON = [
+  {n:"9", t:"Functies II"},{n:"10", t:"Differentiëren II"},
+  {n:"11", t:"Vergelijkingen en ongelijkheden II"},{n:"12", t:"Functieonderzoek"},
+  {n:"13", t:"Integreren II"},{n:"15", t:"Integratiemethoden"},
+  {n:"36", t:"Meetkunde"},
+];
+
+/* question banks — same technische-wiskunde stijl */
+const QUIZZES = {
+  "1":{ title:"Rekenen met getallen", sub:"Breuken, machten en wetenschappelijke notatie.", q:[
+    {tag:"Breuken", t:"Bereken: <span class='m'>3/4 + 2/5</span>", o:["23/20","5/9","6/20","1"], c:0,
+      e:"Gelijknamig maken op noemer 20: 15/20 + 8/20 = <b>23/20</b> (= 1 3⁄20)."},
+    {tag:"Machten", t:"Vereenvoudig: <span class='m'>a⁵ · a³</span>", o:["a⁸","a¹⁵","a²","2a⁸"], c:0,
+      e:"Bij vermenigvuldigen van machten met gelijk grondtal tel je de exponenten op: 5 + 3 = <b>8</b>."},
+    {tag:"Wetensch. notatie", t:"Schrijf <span class='m'>0,00042</span> in wetenschappelijke notatie.", o:["4,2 × 10⁻⁴","42 × 10⁻⁵","4,2 × 10⁴","0,42 × 10⁻³"], c:0,
+      e:"Verschuif de komma 4 plaatsen naar rechts: <b>4,2 × 10⁻⁴</b>. De exponent is negatief omdat het getal kleiner dan 1 is."},
+    {tag:"Volgorde", t:"Bereken: <span class='m'>6 + 2 · 3²</span>", o:["24","72","144","20"], c:0,
+      e:"Eerst machten: 3² = 9. Dan vermenigvuldigen: 2·9 = 18. Dan optellen: 6 + 18 = <b>24</b>."},
+    {tag:"Procenten", t:"Een weerstand van 220 Ω heeft een tolerantie van 5%. Wat is de bovengrens?", o:["231 Ω","225 Ω","240 Ω","221 Ω"], c:0,
+      e:"5% van 220 = 11. Bovengrens = 220 + 11 = <b>231 Ω</b>."},
+  ]},
+  "2":{ title:"Algebra", sub:"Herleiden, ontbinden in factoren en formules omschrijven.", q:[
+    {tag:"Herleiden", t:"Herleid: <span class='m'>2(x + 3) − (x − 4)</span>", o:["x + 10","x + 2","3x + 10","x − 1"], c:0,
+      e:"2x + 6 − x + 4 = <b>x + 10</b>. Let op het minteken vóór (x − 4)."},
+    {tag:"Merkw. producten", t:"Werk uit: <span class='m'>(x + 5)²</span>", o:["x² + 10x + 25","x² + 25","x² + 5x + 25","x² + 10x + 10"], c:0,
+      e:"(a + b)² = a² + 2ab + b² → x² + 2·5·x + 25 = <b>x² + 10x + 25</b>."},
+    {tag:"Ontbinden", t:"Ontbind in factoren: <span class='m'>x² − 9</span>", o:["(x − 3)(x + 3)","(x − 3)²","(x − 9)(x + 1)","(x + 3)²"], c:0,
+      e:"Verschil van kwadraten: a² − b² = (a − b)(a + b) → <b>(x − 3)(x + 3)</b>."},
+    {tag:"Formule omschrijven", t:"Uit <span class='m'>U = I · R</span> volgt R =", o:["U / I","I / U","U − I","U · I"], c:0,
+      e:"Deel beide kanten door I: <b>R = U / I</b>."},
+    {tag:"Ontbinden", t:"Ontbind: <span class='m'>x² + 7x + 12</span>", o:["(x + 3)(x + 4)","(x + 2)(x + 6)","(x + 1)(x + 12)","(x − 3)(x − 4)"], c:0,
+      e:"Zoek twee getallen met product 12 en som 7: 3 en 4 → <b>(x + 3)(x + 4)</b>."},
+  ]},
+  "3":{ title:"Vergelijkingen I", sub:"Lineaire en kwadratische vergelijkingen oplossen.", q:[
+    {tag:"Lineair", t:"Los op: <span class='m'>3x − 7 = 11</span>", o:["x = 6","x = 4","x = 18","x = −6"], c:0,
+      e:"3x = 18, dus x = <b>6</b>."},
+    {tag:"Lineair", t:"Los op: <span class='m'>2(x − 1) = x + 5</span>", o:["x = 7","x = 3","x = 4","x = 6"], c:0,
+      e:"2x − 2 = x + 5 → x = <b>7</b>."},
+    {tag:"Kwadratisch", t:"Los op: <span class='m'>x² = 49</span>", o:["x = 7 of x = −7","x = 7","x = 24,5","x = ±24,5"], c:0,
+      e:"Worteltrekken geeft twee oplossingen: <b>x = 7 of x = −7</b>."},
+    {tag:"Kwadratisch", t:"Hoeveel oplossingen heeft <span class='m'>x² + 1 = 0</span> (reëel)?", o:["Geen","Eén","Twee","Oneindig veel"], c:0,
+      e:"x² = −1 heeft geen reële oplossing; de discriminant is negatief → <b>geen</b> reële oplossingen."},
+    {tag:"abc-formule", t:"Discriminant van <span class='m'>x² − 5x + 6 = 0</span> is:", o:["1","49","−1","25"], c:0,
+      e:"D = b² − 4ac = (−5)² − 4·1·6 = 25 − 24 = <b>1</b>."},
+  ]},
+};
+
+/* ---------------- theme ---------------- */
+const root=document.documentElement;
+function setTheme(t){root.setAttribute('data-theme',t);
+  document.querySelectorAll('#themeToggle,#themeToggle2').forEach(b=>b.textContent=t==='dark'?'☀️':'🌙');
+  try{localStorage.setItem('lil-theme',t)}catch(e){}}
+(function(){let t;try{t=localStorage.getItem('lil-theme')}catch(e){}
+  if(!t)t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'; setTheme(t);})();
+document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#themeToggle2');
+  if(b)setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark');});
+
+/* ---------------- login canvas ---------------- */
+(function(){const c=document.getElementById('mathCanvas');if(!c)return;const ctx=c.getContext('2d');
+  let w,h,syms=[];const glyphs=['∫','∑','π','√','∞','Δ','θ','≈','∂','×','÷','f(x)','a²','dx'];
+  function size(){w=c.width=c.offsetWidth*devicePixelRatio;h=c.height=c.offsetHeight*devicePixelRatio;}
+  function init(){size();syms=[];const n=Math.max(16,Math.floor(w*h/90000));
+    for(let i=0;i<n;i++)syms.push({x:Math.random()*w,y:Math.random()*h,s:(14+Math.random()*30)*devicePixelRatio,
+      v:(.1+Math.random()*.35)*devicePixelRatio,g:glyphs[i%glyphs.length],a:.06+Math.random()*.18});}
+  function draw(){ctx.clearRect(0,0,w,h);ctx.fillStyle='#ffffff';ctx.textBaseline='middle';
+    for(const s of syms){ctx.globalAlpha=s.a;ctx.font='700 '+s.s+'px '+getComputedStyle(document.body).fontFamily;
+      ctx.fillText(s.g,s.x,s.y);s.y-=s.v;if(s.y<-40){s.y=h+30;s.x=Math.random()*w;}}
+    ctx.globalAlpha=1;requestAnimationFrame(draw);}
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){size();ctx.globalAlpha=.12;}
+  init();addEventListener('resize',init);
+  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)draw();})();
+
+/* ---------------- auth ---------------- */
+let isRegister=false;
+const $=id=>document.getElementById(id);
+$('toggleMode').addEventListener('click',()=>{isRegister=!isRegister;
+  $('loginTitle').textContent=isRegister?'Account aanmaken':'Welkom terug';
+  $('loginSub').textContent=isRegister?'Gratis, in minder dan een minuut.':'Log in om verder te gaan met je modules.';
+  $('submitBtn').textContent=isRegister?'Account aanmaken':'Inloggen';
+  $('signupLine').innerHTML=isRegister?'Heb je al een account? <button id="toggleMode" type="button">Log in</button>':'Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button>';
+  document.getElementById('toggleMode').addEventListener('click',arguments.callee);});
+
+$('loginForm').addEventListener('submit',e=>{e.preventDefault();
+  const email=$('email').value.trim();login(email||'student@school.nl');});
+document.querySelectorAll('[data-sso]').forEach(b=>b.addEventListener('click',()=>login(null,b.dataset.sso)));
+$('forgot').addEventListener('click',e=>{e.preventDefault();alert('In de demo-omgeving is wachtwoordherstel uitgeschakeld — elk wachtwoord werkt.');});
+
+function nameFrom(email,sso){if(sso)return 'Student';if(!email)return 'Student';
+  const p=email.split('@')[0].replace(/[._]/g,' ');return p.replace(/\b\w/g,m=>m.toUpperCase());}
+function login(email,sso){
+  const name=nameFrom(email,sso);
+  $('username').textContent=name.split(' ')[0];
+  $('avatar').textContent=(name[0]||'S').toUpperCase();
+  const h=new Date().getHours();
+  $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+name.split(' ')[0]+' 👋';
+  $('loginView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+$('logoutBtn').addEventListener('click',()=>{$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');showDash();});
+$('homeLink').addEventListener('click',showDash);
+
+/* ---------------- dashboard render ---------------- */
+function pill(status){const map={done:['done','✓ Afgerond'],busy:['busy','● Mee bezig'],new:['new','Nieuw'],soon:['soon','Binnenkort']};
+  const[cls,txt]=map[status]||map.soon;return `<span class="pill ${cls}">${txt}</span>`;}
+function renderDash(){
+  const grid=$('courseGrid');
+  let html=`<button class="card featured live" data-course="1">
+      <div class="kick">Startpunt</div>
+      <div class="num">Instapmodule</div>
+      <h3>Werken met Wiskunde voor technici</h3>
+      <p>Fris je basis op en test je niveau in 5 korte vragen.</p>
+      <div class="go">Start de check →</div></button>`;
+  COURSES.forEach(c=>{
+    const live=c.tag==='live';
+    const cls='card '+(live?'live':'soon');
+    html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
+      ${c.bookmark?'<span class="bookmark"></span>':''}
+      <div class="num">Module ${c.n}</div>
+      <h3>${c.t}</h3>
+      ${live?`<div class="progress"><i style="width:${c.prog}%"></i></div>`:''}
+      <div class="meta">${live?`${c.prog}% voltooid`:'PDF · lesstof'}${pill(c.status)}</div>
+    </button>`;
+  });
+  grid.innerHTML=html;
+  $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
+      <div class="num">Module ${c.n}</div><h3>${c.t}</h3>
+      <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
+  $('courseCount').textContent=COURSES.filter(c=>c.tag==='live').length+' actief · '+COURSES.length+' modules';
+  grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startQuiz(b.dataset.course)));
+}
+function showDash(){$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
+
+/* ---------------- quiz engine ---------------- */
+let state=null;
+function startQuiz(id){const data=QUIZZES[id]||QUIZZES["1"];
+  state={id,data,i:0,score:0,answered:false};
+  $('dashView').classList.add('hidden');$('quizView').classList.remove('hidden');window.scrollTo(0,0);renderQ();}
+function renderQ(){const {data,i,score}=state;const total=data.q.length;
+  if(i>=total)return renderResult();
+  const q=data.q[i];
+  $('quizView').innerHTML=`
+    <button class="back" id="backBtn">← Terug naar modules</button>
+    <div class="quiz-head">
+      <div class="num">Module ${state.id} · ${total} vragen</div>
+      <h1>${data.title}</h1><p>${data.sub}</p>
+      <div class="qbar"><i style="width:${(i/total)*100}%"></i></div>
+      <div class="qmeta"><span>Vraag ${i+1} van ${total}</span><span class="tnum">Score ${score}/${i}</span></div>
+    </div>
+    <div class="qcard">
+      <span class="qtag">${q.tag}</span>
+      <div class="qtext">${q.t}</div>
+      <div class="opts" id="opts">
+        ${q.o.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+k)}</span><span>${o}</span><span class="mark"></span></button>`).join('')}
+      </div>
+      <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
+      <div class="qfoot">
+        <span class="score" id="fb">Kies een antwoord.</span>
+        <button class="btn-next" id="nextBtn" disabled>${i===total-1?'Resultaat →':'Volgende →'}</button>
+      </div>
+    </div>`;
+  document.getElementById('backBtn').addEventListener('click',showDash);
+  document.getElementById('nextBtn').addEventListener('click',()=>{state.i++;state.answered=false;renderQ();});
+  document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answer(b)));
+}
+function answer(btn){if(state.answered)return;state.answered=true;
+  const q=state.data.q[state.i];const k=+btn.dataset.k;const correct=k===q.c;
+  if(correct)state.score++;
+  document.querySelectorAll('#opts .opt').forEach(b=>{const bk=+b.dataset.k;b.disabled=true;
+    const mark=b.querySelector('.mark');
+    if(bk===q.c){b.classList.add('correct');mark.textContent='✓';}
+    else if(bk===k){b.classList.add('wrong');mark.textContent='✗';}});
+  document.getElementById('explain').classList.add('show');
+  document.getElementById('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas, bekijk de uitleg.';
+  document.getElementById('fb').style.color=correct?'var(--good)':'var(--bad)';
+  document.getElementById('nextBtn').disabled=false;
+}
+function renderResult(){const {data,score}=state;const total=data.q.length;const pct=Math.round(score/total*100);
+  const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
+  const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
+  const msg=pct>=80?'Uitstekend! Deze module beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste vragen.':'Nog even oefenen. Bekijk de lesstof en probeer opnieuw.';
+  $('quizView').innerHTML=`
+    <button class="back" id="backBtn">← Terug naar modules</button>
+    <div class="result">
+      <div class="ring">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="${r}" fill="none" stroke="var(--line-soft)" stroke-width="11"></circle>
+          <circle cx="65" cy="65" r="${r}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"
+            stroke-dasharray="${circ}" stroke-dashoffset="${off}"></circle>
+        </svg>
+        <div class="pct tnum" style="color:${col}">${pct}%</div>
+      </div>
+      <h2>${data.title} voltooid</h2>
+      <p>Je had <b>${score} van de ${total}</b> vragen goed. ${msg}</p>
+      <div class="acts">
+        <button class="btn-ghost" id="retry">Opnieuw proberen</button>
+        <button class="btn-next" id="toDash">Naar modules →</button>
+      </div>
+    </div>`;
+  document.getElementById('backBtn').addEventListener('click',showDash);
+  document.getElementById('retry').addEventListener('click',()=>startQuiz(state.id));
+  document.getElementById('toDash').addEventListener('click',showDash);
+}
+
+/* keyboard: A–D to answer, Enter for next */
+document.addEventListener('keydown',e=>{
+  if($('quizView').classList.contains('hidden'))return;
+  if(e.key==='Enter'){const n=document.getElementById('nextBtn');if(n&&!n.disabled)n.click();return;}
+  const k=e.key.toUpperCase().charCodeAt(0)-65;
+  if(k>=0&&k<4&&!state.answered){const b=document.querySelector(`#opts .opt[data-k="${k}"]`);if(b)b.click();}
+});
+
+renderDash();
+</script>
+</body>
+</html>
