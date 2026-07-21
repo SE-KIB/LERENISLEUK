@@ -26,6 +26,13 @@ Alle inhoud staat bovenaan het `<script>`-blok in `index.html`:
 Nieuwe les toevoegen? Zet een regel in `COURSES` met `tag:"live"` en voeg een
 bijpassend blok toe in `QUIZZES` met hetzelfde lesnummer.
 
+## Docenten-dashboard & centrale voortgang (Supabase)
+De site houdt voortgang standaard lokaal bij (per apparaat). Voor een echt
+docenten-dashboard — waar de docent elke leerling vanaf elk apparaat ziet, tot
+op vraagniveau — koppel je een gratis Supabase-database. Zie **`DOCENT-SETUP.md`**
+voor de stap-voor-stap handleiding met kant-en-klare SQL. Zolang de sleutels
+bovenaan `index.html` leeg zijn, blijft de site gewoon in lokale modus werken.
+
 ## Contactformulier activeren
 Het formulier staat klaar maar heeft nog een gratis verzend-endpoint nodig
 (bijv. [Formspree](https://formspree.io)). Vervang in `index.html` de waarde
