@@ -399,8 +399,8 @@ a{color:var(--brand-deep)}
    database + docenten-dashboard te activeren. De anon-sleutel mag publiek
    zijn; de beveiliging zit in de database-regels (RLS).
    ============================================================ */
-const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
+const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
 const CLOUD = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
@@ -494,12 +494,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
    hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
    waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
 const ACCOUNTS = [
-  {email:"docent@sekibar.nl", name:"Docent", hash:"aebfd71200d4801d245f568bcc326f7b92a8656c67fbb73ba24852dc6c5f0aa8"},
-  {email:"ozcan",             name:"Ozcan",  hash:"70b1e8e06785cae451496104850781f33faf6cc8e0777ecd3a9ccaaefb154b2d"},
-  {email:"fatima@sekibar.nl", name:"Fatima", hash:"eba43825abece1c6792869aa1d08acb762a19a5897ae95e78a932e5776bee3a1"},
-  {email:"jan@sekibar.nl",    name:"Jan",    hash:"65c956a8a68af12f2ecc06c2e7978ff6ec3d2c07415da1ea0dfd7bf18472d8a7"},
-  {email:"sara@sekibar.nl",   name:"Sara",   hash:"94f1c7543d9f0b45ee2ac4a4875064c9e7c7d3e5ec3bb2312dbe71724978156a"},
-  {email:"serkan",            name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
+  {email:"s@e.nl", name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
+  {email:"o@k.nl", name:"Ozcan",  hash:"70b1e8e06785cae451496104850781f33faf6cc8e0777ecd3a9ccaaefb154b2d"},
 ];
 
 const $=id=>document.getElementById(id);
@@ -750,7 +746,7 @@ async function gatherTeacherData(){
       rows:(ans||[]).filter(a=>a.user_id===p.id)
     }));
   }
-  return ACCOUNTS.filter(a=>a.email!=='docent@sekibar.nl').map(a=>{
+  return ACCOUNTS.filter(a=>a.role!=='teacher').map(a=>{
     let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
     return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}};
   });

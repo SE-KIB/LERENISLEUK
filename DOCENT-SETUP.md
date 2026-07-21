@@ -81,20 +81,20 @@ create policy a_upd on public.answers for update
 2. Vul e-mail + wachtwoord in en zet **Auto Confirm User** AAN (belangrijk!).
    - De e-mails hoeven geen echte mailboxen te zijn; ze dienen als inlognaam.
 3. Maak zo je accounts, bijvoorbeeld:
-   - `docent@sekibar.nl` (de docent)
-   - `ali@sekibar.nl`, `fatima@sekibar.nl`, … (de leerlingen)
+   - `s@e.nl` (de docent)
+   - `o@k.nl`, … (de leerlingen)
 
 ## Stap 4 — Maak de docent 'teacher'
 Open **SQL Editor** opnieuw en run (pas het e-mailadres aan als nodig):
 
 ```sql
-update public.profiles set role = 'teacher' where email = 'docent@sekibar.nl';
+update public.profiles set role = 'teacher' where email = 's@e.nl';
 ```
 
 Namen tonen in het dashboard? Zet ze zo (optioneel):
 ```sql
-update public.profiles set full_name = 'Ali'    where email = 'ali@sekibar.nl';
-update public.profiles set full_name = 'Fatima' where email = 'fatima@sekibar.nl';
+update public.profiles set full_name = 'Serkan' where email = 's@e.nl';
+update public.profiles set full_name = 'Ozcan'  where email = 'o@k.nl';
 ```
 
 ## Stap 5 — Verbind de website met de database
