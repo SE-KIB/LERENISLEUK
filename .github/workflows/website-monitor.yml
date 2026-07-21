@@ -1,0 +1,102 @@
+name: Website wijzigingen monitor
+
+# Controleert elk uur of de live site sekibar.nl is veranderd.
+# Bij een wijziging: opent een issue (je krijgt een GitHub-mail) en werkt de snapshot bij.
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # elk heel uur (UTC)
+  workflow_dispatch:        # handmatig starten kan ook
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: website-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo uitchecken
+        uses: actions/checkout@v4
+
+      - name: Site ophalen en vergelijken
+        id: diff
+        env:
+          URL: "https://sekibar.nl"
+        run: |
+          set -euo pipefail
+          mkdir -p .monitor
+          # Live pagina ophalen (volg redirects, faal bij http-fout)
+          curl -sSL --fail --max-time 45 "$URL" -o .monitor/new_snapshot.html
+
+          NEW_HASH="$(sha256sum .monitor/new_snapshot.html | awk '{print $1}')"
+          OLD_HASH="$(cat .monitor/last_hash.txt 2>/dev/null || echo 'none')"
+          echo "old=$OLD_HASH new=$NEW_HASH"
+
+          if [ "$NEW_HASH" = "$OLD_HASH" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            rm -f .monitor/new_snapshot.html
+            echo "Geen wijziging."
+            exit 0
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+          # Korte diff-samenvatting maken (max 60 regels)
+          DIFF="$(diff -u .monitor/last_snapshot.html .monitor/new_snapshot.html 2>/dev/null | head -n 60 || true)"
+          {
+            echo "diff<<EOF"
+            echo "$DIFF"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          # Snapshot bijwerken
+          mv .monitor/new_snapshot.html .monitor/last_snapshot.html
+          echo "$NEW_HASH" > .monitor/last_hash.txt
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .monitor/last_checked.txt
+
+      - name: Issue openen bij wijziging
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIFF: ${{ steps.diff.outputs.diff }}
+        run: |
+          set -euo pipefail
+          NOW="$(date -u +'%Y-%m-%d %H:%M UTC')"
+          BODY_FILE="$(mktemp)"
+          {
+            echo "De live website **sekibar.nl** is gewijzigd."
+            echo ""
+            echo "- Gedetecteerd op: ${NOW}"
+            echo "- URL: https://sekibar.nl"
+            echo ""
+            echo "### Samenvatting van de wijziging"
+            echo ""
+            echo '```diff'
+            echo "${DIFF:-'(diff niet beschikbaar)'}"
+            echo '```'
+            echo ""
+            echo "_Automatisch gegenereerd door de website-monitor workflow._"
+          } > "$BODY_FILE"
+
+          gh issue create \
+            --title "Website gewijzigd: sekibar.nl (${NOW})" \
+            --body-file "$BODY_FILE" \
+            --label "website-change" 2>/dev/null \
+          || gh issue create \
+            --title "Website gewijzigd: sekibar.nl (${NOW})" \
+            --body-file "$BODY_FILE"
+
+      - name: Bijgewerkte snapshot committen
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .monitor/last_snapshot.html .monitor/last_hash.txt .monitor/last_checked.txt
+          git commit -m "chore: website-snapshot bijgewerkt (wijziging gedetecteerd)"
+          git push
