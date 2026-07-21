@@ -262,9 +262,9 @@ a{color:var(--brand-deep)}
         <p>Interactieve modules, directe feedback en heldere uitleg. Voor de basisschool en inburgering / NT2.</p>
       </div>
       <div class="aside-stats">
-        <div><div class="n tnum">12</div><div class="l">lessen</div></div>
-        <div><div class="n tnum">3</div><div class="l">nu speelbaar</div></div>
-        <div><div class="n tnum">15</div><div class="l">oefeningen</div></div>
+        <div><div class="n tnum" id="asideLessen">–</div><div class="l">lessen</div></div>
+        <div><div class="n tnum" id="asideSpeelbaar">–</div><div class="l">nu speelbaar</div></div>
+        <div><div class="n tnum" id="asideOefeningen">–</div><div class="l">oefeningen</div></div>
       </div>
     </aside>
 
@@ -360,15 +360,18 @@ a{color:var(--brand-deep)}
 
 <script>
 /* ---------------- data: leerlijn ---------------- */
+/* Alleen titel/omschrijving. Of een les 'speelbaar' is, wordt automatisch
+   bepaald door of er vragen voor bestaan in QUIZZES. Voortgang en status
+   worden per ingelogd account bijgehouden (zie progress-store hieronder). */
 const COURSES = [
-  {n:"1", t:"Woorden & begroetingen", tag:"live", status:"done", prog:100, desc:"Alledaagse woorden, groeten en getallen."},
-  {n:"2", t:"Lidwoorden: de, het, een", tag:"live", status:"busy", prog:45, desc:"Wanneer gebruik je de, het of een?"},
-  {n:"3", t:"Werkwoorden: tegenwoordige tijd", tag:"live", status:"new", prog:0, desc:"Vervoegen: ik loop, hij werkt, wij zijn."},
-  {n:"4", t:"Meervoud: -en en -s", tag:"soon", status:"soon", prog:0},
-  {n:"5", t:"Zinsbouw & woordvolgorde", tag:"soon", status:"soon", prog:0},
-  {n:"6", t:"Spelling: klanken & letters", tag:"soon", status:"soon", prog:0, bookmark:true},
-  {n:"7", t:"Vragen stellen", tag:"soon", status:"soon", prog:0},
-  {n:"8", t:"Verleden tijd", tag:"soon", status:"soon", prog:0},
+  {n:"1", t:"Woorden & begroetingen", desc:"Alledaagse woorden, groeten en getallen."},
+  {n:"2", t:"Lidwoorden: de, het, een", desc:"Wanneer gebruik je de, het of een?"},
+  {n:"3", t:"Werkwoorden: tegenwoordige tijd", desc:"Vervoegen: ik loop, hij werkt, wij zijn."},
+  {n:"4", t:"Meervoud: -en en -s"},
+  {n:"5", t:"Zinsbouw & woordvolgorde"},
+  {n:"6", t:"Spelling: klanken & letters", bookmark:true},
+  {n:"7", t:"Vragen stellen"},
+  {n:"8", t:"Verleden tijd"},
 ];
 const SOON = [
   {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
@@ -455,6 +458,38 @@ const ACCOUNTS = [
 
 const $=id=>document.getElementById(id);
 
+/* ---------------- afgeleide aantallen (inhoud) ---------------- */
+const TOTAL_LESSONS = COURSES.length + SOON.length;                 // alle lessen
+const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // met vragen
+const TOTAL_EXERCISES = Object.values(QUIZZES).reduce((s,q)=>s+q.q.length,0);
+function fillAsideStats(){
+  const set=(id,v)=>{const el=$(id); if(el) el.textContent=v;};
+  set('asideLessen',TOTAL_LESSONS);
+  set('asideSpeelbaar',PLAYABLE);
+  set('asideOefeningen',TOTAL_EXERCISES);
+}
+fillAsideStats();
+
+/* ---------------- voortgang per account (localStorage) ---------------- */
+let currentUser=null;
+const PASS=80; // vanaf dit percentage geldt een les als 'afgerond'
+function progKey(){return 'lil-prog-'+(currentUser?currentUser.email:'anon');}
+function loadProg(){try{return JSON.parse(localStorage.getItem(progKey()))||{lessons:{},days:[]}}catch(e){return {lessons:{},days:[]}}}
+function saveProg(p){try{localStorage.setItem(progKey(),JSON.stringify(p))}catch(e){}}
+function recordResult(id,pct){
+  const p=loadProg();
+  p.lessons[id]=Math.max(p.lessons[id]||0,pct);     // beste score bewaren
+  const today=new Date().toISOString().slice(0,10);
+  if(!p.days.includes(today))p.days.push(today);
+  saveProg(p);
+}
+function computeStreak(days){
+  if(!days||!days.length)return 0;
+  const set=new Set(days); let streak=0; const d=new Date();
+  for(;;){const key=d.toISOString().slice(0,10); if(set.has(key)){streak++; d.setDate(d.getDate()-1);} else break;}
+  return streak;
+}
+
 async function sha256(txt){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -475,6 +510,7 @@ $('forgot').addEventListener('click',e=>{e.preventDefault();
   alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
 
 function login(acc){
+  currentUser=acc;
   const first=acc.name.split(' ')[0];
   $('username').textContent=first;
   $('avatar').textContent=(acc.name[0]||'C').toUpperCase();
@@ -485,7 +521,7 @@ function login(acc){
   renderDash();
   window.scrollTo(0,0);
 }
-$('logoutBtn').addEventListener('click',()=>{$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');
+$('logoutBtn').addEventListener('click',()=>{currentUser=null;$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');
   $('pw').value='';$('email').value='';$('loginError').classList.remove('show');showDash();});
 $('homeLink').addEventListener('click',showDash);
 
@@ -493,32 +529,46 @@ $('homeLink').addEventListener('click',showDash);
 function pill(status){const map={done:['done','✓ Afgerond'],busy:['busy','● Mee bezig'],new:['new','Nieuw'],soon:['soon','Binnenkort']};
   const[cls,txt]=map[status]||map.soon;return `<span class="pill ${cls}">${txt}</span>`;}
 function renderDash(){
+  const prog=loadProg();
   const grid=$('courseGrid');
+  let done=0, busy=0;
   let html=`<button class="card featured live" data-course="1">
       <div class="kick">Startpunt</div>
       <div class="num">Instaples</div>
       <h3>Test je Nederlands</h3>
-      <p>Fris je basis op en test je niveau in 5 korte vragen.</p>
+      <p>Fris je basis op en test je niveau in ${QUIZZES["1"].q.length} korte vragen.</p>
       <div class="go">Start de check →</div></button>`;
   COURSES.forEach(c=>{
-    const live=c.tag==='live';
+    const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
+    const pct=prog.lessons[c.n];                  // beste score, of undefined
+    let status='soon';
+    if(live){
+      if(pct===undefined) status='new';
+      else if(pct>=PASS){ status='done'; done++; }
+      else { status='busy'; busy++; }
+    }
+    const barPct=pct||0;
     const cls='card '+(live?'live':'soon');
     html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
       ${c.bookmark?'<span class="bookmark"></span>':''}
       <div class="num">Les ${c.n}</div>
       <h3>${c.t}</h3>
-      ${live?`<div class="progress"><i style="width:${c.prog}%"></i></div>`:''}
-      <div class="meta">${live?`${c.prog}% voltooid`:'lesstof volgt'}${pill(c.status)}</div>
+      ${live?`<div class="progress"><i style="width:${barPct}%"></i></div>`:''}
+      <div class="meta">${live?`${barPct}% voltooid`:'lesstof volgt'}${pill(status)}</div>
     </button>`;
   });
   grid.innerHTML=html;
   $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
       <div class="num">Les ${c.n}</div><h3>${c.t}</h3>
       <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
-  $('courseCount').textContent=COURSES.filter(c=>c.tag==='live').length+' actief · '+COURSES.length+' lessen';
+  $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
+  // dashboard-stats automatisch
+  $('statDone').textContent=done;
+  $('statBusy').textContent=busy;
+  $('statStreak').textContent=computeStreak(prog.days);
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startQuiz(b.dataset.course)));
 }
-function showDash(){$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
+function showDash(){if(currentUser)renderDash();$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
 
 /* ---------------- quiz engine ---------------- */
 let state=null;
@@ -565,6 +615,7 @@ function answer(btn){if(state.answered)return;state.answered=true;
   document.getElementById('nextBtn').disabled=false;
 }
 function renderResult(){const {data,score}=state;const total=data.q.length;const pct=Math.round(score/total*100);
+  recordResult(state.id,pct);   // voortgang + activiteit van vandaag opslaan
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze les beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste vragen.':'Nog even oefenen. Bekijk de uitleg en probeer opnieuw.';
