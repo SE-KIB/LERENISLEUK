@@ -1,38 +1,39 @@
-# Leren is Leuk — sekibar.nl
+# LerenIsLeuk — Nederlands leren (sekibar.nl)
 
-Website voor bijles & educatie. Statische site, gratis gehost via GitHub Pages,
-gekoppeld aan het domein **sekibar.nl**.
+Interactieve online cursus om Nederlands te leren, in de stijl van een leer-app:
+inlogscherm, dashboard met lessen + voortgang, en een quiz-engine met directe
+feedback en uitleg. Voor de basisschool en inburgering / NT2.
+
+Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**.
 
 ## Bestanden
-- `index.html` — de website (één pagina met secties)
-- `styles.css` — vormgeving (licht + donker thema, responsive)
-- `CNAME` — koppelt het domein sekibar.nl aan GitHub Pages
+- `index.html` — de volledige app (HTML, CSS en JavaScript in één bestand)
+- `CNAME` — koppelt sekibar.nl aan GitHub Pages
 
-## GitHub Pages aanzetten (eenmalig)
-1. Ga in GitHub naar **Settings → Pages**.
-2. Bij *Source* kies je **Deploy from a branch**.
-3. Kies branch `main` (of de branch die je gemerged hebt) en map `/ (root)`. Klik **Save**.
-4. Onder *Custom domain* staat straks automatisch `sekibar.nl` (uit het CNAME-bestand).
-   Vink **Enforce HTTPS** aan zodra dat kan.
+## Functies
+- Inlog-/registratiescherm (demo: elk e-mailadres/wachtwoord werkt)
+- Dashboard met leerlijn, voortgangsbalken, stats en streak
+- Quiz-engine: meerkeuzevragen, directe feedback, uitleg en eindscore
+- Licht/donker thema (volgt systeem, met knop)
+- Contactsectie met e-mail + formulier
 
-## Domein koppelen (DNS bij je registrar)
-Zet bij je domeinprovider deze records voor **sekibar.nl**:
+## Lessen aanpassen of toevoegen
+Alle inhoud staat bovenaan het `<script>`-blok in `index.html`:
+- `COURSES` — de lessen op het dashboard (nummer, titel, status, voortgang)
+- `QUIZZES` — de vragen per les: `t` = vraag, `o` = antwoorden, `c` = index
+  van het juiste antwoord (0 = eerste), `e` = uitleg.
 
-| Type  | Naam  | Waarde                    |
-|-------|-------|---------------------------|
-| A     | @     | 185.199.108.153           |
-| A     | @     | 185.199.109.153           |
-| A     | @     | 185.199.110.153           |
-| A     | @     | 185.199.111.153           |
-| CNAME | www   | <jouw-github-gebruikersnaam>.github.io |
+Nieuwe les toevoegen? Zet een regel in `COURSES` met `tag:"live"` en voeg een
+bijpassend blok toe in `QUIZZES` met hetzelfde lesnummer.
 
-Het kan tot 24 uur duren voordat DNS actief is. Daarna is de site live op
-https://sekibar.nl.
+## Contactformulier activeren
+Het formulier staat klaar maar heeft nog een gratis verzend-endpoint nodig
+(bijv. [Formspree](https://formspree.io)). Vervang in `index.html` de waarde
+`https://formspree.io/f/your-form-id` door je eigen Formspree-URL. Zonder
+koppeling verwijst het formulier de bezoeker naar `info@sekibar.nl`.
 
-## Lokaal bekijken
-Open `index.html` in je browser, of start een simpele server:
-
-```bash
-python3 -m http.server 8000
-# open http://localhost:8000
-```
+## GitHub Pages & domein
+GitHub Pages staat ingesteld op branch `main`, map `/ (root)`. Het domein
+sekibar.nl is gekoppeld via het `CNAME`-bestand en de DNS-records bij de
+domeinprovider (4× A-record naar GitHub + CNAME `www` → `se-kib.github.io`).
+Na volledige DNS-propagatie kan HTTPS worden afgedwongen in Settings → Pages.
