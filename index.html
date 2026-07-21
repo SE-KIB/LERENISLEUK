@@ -1484,7 +1484,11 @@ function showResult(id,label,score,total,onRetry){
 document.getElementById('contactForm').addEventListener('submit',e=>{
   const f=e.currentTarget;
   if(f.action.includes('your-form-id')){e.preventDefault();
-    alert('Het contactformulier is nog niet gekoppeld. Mail voorlopig naar info@sekibar.nl — of vraag om het formulier te activeren.');}
+    // Nog geen Formspree-koppeling: open een vooraf ingevulde e-mail zodat het bericht niet verloren gaat.
+    const naam=(f.naam.value||'').trim(), email=(f.email.value||'').trim(), bericht=(f.bericht.value||'').trim();
+    const subject=encodeURIComponent('Bericht via sekibar.nl'+(naam?' — '+naam:''));
+    const body=encodeURIComponent('Naam: '+naam+'\nE-mail: '+email+'\n\n'+bericht);
+    window.location.href='mailto:info@sekibar.nl?subject='+subject+'&body='+body;}
 });
 
 /* keyboard: A–D to answer, Enter for next */
