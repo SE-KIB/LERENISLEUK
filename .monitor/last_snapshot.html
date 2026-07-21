@@ -426,9 +426,9 @@ a{color:var(--brand-deep)}
         <p>Leer Nederlands stap voor stap — kies een les en ga verder waar je gebleven was.</p>
       </div>
       <div class="stat-strip">
-        <div class="stat"><div class="n tnum" id="statDone">1</div><div class="l">afgerond</div></div>
-        <div class="stat"><div class="n tnum" id="statBusy">1</div><div class="l">mee bezig</div></div>
-        <div class="stat accent"><div class="n tnum" id="statStreak">3</div><div class="l">dagen streak 🔥</div></div>
+        <div class="stat"><div class="n tnum" id="statDone">–</div><div class="l">afgerond</div></div>
+        <div class="stat"><div class="n tnum" id="statBusy">–</div><div class="l">mee bezig</div></div>
+        <div class="stat accent"><div class="n tnum" id="statStreak">–</div><div class="l">dagen streak 🔥</div></div>
       </div>
     </div>
 
@@ -469,8 +469,13 @@ a{color:var(--brand-deep)}
   </footer>
 </div>
 
-<!-- Supabase JS — alleen actief zodra je hieronder de sleutels invult -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase JS — vaste versie + SRI-hash (integriteitscontrole tegen CDN-manipulatie).
+     Alleen actief zodra je de sleutels hieronder invult. -->
+<script
+  src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+  integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+  crossorigin="anonymous"
+  onerror="window.__supabaseLoadFailed=true"></script>
 <script>
 /* ============================================================
    SUPABASE CONFIG
@@ -481,7 +486,8 @@ a{color:var(--brand-deep)}
    ============================================================ */
 const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
-const CLOUD = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+const CLOUD_CONFIGURED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);   // sleutels ingevuld = cloud bedoeld
+const CLOUD = !!(CLOUD_CONFIGURED && window.supabase);            // écht actief: sleutels + script geladen
 const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 /* ---------------- data: leerlijn ---------------- */
@@ -495,6 +501,7 @@ const COURSES = [
   {n:"4", t:"Reizen & OV-chipkaart", desc:"Woorden over pinnen, opladen en veilig reizen."},
   {n:"5", t:"Contact met de buren", desc:"Woorden over gasten, feest en samenwonen.", bookmark:true},
   {n:"6", t:"Het huis beschrijven", desc:"Woorden over vorm, maat en materiaal."},
+  {n:"7", t:"Grote mix: les 1 t/m 6", desc:"Alle thema's door elkaar. Herhaal en test wat je geleerd hebt.", feat:true},
 ];
 const SOON = [
   {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
@@ -637,6 +644,40 @@ const QUIZZES = {
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>breed</span>?", o:["geniş","dar","yüksek","kısa"], c:0,
       e:"<b>breed</b> = geniş. Het tegenovergestelde is 'smal' (dar)."},
   ]},
+  "7":{ title:"Grote mix: les 1 t/m 6", sub:"Alle thema's uit les 1 t/m 6 door elkaar. Türkçe woord staat erbij als hulp. Elke keer in andere volgorde.", q:[
+    {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
+      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
+    {tag:"Werkwoord", t:"Welke zin is goed? <span class='m'>Gisteren ___ wij naar een nieuw huis. (verhuizen)</span>", o:["verhuisden","verhuizen","verhuis","verhuist"], c:0,
+      e:"Verleden tijd: <b>verhuisden</b>. Nu = wij verhuizen, gisteren = wij verhuisden."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verkopen</span>?", o:["satmak","almak","bakmak","aramak"], c:0,
+      e:"<b>verkopen</b> = satmak. Het tegenovergestelde is 'kopen' (satın almak)."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
+      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
+      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de vertraging</span>?", o:["gecikme","varış","hız","durak"], c:0,
+      e:"<b>de vertraging</b> = gecikme. De trein komt later dan normaal."},
+    {tag:"de of het", t:"Wat is goed? <span class='m'>___ bericht</span>", o:["het bericht","de bericht","een berichten","die berichten"], c:0,
+      e:"Het is <b>het bericht</b>. Dit woord krijgt 'het'."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>opladen</span>?", o:["şarj etmek","kapatmak","satmak","kırmak"], c:0,
+      e:"<b>opladen</b> = şarj etmek. Je laadt je OV-chipkaart of je telefoon op."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de pincode</span>?", o:["pin kodu / şifre","adres","isim","numara"], c:0,
+      e:"<b>de pincode</b> = pin kodu. De geheime cijfers van je pinpas."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>veilig</span>?", o:["güvenli","tehlikeli","hızlı","yavaş"], c:0,
+      e:"<b>veilig</b> = güvenli. Het tegenovergestelde is 'gevaarlijk' (tehlikeli)."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>boos</span>?", o:["kızgın","mutlu","yorgun","üzgün"], c:0,
+      e:"<b>boos</b> = kızgın. Voorbeeld: <i>De buurman is boos om het lawaai.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
+      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
+    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>hard</span> (sert / yüksek sesli)?", o:["zacht","stil","boos","moe"], c:0,
+      e:"<b>hard</b> ↔ <b>zacht</b> (yumuşak / hafif). 'zacht' betekent ook: niet luid."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vierkant</span>?", o:["kare","yuvarlak","üçgen","uzun"], c:0,
+      e:"<b>vierkant</b> = kare. Een vorm met vier gelijke kanten."},
+    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>laag</span> (alçak)?", o:["hoog","breed","rond","licht"], c:0,
+      e:"<b>laag</b> = alçak, <b>hoog</b> = yüksek. Dat zijn tegenovergestelden."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de hamer</span>?", o:["çekiç","testere","vida","merdiven"], c:0,
+      e:"<b>de hamer</b> = çekiç. Gereedschap om te timmeren."},
+  ]},
 };
 
 /* ---------------- theme ---------------- */
@@ -732,8 +773,14 @@ function aggregate(rows){
 /* laad voortgang van de ingelogde gebruiker in progCache */
 async function refreshProgress(){
   if(CLOUD&&currentUser&&currentUser.id){
-    try{ const {data}=await sb.from('answers').select('lesson,q_index,correct,updated_at').eq('user_id',currentUser.id);
-      progCache=aggregate(data); }catch(e){ progCache={lessons:{},days:[]}; }
+    try{
+      const [{data:ans},{data:att}]=await Promise.all([
+        sb.from('answers').select('lesson,q_index,correct,updated_at').eq('user_id',currentUser.id),
+        sb.from('attempts').select('created_at').eq('user_id',currentUser.id)
+      ]);
+      progCache=aggregate(ans);
+      (att||[]).forEach(a=>{const d=a.created_at&&String(a.created_at).slice(0,10); if(d&&!progCache.days.includes(d))progCache.days.push(d);});
+    }catch(e){ progCache={lessons:{},days:[]}; }
   } else { progCache=loadProg(); }
 }
 function computeStreak(days){
@@ -810,19 +857,34 @@ $('loginForm').addEventListener('submit',async e=>{
   const email=$('email').value.trim().toLowerCase();
   const pw=$('pw').value;
   let user=null;
+  if(CLOUD_CONFIGURED && !CLOUD){
+    // Cloud is bedoeld, maar de Supabase-bibliotheek kon niet laden (CDN geblokkeerd/storing).
+    $('submitBtn').disabled=false;
+    $('loginError').textContent='Kan geen verbinding maken met de server. Controleer je internet en probeer het opnieuw.';
+    $('loginError').classList.add('show');
+    return;
+  }
   if(CLOUD){ user=await cloudSignIn(email,pw); }
   else{
     const acc=ACCOUNTS.find(a=>a.email.toLowerCase()===email);
     if(acc){ try{ if((await sha256(pw))===acc.hash)
       user={email:acc.email, name:acc.name,
-        role:acc.role||(acc.email==='docent@sekibar.nl'?'teacher':'student'),
+        role:acc.role||'student',
         joker:!!acc.joker}; }catch(err){} }
   }
   $('submitBtn').disabled=false;
   if(user){ await login(user); }
-  else{ $('loginError').classList.add('show'); $('pw').value=''; $('pw').focus(); }
+  else{ $('loginError').textContent='E-mailadres of wachtwoord klopt niet.'; $('loginError').classList.add('show'); $('pw').value=''; $('pw').focus(); }
 });
-$('forgot').addEventListener('click',e=>{e.preventDefault();
+$('forgot').addEventListener('click',async e=>{e.preventDefault();
+  if(CLOUD){
+    const email=($('email').value.trim()||prompt('Wat is je e-mailadres? Dan sturen we je een herstel-link.')||'').trim().toLowerCase();
+    if(!email)return;
+    try{ await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+      alert('Als er een account bestaat voor '+email+', is er een herstel-link gemaild.'); }
+    catch(err){ alert('Er ging iets mis. Probeer het later opnieuw of mail info@sekibar.nl.'); }
+    return;
+  }
   alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
 
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
@@ -881,9 +943,10 @@ function renderDash(){
       else { status='busy'; busy++; }
     }
     const barPct=pct||0;
-    const cls='card '+(live?'live':'soon');
+    const cls='card '+(live?'live':'soon')+(c.feat&&live?' featured':'');
     html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
       ${c.bookmark?'<span class="bookmark"></span>':''}
+      ${c.feat&&live?'<div class="kick">🎲 Herhaling</div>':''}
       <div class="num">Les ${c.n}</div>
       <h3>${c.t}</h3>
       ${live?`<div class="progress"><i style="width:${barPct}%"></i></div>`:''}
@@ -1188,7 +1251,7 @@ function buildMixItems(id){
   });
   return shuffle(items);
 }
-function startQuiz(id){ runSeq(id,'Quiz',buildQuizItems(id),()=>startQuiz(id)); }
+function startQuiz(id){ runSeq(id,'Quiz',shuffle(buildQuizItems(id)),()=>startQuiz(id)); }
 function startInvullen(id){ runSeq(id,'Invullen',shuffle(buildFillItems(id)),()=>startInvullen(id)); }
 function startMix(id){ runSeq(id,'Mix',buildMixItems(id),()=>startMix(id)); }
 function runSeq(id,label,items,onRetry){
@@ -1307,7 +1370,7 @@ function renderSlepen(){
     </div>
     <div class="drag-wrap">
       <div class="drag-col" id="dragSrc">${left.map(p=>`<button class="chip" draggable="true" data-q="${p.qi}">${p.nl}</button>`).join('')}</div>
-      <div class="drag-col" id="dragTgt">${right.map(p=>`<div class="slot" data-q="${p.qi}"><span class="slot-tr">${p.tr}</span><span class="slot-drop">sleep hier</span></div>`).join('')}</div>
+      <div class="drag-col" id="dragTgt">${right.map(p=>`<div class="slot" data-q="${p.qi}" tabindex="0" role="button" aria-label="Vertaling ${p.tr} — kies eerst een woord, druk dan Enter"><span class="slot-tr">${p.tr}</span><span class="slot-drop">sleep hier</span></div>`).join('')}</div>
     </div>
     <div class="qfoot"><span class="score" id="fb">Nog ${batch.length} te koppelen.</span>
       <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende ronde →'}</button></div>`;
@@ -1341,6 +1404,7 @@ function renderSlepen(){
     sl0.addEventListener('dragover',e=>e.preventDefault());
     sl0.addEventListener('drop',e=>{e.preventDefault();const qi=+e.dataTransfer.getData('text/plain');if(!isNaN(qi))match(qi,sl0);});
     sl0.addEventListener('click',()=>{if(tap!=null)match(tap,sl0);});
+    sl0.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();if(tap!=null)match(tap,sl0);}});
   });
 }
 
@@ -1420,7 +1484,11 @@ function showResult(id,label,score,total,onRetry){
 document.getElementById('contactForm').addEventListener('submit',e=>{
   const f=e.currentTarget;
   if(f.action.includes('your-form-id')){e.preventDefault();
-    alert('Het contactformulier is nog niet gekoppeld. Mail voorlopig naar info@sekibar.nl — of vraag om het formulier te activeren.');}
+    // Nog geen Formspree-koppeling: open een vooraf ingevulde e-mail zodat het bericht niet verloren gaat.
+    const naam=(f.naam.value||'').trim(), email=(f.email.value||'').trim(), bericht=(f.bericht.value||'').trim();
+    const subject=encodeURIComponent('Bericht via sekibar.nl'+(naam?' — '+naam:''));
+    const body=encodeURIComponent('Naam: '+naam+'\nE-mail: '+email+'\n\n'+bericht);
+    window.location.href='mailto:info@sekibar.nl?subject='+subject+'&body='+body;}
 });
 
 /* keyboard: A–D to answer, Enter for next */
