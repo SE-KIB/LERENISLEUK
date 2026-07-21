@@ -231,6 +231,60 @@ a{color:var(--brand-deep)}
 .btn-ghost{padding:11px 20px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font-weight:700; font-size:14.5px}
 .btn-ghost:hover{border-color:var(--brand); color:var(--brand-deep)}
 
+/* ---------- spelvorm-keuze ---------- */
+.modes{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
+@media (max-width:560px){.modes{grid-template-columns:1fr}}
+.mode-card{display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; padding:18px 18px 16px;
+  border:1.5px solid var(--line); border-radius:var(--radius); background:var(--surface); color:var(--ink); box-shadow:var(--shadow);
+  transition:transform .15s, box-shadow .15s, border-color .15s}
+.mode-card:hover:not(:disabled){transform:translateY(-3px); box-shadow:var(--shadow-lg); border-color:var(--brand)}
+.mode-card:disabled{opacity:.45; cursor:not-allowed}
+.mode-card .mi{font-size:26px; line-height:1}
+.mode-card b{font-size:16px; margin-top:6px}
+.mode-card small{color:var(--ink-soft); font-size:13px; font-weight:500}
+.mode-card.feat{grid-column:1/-1; background:linear-gradient(150deg,var(--accent),var(--accent-deep)); color:#fff; border:none}
+.mode-card.feat b,.mode-card.feat small{color:#fff}
+.mode-card.feat small{opacity:.9}
+
+/* ---------- invullen ---------- */
+.fill-form{display:flex; gap:10px; margin-top:20px; flex-wrap:wrap}
+.fill-input{flex:1; min-width:180px; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface);
+  color:var(--ink); font-size:17px; font-family:inherit; font-weight:600; transition:.13s}
+.fill-input:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 22%,transparent)}
+.fill-input.ok{border-color:var(--good); background:var(--good-tint)}
+.fill-input.no{border-color:var(--bad); background:var(--bad-tint)}
+
+/* ---------- slepen ---------- */
+.drag-wrap{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:6px}
+.drag-col{display:flex; flex-direction:column; gap:10px}
+.chip{padding:13px 15px; border:1.5px solid var(--brand); border-radius:12px; background:var(--brand-tint); color:var(--brand-deep);
+  font-weight:750; font-size:15px; font-family:inherit; cursor:grab; text-align:center; transition:.13s; touch-action:manipulation}
+.chip:hover:not(.used){transform:translateY(-1px)}
+.chip.sel{outline:3px solid color-mix(in srgb,var(--brand) 55%,transparent); outline-offset:2px}
+.chip.used{opacity:.25; border-style:dashed; cursor:default; background:var(--surface-2); color:var(--ink-faint)}
+.slot{padding:11px 14px; border:1.5px dashed var(--line); border-radius:12px; background:var(--surface); min-height:56px;
+  display:flex; flex-direction:column; justify-content:center; gap:2px; transition:.13s}
+.slot-tr{font-weight:700; font-size:15px; color:var(--ink)}
+.slot-drop{font-size:12px; color:var(--ink-faint); font-weight:600}
+.slot.done{border-style:solid; border-color:var(--good); background:var(--good-tint)}
+.slot.done .slot-drop{color:var(--good); font-weight:750}
+.slot.bad{border-color:var(--bad); background:var(--bad-tint); animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ---------- flitskaarten ---------- */
+.flash{perspective:1200px; margin:6px auto 0; max-width:520px; cursor:pointer}
+.flash-inner{position:relative; width:100%; min-height:230px; transform-style:preserve-3d; transition:transform .5s}
+.flash.flip .flash-inner{transform:rotateY(180deg)}
+.flash-face{position:absolute; inset:0; backface-visibility:hidden; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--surface); box-shadow:var(--shadow); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:28px; text-align:center}
+.flash-back{transform:rotateY(180deg); background:var(--brand-tint); border-color:var(--brand)}
+.flash-lbl{font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint)}
+.flash-word{font-size:30px; font-weight:800; letter-spacing:-.02em; color:var(--ink)}
+.flash-hint{font-size:12.5px; color:var(--ink-faint); font-weight:600}
+.flash-ex{font-size:13.5px; color:var(--ink-soft); max-width:400px}
+.flash-acts{display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){.flash-inner{transition:none}}
+
 /* ---------- contact ---------- */
 .contact{max-width:var(--maxw); margin:0 auto; padding:10px 20px 40px}
 .contact-card{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:26px; box-shadow:var(--shadow); display:grid; grid-template-columns:1fr 1fr; gap:26px}
@@ -352,10 +406,10 @@ a{color:var(--brand-deep)}
       </div>
     </div>
 
-    <div class="section-head"><span class="bar"></span><h2>Jouw leerlijn</h2><span class="count" id="courseCount"></span></div>
+    <div class="section-head"><span class="bar"></span><h2>Woordjes</h2><span class="count" id="courseCount"></span></div>
     <div class="grid" id="courseGrid"></div>
 
-    <div class="section-head"><span class="bar"></span><h2>Verdieping &amp; keuzelessen</h2><span class="count">binnenkort</span></div>
+    <div class="section-head"><span class="bar"></span><h2>Zinsopbouw</h2><span class="count">binnenkort</span></div>
     <div class="grid" id="soonGrid"></div>
 
     <!-- contact -->
@@ -415,19 +469,19 @@ const COURSES = [
   {n:"4", t:"Reizen & OV-chipkaart", desc:"Woorden over pinnen, opladen en veilig reizen."},
   {n:"5", t:"Contact met de buren", desc:"Woorden over gasten, feest en samenwonen.", bookmark:true},
   {n:"6", t:"Het huis beschrijven", desc:"Woorden over vorm, maat en materiaal."},
-  {n:"7", t:"Lidwoorden: de, het, een", desc:"Grammatica volgt binnenkort."},
-  {n:"8", t:"Werkwoorden: tegenwoordige tijd", desc:"Grammatica volgt binnenkort."},
 ];
 const SOON = [
   {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
-  {n:"11", t:"Leestekens & hoofdletters"},{n:"12", t:"Begrijpend lezen"},
+  {n:"11", t:"Leestekens & hoofdletters"},
 ];
 
 /* ---------------- vragenbanken ---------------- */
 const QUIZZES = {
-  "1":{ title:"Woorden: Verhuizen (Thema 1)", sub:"Lees het woord. Kies het goede antwoord. Bij elke vraag zie je ook het Turkse woord (Türkçe) als hulp.", q:[
+  "1":{ title:"Nieuwe buren & verhuizen", sub:"Lees het woord. Kies het goede antwoord. Bij elke vraag zie je ook het Turkse woord (Türkçe) als hulp.", q:[
     {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
       e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de buurman</span>?", o:["komşu (erkek)","misafir","aile","arkadaş"], c:0,
+      e:"<b>de buurman</b> = (erkek) komşu. De man die naast je woont. De vrouw is <i>de buurvrouw</i>."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verhuizen</span>?", o:["taşınmak","temizlemek","satın almak","aramak"], c:0,
       e:"<b>verhuizen</b> = taşınmak. Je gaat in een ander huis wonen. Voorbeeld: <i>Wij verhuizen naar een nieuw huis.</i>"},
     {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>komşular</span> (de mensen naast je)?", o:["de buren","de gast","de wijk","de hulp"], c:0,
@@ -438,24 +492,10 @@ const QUIZZES = {
       e:"Het is <b>de wijk</b> = mahalle. De meeste woorden krijgen 'de'."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de huur</span>?", o:["kira","fiyat","ev","oda"], c:0,
       e:"<b>de huur</b> = kira. Dat is het geld dat je elke maand voor je huis betaalt."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>zwaar</span> (ağır)?", o:["licht","breed","hoog","modern"], c:0,
-      e:"Het tegenovergestelde van <b>zwaar</b> (ağır) is <b>licht</b> (hafif). Let op: 'licht' betekent ook ışık / açık renk."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het adres</span>?", o:["adres","isim","şehir","numara"], c:0,
+      e:"<b>het adres</b> = adres. Straat, huisnummer en plaats waar je woont. Let op: het is 'het adres'."},
     {tag:"Werkwoord", t:"Welke zin is goed? <span class='m'>Gisteren ___ wij naar een nieuw huis. (verhuizen)</span>", o:["verhuisden","verhuizen","verhuis","verhuist"], c:0,
       e:"Verleden tijd: <b>verhuisden</b>. Nu = wij verhuizen, gisteren = wij verhuisden."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
-      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
-      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>duidelijk</span>?", o:["açık (net anlaşılır)","zor","yavaş","sessiz"], c:0,
-      e:"<b>duidelijk</b> = açık / net. Je snapt het meteen. Voorbeeld: <i>De uitleg is duidelijk.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>op tijd</span>?", o:["zamanında","geç","erken","bazen"], c:0,
-      e:"<b>op tijd</b> = zamanında. Niet te laat en niet te vroeg. Voorbeeld: <i>De trein is op tijd.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de vertraging</span>?", o:["gecikme","yardım","gürültü","mesaj"], c:0,
-      e:"<b>de vertraging</b> = gecikme. De trein of bus komt later dan normaal."},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
-      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vieren</span>?", o:["kutlamak","çalışmak","beklemek","taşınmak"], c:0,
-      e:"<b>vieren</b> = kutlamak. Voorbeeld: <i>Wij vieren mijn verjaardag.</i>"},
   ]},
   "2":{ title:"Marktplaats & spullen", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de advertentie</span>?", o:["reklam / ilan","fiyat","dükkan","hediye"], c:0,
@@ -478,6 +518,10 @@ const QUIZZES = {
       e:"<b>zwaar</b> = ağır. Het tegenovergestelde is 'licht' (hafif)."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>breed</span>?", o:["geniş","dar","yüksek","alçak"], c:0,
       e:"<b>breed</b> = geniş. Het tegenovergestelde is 'smal' (dar)."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
+      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
+      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
   ]},
   "3":{ title:"Op het station", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de automaat</span>?", o:["makine / otomat","tren","bilet","kapı"], c:0,
@@ -496,6 +540,8 @@ const QUIZZES = {
       e:"<b>de vertraging</b> = gecikme. De trein komt later dan normaal."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>op tijd</span>?", o:["zamanında","geç","erken","asla"], c:0,
       e:"<b>op tijd</b> = zamanında. Niet te laat en niet te vroeg."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>duidelijk</span>?", o:["açık (net anlaşılır)","zor","yavaş","sessiz"], c:0,
+      e:"<b>duidelijk</b> = açık / net. Je snapt het meteen. Voorbeeld: <i>Het bericht op het bord is duidelijk.</i>"},
     {tag:"de of het", t:"Wat is goed? <span class='m'>___ bericht</span>", o:["het bericht","de bericht","een berichten","die berichten"], c:0,
       e:"Het is <b>het bericht</b>. Dit woord krijgt 'het'."},
   ]},
@@ -538,6 +584,10 @@ const QUIZZES = {
       e:"<b>de verjaardag</b> = doğum günü. Op je verjaardag word je een jaar ouder."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>oppassen</span>?", o:["göz kulak olmak","uyumak","oynamak","beklemek"], c:0,
       e:"<b>oppassen</b> = göz kulak olmak. Voorbeeld: <i>Ik pas op de kinderen van de buren.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
+      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vieren</span>?", o:["kutlamak","çalışmak","beklemek","taşınmak"], c:0,
+      e:"<b>vieren</b> = kutlamak. Voorbeeld: <i>Wij vieren mijn verjaardag met de buren.</i>"},
     {tag:"de of het", t:"Wat is goed? <span class='m'>___ gesprek</span> (konuşma)", o:["het gesprek","de gesprek","een gesprekken","die gesprekken"], c:0,
       e:"Het is <b>het gesprek</b>. Dit woord krijgt 'het'."},
   ]},
@@ -786,12 +836,7 @@ function renderDash(){
   const prog=progCache;
   const grid=$('courseGrid');
   let done=0, busy=0;
-  let html=`<button class="card featured live" data-course="1">
-      <div class="kick">Startpunt</div>
-      <div class="num">Instaples</div>
-      <h3>Test je Nederlands</h3>
-      <p>Fris je basis op en test je niveau in ${QUIZZES["1"].q.length} korte vragen.</p>
-      <div class="go">Start de check →</div></button>`;
+  let html='';
   COURSES.forEach(c=>{
     const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
     const pct=prog.lessons[c.n];                  // beste score, of undefined
@@ -820,7 +865,7 @@ function renderDash(){
   $('statDone').textContent=done;
   $('statBusy').textContent=busy;
   $('statStreak').textContent=computeStreak(prog.days);
-  grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startQuiz(b.dataset.course)));
+  grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startLesson(b.dataset.course)));
 }
 async function showDash(){if(currentUser){await refreshProgress();renderDash();}
   $('teacherView').classList.add('hidden');$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
@@ -919,56 +964,265 @@ function renderTeacherStudent(stu,students){
   $('tvBack').addEventListener('click',()=>renderTeacher(students));
 }
 
-/* ---------------- quiz engine ---------------- */
-let state=null;
-function startQuiz(id){const data=QUIZZES[id]||QUIZZES["1"];
-  state={id,data,i:0,score:0,answered:false};
-  $('dashView').classList.add('hidden');$('quizView').classList.remove('hidden');window.scrollTo(0,0);renderQ();}
-function renderQ(){const {data,i,score}=state;const total=data.q.length;
-  if(i>=total)return renderResult();
-  const q=data.q[i];
+/* ---------------- spel-hulpjes ---------------- */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function lessonTitle(id){const c=COURSES.find(x=>x.n===id);return c?c.t:(QUIZZES[id]?QUIZZES[id].title:('Les '+id));}
+function stripTags(s){return (s||'').replace(/<[^>]+>/g,'').trim();}
+function mWord(t){const m=/<span class=['"]m['"]>([\s\S]*?)<\/span>/.exec(t||'');return m?stripTags(m[1]):null;}
+function norm(s){return (s||'').toLowerCase().replace(/[.,!?¿¡]/g,'').replace(/\s+/g,' ').trim().replace(/^(de|het|een)\s+/,'');}
+/* NL ↔ TR woordparen uit de vraagbank van een les (alleen de woord-vragen) */
+function wordPairs(id){
+  const data=QUIZZES[id]; if(!data)return [];
+  const out=[], seen=new Set();
+  data.q.forEach((q,qi)=>{
+    let nl=null,tr=null;
+    if(q.tag==='Woord → betekenis'){ nl=mWord(q.t); tr=q.o[q.c]; }
+    else if(q.tag==='Betekenis → woord'){ tr=mWord(q.t); nl=q.o[q.c]; }
+    if(nl&&tr){ const key=norm(nl); if(!seen.has(key)){ seen.add(key); out.push({nl:stripTags(nl),tr:stripTags(tr),qi}); } }
+  });
+  return out;
+}
+
+/* ---------------- keuzescherm: spelvorm per les ---------------- */
+function openLessonView(){ $('dashView').classList.add('hidden');$('teacherView').classList.add('hidden');$('quizView').classList.remove('hidden');window.scrollTo(0,0); }
+function startLesson(id){
+  const data=QUIZZES[id]; if(!data)return startQuiz(id);
+  const pairs=wordPairs(id);
+  openLessonView();
   $('quizView').innerHTML=`
     <button class="back" id="backBtn">← Terug naar lessen</button>
     <div class="quiz-head">
-      <div class="num">Les ${state.id} · ${total} vragen</div>
-      <h1>${data.title}</h1><p>${data.sub}</p>
-      <div class="qbar"><i style="width:${(i/total)*100}%"></i></div>
-      <div class="qmeta"><span>Vraag ${i+1} van ${total}</span><span class="tnum">Score ${score}/${i}</span></div>
+      <div class="num">Les ${id}</div>
+      <h1>${lessonTitle(id)}</h1>
+      <p>Kies hoe je deze woorden wilt oefenen.</p>
     </div>
+    <div class="modes">
+      <button class="mode-card" data-m="quiz"><span class="mi">📝</span><b>Quiz</b><small>Kies het goede antwoord uit vier opties.</small></button>
+      <button class="mode-card" data-m="invullen"><span class="mi">⌨️</span><b>Invullen</b><small>Typ zelf het Nederlandse woord.</small></button>
+      <button class="mode-card" data-m="slepen" ${pairs.length<3?'disabled':''}><span class="mi">🔀</span><b>Slepen</b><small>Sleep het woord naar de juiste vertaling.</small></button>
+      <button class="mode-card" data-m="flits" ${pairs.length<1?'disabled':''}><span class="mi">🃏</span><b>Flitskaarten</b><small>Draai de kaart om en test jezelf.</small></button>
+      <button class="mode-card feat" data-m="mix"><span class="mi">🎲</span><b>Mix van alles</b><small>Alle spelvormen door elkaar.</small></button>
+    </div>`;
+  $('backBtn').addEventListener('click',showDash);
+  $('quizView').querySelectorAll('.mode-card').forEach(b=>b.addEventListener('click',()=>{
+    const m=b.dataset.m;
+    if(m==='quiz')startQuiz(id);
+    else if(m==='invullen')startInvullen(id);
+    else if(m==='slepen')startSlepen(id);
+    else if(m==='flits')startFlashcards(id);
+    else startMix(id);
+  }));
+}
+
+/* ---------------- gedeelde vraag-engine (quiz + invullen + mix) ---------------- */
+let game=null;
+function buildQuizItems(id){ return QUIZZES[id].q.map((q,qi)=>({kind:'quiz',qi})); }
+function buildFillItems(id){ return wordPairs(id).map(p=>({kind:'fill',pair:p})); }
+function buildMixItems(id){
+  const items=QUIZZES[id].q.map((q,qi)=>{
+    const isPair=(q.tag==='Woord → betekenis'||q.tag==='Betekenis → woord');
+    if(isPair&&Math.random()<0.5){ const nl=q.tag==='Woord → betekenis'?mWord(q.t):q.o[q.c];
+      const tr=q.tag==='Woord → betekenis'?q.o[q.c]:mWord(q.t);
+      return {kind:'fill',pair:{nl:stripTags(nl),tr:stripTags(tr),qi}}; }
+    return {kind:'quiz',qi};
+  });
+  return shuffle(items);
+}
+function startQuiz(id){ runSeq(id,'Quiz',buildQuizItems(id),()=>startQuiz(id)); }
+function startInvullen(id){ runSeq(id,'Invullen',shuffle(buildFillItems(id)),()=>startInvullen(id)); }
+function startMix(id){ runSeq(id,'Mix',buildMixItems(id),()=>startMix(id)); }
+function runSeq(id,label,items,onRetry){
+  game={id,label,items,i:0,score:0,answered:false,onRetry};
+  openLessonView(); renderItem();
+}
+function seqHead(){
+  const g=game,total=g.items.length;
+  return `<button class="back" id="backBtn">← Andere spelvorm</button>
+    <div class="quiz-head">
+      <div class="num">Les ${g.id} · ${g.label}</div>
+      <h1>${lessonTitle(g.id)}</h1>
+      <div class="qbar"><i style="width:${(g.i/total)*100}%"></i></div>
+      <div class="qmeta"><span>Vraag ${g.i+1} van ${total}</span><span class="tnum">Score ${g.score}/${g.i}</span></div>
+    </div>`;
+}
+function renderItem(){
+  const g=game,total=g.items.length;
+  if(g.i>=total)return showResult(g.id,g.label,g.score,total,g.onRetry);
+  const it=g.items[g.i]; g.answered=false;
+  it.kind==='fill'?renderFill(it):renderQuizItem(it);
+  $('backBtn').addEventListener('click',()=>startLesson(g.id));
+  $('nextBtn').addEventListener('click',()=>{game.i++;renderItem();});
+}
+function renderQuizItem(it){
+  const g=game,q=QUIZZES[g.id].q[it.qi],last=g.i===g.items.length-1;
+  const order=it.order||(it.order=shuffle(q.o.map((_,k)=>k)));   // husselvolgorde, stabiel per vraag
+  $('quizView').innerHTML=seqHead()+`
     <div class="qcard">
       <span class="qtag">${q.tag}</span>
       <div class="qtext">${q.t}</div>
       <div class="opts" id="opts">
-        ${q.o.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+k)}</span><span>${o}</span><span class="mark"></span></button>`).join('')}
+        ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
       <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
       <div class="qfoot">
         <span class="score" id="fb">Kies een antwoord.</span>
-        <button class="btn-next" id="nextBtn" disabled>${i===total-1?'Resultaat →':'Volgende →'}</button>
+        <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
       </div>
     </div>`;
-  document.getElementById('backBtn').addEventListener('click',showDash);
-  document.getElementById('nextBtn').addEventListener('click',()=>{state.i++;state.answered=false;renderQ();});
-  document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answer(b)));
+  document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answerQuiz(b,it,q)));
 }
-function answer(btn){if(state.answered)return;state.answered=true;
-  const q=state.data.q[state.i];const k=+btn.dataset.k;const correct=k===q.c;
-  if(correct)state.score++;
-  cloudRecordAnswer(state.id,state.i,correct);   // per vraag opslaan in de database
+function answerQuiz(btn,it,q){
+  if(game.answered)return; game.answered=true;
+  const k=+btn.dataset.k,correct=k===q.c; if(correct)game.score++;
+  cloudRecordAnswer(game.id,it.qi,correct);
   document.querySelectorAll('#opts .opt').forEach(b=>{const bk=+b.dataset.k;b.disabled=true;
     const mark=b.querySelector('.mark');
     if(bk===q.c){b.classList.add('correct');mark.textContent='✓';}
     else if(bk===k){b.classList.add('wrong');mark.textContent='✗';}});
-  document.getElementById('explain').classList.add('show');
-  document.getElementById('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas, bekijk de uitleg.';
-  document.getElementById('fb').style.color=correct?'var(--good)':'var(--bad)';
-  document.getElementById('nextBtn').disabled=false;
+  $('explain').classList.add('show');
+  $('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas, bekijk de uitleg.';
+  $('fb').style.color=correct?'var(--good)':'var(--bad)';
+  $('nextBtn').disabled=false;
 }
-function renderResult(){const {data,score}=state;const total=data.q.length;const pct=Math.round(score/total*100);
-  if(!CLOUD)recordResult(state.id,pct);   // lokale modus: voortgang + activiteit opslaan (cloud slaat per vraag op)
+function renderFill(it){
+  const g=game,p=it.pair,last=g.i===g.items.length-1;
+  $('quizView').innerHTML=seqHead()+`
+    <div class="qcard">
+      <span class="qtag">Invullen</span>
+      <div class="qtext">Welk Nederlands woord betekent <span class="m">${p.tr}</span>?</div>
+      <form id="fillForm" class="fill-form" autocomplete="off">
+        <input type="text" id="fillInput" class="fill-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Typ het woord…">
+        <button type="submit" class="btn-next" id="checkBtn">Controleer</button>
+      </form>
+      <div class="explain" id="explain"></div>
+      <div class="qfoot">
+        <span class="score" id="fb">Typ je antwoord en druk op Enter.</span>
+        <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
+      </div>
+    </div>`;
+  const inp=$('fillInput'); setTimeout(()=>inp.focus(),30);
+  $('fillForm').addEventListener('submit',e=>{e.preventDefault();checkFill(it,p);});
+}
+function checkFill(it,p){
+  if(game.answered)return; game.answered=true;
+  const val=$('fillInput').value;
+  const opts=p.nl.split('/').map(x=>norm(x));
+  const correct=opts.includes(norm(val)); if(correct)game.score++;
+  cloudRecordAnswer(game.id,it.qi,correct);
+  const inp=$('fillInput'); inp.disabled=true; inp.classList.add(correct?'ok':'no');
+  $('checkBtn').disabled=true;
+  const ex=QUIZZES[game.id].q[it.qi];
+  $('explain').innerHTML=`<b>Antwoord:</b> ${p.nl}${ex&&ex.e?' — '+ex.e:''}`;
+  $('explain').classList.add('show');
+  $('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas — juiste antwoord: '+p.nl;
+  $('fb').style.color=correct?'var(--good)':'var(--bad)';
+  $('nextBtn').disabled=false; $('nextBtn').focus();
+}
+
+/* ---------------- slepen (koppelen NL ↔ TR) ---------------- */
+let sl=null;
+function startSlepen(id){
+  const all=shuffle(wordPairs(id)); if(all.length<2)return startQuiz(id);
+  sl={id,all,pos:0,size:5,correct:0,errored:new Set()};
+  openLessonView(); renderSlepen();
+}
+function renderSlepen(){
+  const s=sl, batch=s.all.slice(s.pos,s.pos+s.size);
+  if(!batch.length)return showResult(s.id,'Slepen',s.correct,s.all.length,()=>startSlepen(s.id));
+  const totalRounds=Math.ceil(s.all.length/s.size), roundNo=Math.floor(s.pos/s.size)+1, last=s.pos+s.size>=s.all.length;
+  const left=shuffle(batch.slice()), right=shuffle(batch.slice());
+  $('quizView').innerHTML=`
+    <button class="back" id="backBtn">← Andere spelvorm</button>
+    <div class="quiz-head">
+      <div class="num">Les ${s.id} · Slepen</div>
+      <h1>${lessonTitle(s.id)}</h1>
+      <p>Sleep het Nederlandse woord naar de juiste vertaling. Op de telefoon: tik een woord en tik daarna de vertaling.</p>
+      <div class="qmeta"><span>Ronde ${roundNo} van ${totalRounds}</span><span class="tnum" id="slScore">Goed: ${s.correct}</span></div>
+    </div>
+    <div class="drag-wrap">
+      <div class="drag-col" id="dragSrc">${left.map(p=>`<button class="chip" draggable="true" data-q="${p.qi}">${p.nl}</button>`).join('')}</div>
+      <div class="drag-col" id="dragTgt">${right.map(p=>`<div class="slot" data-q="${p.qi}"><span class="slot-tr">${p.tr}</span><span class="slot-drop">sleep hier</span></div>`).join('')}</div>
+    </div>
+    <div class="qfoot"><span class="score" id="fb">Nog ${batch.length} te koppelen.</span>
+      <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende ronde →'}</button></div>`;
+  $('backBtn').addEventListener('click',()=>startLesson(s.id));
+  $('nextBtn').addEventListener('click',()=>{sl.pos+=sl.size;renderSlepen();});
+  let left2=batch.length, tap=null;
+  const chips=$('quizView').querySelectorAll('.chip'), slots=$('quizView').querySelectorAll('.slot');
+  function clearSel(){chips.forEach(c=>c.classList.remove('sel'));tap=null;}
+  function match(qi,slot){
+    if(slot.classList.contains('done'))return;
+    const chip=$('quizView').querySelector('.chip[data-q="'+qi+'"]:not(.used)');
+    if(+slot.dataset.q===qi && chip){
+      slot.classList.add('done'); slot.querySelector('.slot-drop').textContent=chip.textContent;
+      chip.classList.add('used'); chip.setAttribute('disabled',''); chip.draggable=false;
+      if(!s.errored.has(qi))s.correct++;
+      left2--; $('slScore').textContent='Goed: '+s.correct;
+      $('fb').textContent=left2?('Nog '+left2+' te koppelen.'):'Klaar! Ga door.'; $('fb').style.color='var(--good)';
+      if(left2===0)$('nextBtn').disabled=false;
+    } else {
+      s.errored.add(qi); slot.classList.add('bad'); setTimeout(()=>slot.classList.remove('bad'),450);
+      $('fb').textContent='Bijna — probeer een andere.'; $('fb').style.color='var(--bad)';
+    }
+    clearSel();
+  }
+  chips.forEach(c=>{
+    c.addEventListener('dragstart',e=>{if(c.classList.contains('used')){e.preventDefault();return;}e.dataTransfer.setData('text/plain',c.dataset.q);});
+    c.addEventListener('click',()=>{if(c.classList.contains('used'))return;
+      const on=c.classList.contains('sel');clearSel();if(!on){c.classList.add('sel');tap=+c.dataset.q;}});
+  });
+  slots.forEach(sl0=>{
+    sl0.addEventListener('dragover',e=>e.preventDefault());
+    sl0.addEventListener('drop',e=>{e.preventDefault();const qi=+e.dataTransfer.getData('text/plain');if(!isNaN(qi))match(qi,sl0);});
+    sl0.addEventListener('click',()=>{if(tap!=null)match(tap,sl0);});
+  });
+}
+
+/* ---------------- flitskaarten ---------------- */
+let fc=null;
+function startFlashcards(id){
+  const cards=shuffle(wordPairs(id)); if(!cards.length)return startQuiz(id);
+  fc={id,cards,i:0,known:0,flipped:false};
+  openLessonView(); renderFlash();
+}
+function renderFlash(){
+  const f=fc,total=f.cards.length;
+  if(f.i>=total)return showResult(f.id,'Flitskaarten',f.known,total,()=>startFlashcards(f.id));
+  const c=f.cards[f.i],ex=QUIZZES[f.id].q[c.qi];
+  $('quizView').innerHTML=`
+    <button class="back" id="backBtn">← Andere spelvorm</button>
+    <div class="quiz-head">
+      <div class="num">Les ${f.id} · Flitskaarten</div>
+      <h1>${lessonTitle(f.id)}</h1>
+      <div class="qbar"><i style="width:${(f.i/total)*100}%"></i></div>
+      <div class="qmeta"><span>Kaart ${f.i+1} van ${total}</span><span class="tnum">Gewust: ${f.known}</span></div>
+    </div>
+    <div class="flash" id="flashCard">
+      <div class="flash-inner">
+        <div class="flash-face flash-front"><span class="flash-lbl">Nederlands 🇳🇱</span><div class="flash-word">${c.nl}</div><span class="flash-hint">Tik om te draaien</span></div>
+        <div class="flash-face flash-back"><span class="flash-lbl">Türkçe 🇹🇷</span><div class="flash-word">${c.tr}</div>${ex&&ex.e?`<p class="flash-ex">${ex.e}</p>`:''}</div>
+      </div>
+    </div>
+    <div class="flash-acts hidden" id="flashActs">
+      <button class="btn-ghost" id="fcAgain">Nog oefenen</button>
+      <button class="btn-next" id="fcKnown">Ik wist het ✓</button>
+    </div>`;
+  $('backBtn').addEventListener('click',()=>startLesson(f.id));
+  const card=$('flashCard');
+  card.addEventListener('click',()=>{card.classList.toggle('flip');
+    if(card.classList.contains('flip'))$('flashActs').classList.remove('hidden');});
+  const nextCard=known=>{if(known)fc.known++;cloudRecordAnswer(f.id,c.qi,known);fc.i++;renderFlash();};
+  $('fcAgain').addEventListener('click',()=>nextCard(false));
+  $('fcKnown').addEventListener('click',()=>nextCard(true));
+}
+
+/* ---------------- resultaat (gedeeld) ---------------- */
+function showResult(id,label,score,total,onRetry){
+  const pct=total?Math.round(score/total*100):0;
+  if(!CLOUD)recordResult(id,pct);
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
-  const msg=pct>=80?'Uitstekend! Deze les beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste vragen.':'Nog even oefenen. Bekijk de uitleg en probeer opnieuw.';
+  const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
   $('quizView').innerHTML=`
     <button class="back" id="backBtn">← Terug naar lessen</button>
     <div class="result">
@@ -980,16 +1234,18 @@ function renderResult(){const {data,score}=state;const total=data.q.length;const
         </svg>
         <div class="pct tnum" style="color:${col}">${pct}%</div>
       </div>
-      <h2>${data.title} voltooid</h2>
-      <p>Je had <b>${score} van de ${total}</b> vragen goed. ${msg}</p>
+      <h2>${lessonTitle(id)} · ${label}</h2>
+      <p>Je had <b>${score} van de ${total}</b> goed. ${msg}</p>
       <div class="acts">
         <button class="btn-ghost" id="retry">Opnieuw proberen</button>
+        <button class="btn-ghost" id="otherMode">Andere spelvorm</button>
         <button class="btn-next" id="toDash">Naar lessen →</button>
       </div>
     </div>`;
-  document.getElementById('backBtn').addEventListener('click',showDash);
-  document.getElementById('retry').addEventListener('click',()=>startQuiz(state.id));
-  document.getElementById('toDash').addEventListener('click',showDash);
+  $('backBtn').addEventListener('click',showDash);
+  $('retry').addEventListener('click',onRetry);
+  $('otherMode').addEventListener('click',()=>startLesson(id));
+  $('toDash').addEventListener('click',showDash);
 }
 
 /* contact form: friendly note until an endpoint is set up */
@@ -1002,9 +1258,15 @@ document.getElementById('contactForm').addEventListener('submit',e=>{
 /* keyboard: A–D to answer, Enter for next */
 document.addEventListener('keydown',e=>{
   if($('quizView').classList.contains('hidden'))return;
-  if(e.key==='Enter'){const n=document.getElementById('nextBtn');if(n&&!n.disabled)n.click();return;}
-  const k=e.key.toUpperCase().charCodeAt(0)-65;
-  if(k>=0&&k<4&&state&&!state.answered){const b=document.querySelector(`#opts .opt[data-k="${k}"]`);if(b)b.click();}
+  const typing=e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA');
+  if(e.key==='Enter'){ if(typing)return; const n=document.getElementById('nextBtn');if(n&&!n.disabled){e.preventDefault();n.click();}return;}
+  if(typing)return;
+  const it=game&&game.items&&game.items[game.i];
+  if(game&&!game.answered&&it&&it.kind==='quiz'){
+    const pos=e.key.toUpperCase().charCodeAt(0)-65;
+    const opts=document.querySelectorAll('#opts .opt');
+    if(pos>=0&&pos<opts.length){opts[pos].click();}
+  }
 });
 
 document.getElementById('year').textContent=new Date().getFullYear();
