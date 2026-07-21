@@ -330,6 +330,7 @@ a{color:var(--brand-deep)}
     <div class="topbar-in">
       <div class="brand"><span class="logo">Aa</span><div>LerenIsLeuk<small>Nederlands leren</small></div></div>
       <div class="spacer"></div>
+      <button class="linkbtn" id="switchBtn" style="display:none; color:var(--brand-deep)">↔ Wissel weergave</button>
       <button class="linkbtn" id="homeLink">Lessen</button>
       <button class="iconbtn" id="themeToggle2" title="Wissel thema" aria-label="Wissel thema">🌙</button>
       <div class="userchip"><span class="avatar" id="avatar">S</span><span id="username">Cursist</span></div>
@@ -498,6 +499,7 @@ const ACCOUNTS = [
   {email:"fatima@sekibar.nl", name:"Fatima", hash:"eba43825abece1c6792869aa1d08acb762a19a5897ae95e78a932e5776bee3a1"},
   {email:"jan@sekibar.nl",    name:"Jan",    hash:"65c956a8a68af12f2ecc06c2e7978ff6ec3d2c07415da1ea0dfd7bf18472d8a7"},
   {email:"sara@sekibar.nl",   name:"Sara",   hash:"94f1c7543d9f0b45ee2ac4a4875064c9e7c7d3e5ec3bb2312dbe71724978156a"},
+  {email:"se@kibar.nl",       name:"Se",     hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher"},
 ];
 
 const $=id=>document.getElementById(id);
@@ -632,7 +634,9 @@ $('loginForm').addEventListener('submit',async e=>{
   else{
     const acc=ACCOUNTS.find(a=>a.email.toLowerCase()===email);
     if(acc){ try{ if((await sha256(pw))===acc.hash)
-      user={email:acc.email,name:acc.name,role:(acc.email==='docent@sekibar.nl'?'teacher':'student')}; }catch(err){} }
+      user={email:acc.email, name:acc.name,
+        role:acc.role||(acc.email==='docent@sekibar.nl'?'teacher':'student'),
+        joker:!!acc.joker}; }catch(err){} }
   }
   $('submitBtn').disabled=false;
   if(user){ await login(user); }
@@ -641,8 +645,19 @@ $('loginForm').addEventListener('submit',async e=>{
 $('forgot').addEventListener('click',e=>{e.preventDefault();
   alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
 
+let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
+function updateSwitchBtn(){
+  const b=$('switchBtn');
+  if(currentUser&&currentUser.joker){
+    b.style.display='';
+    b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
+  } else { b.style.display='none'; }
+}
+async function goHome(){ if(activeMode==='teacher') await showTeacher(); else await showDash(); }
+
 async function login(u){
   currentUser=u;
+  activeMode = (u.role==='teacher') ? 'teacher' : 'student';
   const first=(u.name||'Cursist').split(' ')[0];
   $('username').textContent=first;
   $('avatar').textContent=((u.name&&u.name[0])||'C').toUpperCase();
@@ -650,17 +665,23 @@ async function login(u){
   $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+first+' 👋';
   $('loginView').classList.add('hidden');
   $('appView').classList.remove('hidden');
-  if(u.role==='teacher'){ await showTeacher(); }
-  else { await showDash(); }
+  updateSwitchBtn();
+  await goHome();
   window.scrollTo(0,0);
 }
+$('switchBtn').addEventListener('click',async ()=>{
+  activeMode = activeMode==='teacher' ? 'student' : 'teacher';
+  updateSwitchBtn();
+  await goHome();
+});
 $('logoutBtn').addEventListener('click',async ()=>{
   if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} }
   currentUser=null; progCache={lessons:{},days:[]};
+  $('switchBtn').style.display='none';
   $('appView').classList.add('hidden'); $('teacherView').classList.add('hidden'); $('loginView').classList.remove('hidden');
   $('dashView').classList.remove('hidden'); $('quizView').classList.add('hidden');
   $('pw').value='';$('email').value='';$('loginError').classList.remove('show');});
-$('homeLink').addEventListener('click',()=>{ if(currentUser&&currentUser.role==='teacher')showTeacher(); else showDash(); });
+$('homeLink').addEventListener('click',()=>{ goHome(); });
 
 /* ---------------- dashboard render ---------------- */
 function pill(status){const map={done:['done','✓ Afgerond'],busy:['busy','● Mee bezig'],new:['new','Nieuw'],soon:['soon','Binnenkort']};
