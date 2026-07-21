@@ -127,8 +127,9 @@ a{color:var(--brand-deep)}
 .btn-primary:active{transform:translateY(0)}
 .signup-line{text-align:center; margin-top:22px; font-size:14px; color:var(--ink-soft)}
 .signup-line button{background:none; border:none; color:var(--brand-deep); font-weight:750; font-size:14px; padding:0}
-.demo-hint{margin-top:18px; padding:11px 13px; border-radius:10px; background:var(--brand-tint); border:1px dashed color-mix(in srgb,var(--brand) 45%,transparent);
-  font-size:12.5px; color:var(--brand-deep); display:flex; gap:8px; align-items:flex-start}
+.login-error{margin-top:14px; padding:11px 13px; border-radius:10px; background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 45%,transparent);
+  font-size:13px; color:var(--bad); font-weight:600; display:none}
+.login-error.show{display:block}
 
 /* ---------- app / dashboard ---------- */
 .app{max-width:var(--maxw); margin:0 auto; padding:26px 20px 80px}
@@ -242,6 +243,33 @@ a{color:var(--brand-deep)}
 .contact-card input:focus,.contact-card textarea:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 22%,transparent)}
 .contact-info a{font-weight:700}
 
+/* ---------- docenten-dashboard ---------- */
+.tv-banner{margin:0 2px 18px; padding:12px 15px; border-radius:11px; background:var(--accent-tint); border:1px solid color-mix(in srgb,var(--accent) 40%,transparent); color:var(--accent-deep); font-size:13px}
+.tv-tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow)}
+.tv-table{width:100%; border-collapse:collapse; font-size:14px; min-width:520px}
+.tv-table th,.tv-table td{padding:12px 14px; text-align:center; border-bottom:1px solid var(--line-soft); white-space:nowrap}
+.tv-table th{font-size:12px; color:var(--ink-faint); font-weight:700; text-transform:uppercase; letter-spacing:.03em; background:var(--surface-2)}
+.tv-table th:first-child,.tv-table td:first-child{text-align:left}
+.tv-row{cursor:pointer; transition:background .12s}
+.tv-row:hover{background:var(--surface-2)}
+.tv-name{font-weight:700; color:var(--ink)}
+.tv-name small{display:block; font-weight:500; color:var(--ink-faint); font-size:12px}
+.tv-overall{font-weight:800; color:var(--brand-deep)}
+.tv-open{color:var(--brand-deep); font-weight:700; font-size:12.5px}
+.tv-lesson{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:16px 18px; margin-bottom:14px; box-shadow:var(--shadow)}
+.tv-lesson-head{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; font-size:15px}
+.tv-lesson-head .tnum{color:var(--ink-soft); font-weight:700; font-size:13.5px}
+.tv-note{color:var(--ink-faint); font-size:13px; font-style:italic}
+.q-list{display:grid; gap:7px}
+.q-item{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; border:1px solid var(--line-soft); background:var(--surface-2); font-size:13.5px}
+.q-item .q-txt{flex:1; color:var(--ink-soft)}
+.q-item .q-res{font-weight:800; font-size:15px}
+.q-item.q-ok{background:var(--good-tint); border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+.q-item.q-ok .q-res{color:var(--good)}
+.q-item.q-no{background:var(--bad-tint); border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
+.q-item.q-no .q-res{color:var(--bad)}
+.q-item.q-na .q-res{color:var(--ink-faint)}
+
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
 @media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
@@ -261,9 +289,9 @@ a{color:var(--brand-deep)}
         <p>Interactieve modules, directe feedback en heldere uitleg. Voor de basisschool en inburgering / NT2.</p>
       </div>
       <div class="aside-stats">
-        <div><div class="n tnum">12</div><div class="l">modules</div></div>
-        <div><div class="n tnum">150+</div><div class="l">oefeningen</div></div>
-        <div><div class="n tnum">4.8</div><div class="l">beoordeling</div></div>
+        <div><div class="n tnum" id="asideLessen">–</div><div class="l">lessen</div></div>
+        <div><div class="n tnum" id="asideSpeelbaar">–</div><div class="l">nu speelbaar</div></div>
+        <div><div class="n tnum" id="asideOefeningen">–</div><div class="l">oefeningen</div></div>
       </div>
     </aside>
 
@@ -272,20 +300,7 @@ a{color:var(--brand-deep)}
       <div class="login-card">
         <div class="brand mobile-brand"><span class="logo">Aa</span><div>LerenIsLeuk<small>Nederlands leren</small></div></div>
         <h1 id="loginTitle">Welkom terug</h1>
-        <p class="sub" id="loginSub">Log in om verder te gaan met je lessen.</p>
-
-        <div class="sso">
-          <button class="sso-btn" data-sso="Google">
-            <svg class="g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.5 30.1 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.8 6c1.9-5.6 7.1-9.8 13.7-9.8z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 6.9l7.1 5.5c4.2-3.9 6.2-9.6 6.2-16.9z"/><path fill="#FBBC05" d="M10.3 28.3c-.5-1.4-.8-2.9-.8-4.3s.3-3 .8-4.3l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.5 10.3l7.8-6z"/><path fill="#34A853" d="M24 48c6.1 0 11.3-2 15-5.5l-7.1-5.5c-2 1.4-4.6 2.2-7.9 2.2-6.6 0-11.8-4.2-13.7-9.8l-7.8 6C6.4 42.6 14.6 48 24 48z"/></svg>
-            Doorgaan met Google
-          </button>
-          <button class="sso-btn" data-sso="Schoolaccount">
-            <svg class="g" viewBox="0 0 24 24" fill="none" stroke="#12a06a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-            Inloggen met schoolaccount
-          </button>
-        </div>
-
-        <div class="divider">of met e-mail</div>
+        <p class="sub" id="loginSub">Log in met je account om verder te gaan met je lessen.</p>
 
         <form id="loginForm">
           <div class="field">
@@ -300,11 +315,10 @@ a{color:var(--brand-deep)}
             <label class="check"><input type="checkbox" id="remember" checked> Onthoud mij</label>
           </div>
           <button type="submit" class="btn-primary" id="submitBtn">Inloggen</button>
+          <div class="login-error" id="loginError">E-mailadres of wachtwoord klopt niet.</div>
         </form>
 
-        <div class="signup-line" id="signupLine">Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button></div>
-
-        <div class="demo-hint"><span>💡</span><div><b>Demo:</b> elk e-mailadres en wachtwoord werkt. Of gebruik één van de knoppen hierboven om direct rond te kijken.</div></div>
+        <div class="signup-line">Nog geen account? <a href="mailto:info@sekibar.nl">Neem contact op</a></div>
       </div>
     </main>
   </div>
@@ -365,23 +379,43 @@ a{color:var(--brand-deep)}
   <!-- quiz -->
   <div id="quizView" class="quiz hidden"></div>
 
+  <!-- docenten-dashboard -->
+  <div id="teacherView" class="app hidden"></div>
+
   <footer class="footer">
     <span>© <span id="year"></span> LerenIsLeuk · sekibar.nl</span><span class="spacer"></span>
     <span>Nederlands leren · basisschool &amp; inburgering / NT2</span>
   </footer>
 </div>
 
+<!-- Supabase JS — alleen actief zodra je hieronder de sleutels invult -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================================
+   SUPABASE CONFIG
+   Leeg laten = lokale modus (voortgang alleen op dit apparaat).
+   Vul beide waarden in na de setup (zie DOCENT-SETUP.md) om de centrale
+   database + docenten-dashboard te activeren. De anon-sleutel mag publiek
+   zijn; de beveiliging zit in de database-regels (RLS).
+   ============================================================ */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+const CLOUD = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
 /* ---------------- data: leerlijn ---------------- */
+/* Alleen titel/omschrijving. Of een les 'speelbaar' is, wordt automatisch
+   bepaald door of er vragen voor bestaan in QUIZZES. Voortgang en status
+   worden per ingelogd account bijgehouden (zie progress-store hieronder). */
 const COURSES = [
-  {n:"1", t:"Woorden & begroetingen", tag:"live", status:"done", prog:100, desc:"Alledaagse woorden, groeten en getallen."},
-  {n:"2", t:"Lidwoorden: de, het, een", tag:"live", status:"busy", prog:45, desc:"Wanneer gebruik je de, het of een?"},
-  {n:"3", t:"Werkwoorden: tegenwoordige tijd", tag:"live", status:"new", prog:0, desc:"Vervoegen: ik loop, hij werkt, wij zijn."},
-  {n:"4", t:"Meervoud: -en en -s", tag:"soon", status:"soon", prog:0},
-  {n:"5", t:"Zinsbouw & woordvolgorde", tag:"soon", status:"soon", prog:0},
-  {n:"6", t:"Spelling: klanken & letters", tag:"soon", status:"soon", prog:0, bookmark:true},
-  {n:"7", t:"Vragen stellen", tag:"soon", status:"soon", prog:0},
-  {n:"8", t:"Verleden tijd", tag:"soon", status:"soon", prog:0},
+  {n:"1", t:"Woorden & begroetingen", desc:"Alledaagse woorden, groeten en getallen."},
+  {n:"2", t:"Lidwoorden: de, het, een", desc:"Wanneer gebruik je de, het of een?"},
+  {n:"3", t:"Werkwoorden: tegenwoordige tijd", desc:"Vervoegen: ik loop, hij werkt, wij zijn."},
+  {n:"4", t:"Meervoud: -en en -s"},
+  {n:"5", t:"Zinsbouw & woordvolgorde"},
+  {n:"6", t:"Spelling: klanken & letters", bookmark:true},
+  {n:"7", t:"Vragen stellen"},
+  {n:"8", t:"Verleden tijd"},
 ];
 const SOON = [
   {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
@@ -453,69 +487,280 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
   init();addEventListener('resize',init);
   if(!matchMedia('(prefers-reduced-motion:reduce)').matches)draw();})();
 
-/* ---------------- auth ---------------- */
-let isRegister=false;
+/* ---------------- auth ----------------
+   Toegestane accounts. Wachtwoorden staan versleuteld (SHA-256), niet leesbaar.
+   Nieuw account toevoegen? Bereken de hash van het wachtwoord en zet een regel
+   hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
+   waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
+const ACCOUNTS = [
+  {email:"docent@sekibar.nl", name:"Docent", hash:"aebfd71200d4801d245f568bcc326f7b92a8656c67fbb73ba24852dc6c5f0aa8"},
+  {email:"ali@sekibar.nl",    name:"Ali",    hash:"360c5966ccf4a54482c1dd3ea3b644e60f103123f464b59268aebd82c139ac72"},
+  {email:"fatima@sekibar.nl", name:"Fatima", hash:"eba43825abece1c6792869aa1d08acb762a19a5897ae95e78a932e5776bee3a1"},
+  {email:"jan@sekibar.nl",    name:"Jan",    hash:"65c956a8a68af12f2ecc06c2e7978ff6ec3d2c07415da1ea0dfd7bf18472d8a7"},
+  {email:"sara@sekibar.nl",   name:"Sara",   hash:"94f1c7543d9f0b45ee2ac4a4875064c9e7c7d3e5ec3bb2312dbe71724978156a"},
+];
+
 const $=id=>document.getElementById(id);
-function bindToggle(){const el=document.getElementById('toggleMode');if(!el)return;
-  el.addEventListener('click',()=>{isRegister=!isRegister;
-    $('loginTitle').textContent=isRegister?'Account aanmaken':'Welkom terug';
-    $('loginSub').textContent=isRegister?'Gratis, in minder dan een minuut.':'Log in om verder te gaan met je lessen.';
-    $('submitBtn').textContent=isRegister?'Account aanmaken':'Inloggen';
-    $('signupLine').innerHTML=isRegister?'Heb je al een account? <button id="toggleMode" type="button">Log in</button>':'Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button>';
-    bindToggle();});}
-bindToggle();
 
-$('loginForm').addEventListener('submit',e=>{e.preventDefault();
-  const email=$('email').value.trim();login(email||'cursist@voorbeeld.nl');});
-document.querySelectorAll('[data-sso]').forEach(b=>b.addEventListener('click',()=>login(null,b.dataset.sso)));
-$('forgot').addEventListener('click',e=>{e.preventDefault();alert('In de demo-omgeving is wachtwoordherstel uitgeschakeld — elk wachtwoord werkt.');});
+/* ---------------- afgeleide aantallen (inhoud) ---------------- */
+const TOTAL_LESSONS = COURSES.length + SOON.length;                 // alle lessen
+const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // met vragen
+const TOTAL_EXERCISES = Object.values(QUIZZES).reduce((s,q)=>s+q.q.length,0);
+function fillAsideStats(){
+  const set=(id,v)=>{const el=$(id); if(el) el.textContent=v;};
+  set('asideLessen',TOTAL_LESSONS);
+  set('asideSpeelbaar',PLAYABLE);
+  set('asideOefeningen',TOTAL_EXERCISES);
+}
+fillAsideStats();
 
-function nameFrom(email,sso){if(sso)return 'Cursist';if(!email)return 'Cursist';
-  const p=email.split('@')[0].replace(/[._]/g,' ');return p.replace(/\b\w/g,m=>m.toUpperCase());}
-function login(email,sso){
-  const name=nameFrom(email,sso);
-  $('username').textContent=name.split(' ')[0];
-  $('avatar').textContent=(name[0]||'C').toUpperCase();
+/* ---------------- voortgang per account ---------------- */
+let currentUser=null;
+let progCache={lessons:{},days:[]};   // voortgang van de ingelogde gebruiker
+const PASS=80; // vanaf dit percentage geldt een les als 'afgerond'
+function progKey(){return 'lil-prog-'+(currentUser?currentUser.email:'anon');}
+function loadProg(){try{return JSON.parse(localStorage.getItem(progKey()))||{lessons:{},days:[]}}catch(e){return {lessons:{},days:[]}}}
+function saveProg(p){try{localStorage.setItem(progKey(),JSON.stringify(p))}catch(e){}}
+function recordResult(id,pct){                        // lokale modus: beste score per les bewaren
+  const p=loadProg();
+  p.lessons[id]=Math.max(p.lessons[id]||0,pct);
+  const today=new Date().toISOString().slice(0,10);
+  if(!p.days.includes(today))p.days.push(today);
+  saveProg(p);
+}
+/* cloud: sla het antwoord op één vraag op (nieuwste telt) */
+async function cloudRecordAnswer(lesson,qIndex,correct){
+  if(!CLOUD||!currentUser||!currentUser.id)return;
+  try{ await sb.from('answers').upsert(
+    {user_id:currentUser.id, email:currentUser.email, lesson:String(lesson), q_index:qIndex, correct:!!correct, updated_at:new Date().toISOString()},
+    {onConflict:'user_id,lesson,q_index'}); }catch(e){}
+}
+/* zet per-vraag rijen om naar {lessons:{les:pct}, days:[]} */
+function aggregate(rows){
+  const byLesson={}, dayset=new Set();
+  (rows||[]).forEach(r=>{(byLesson[r.lesson]=byLesson[r.lesson]||[]).push(r); if(r.updated_at)dayset.add(String(r.updated_at).slice(0,10));});
+  const lessons={};
+  for(const les in byLesson){
+    const total=QUIZZES[les]?QUIZZES[les].q.length:byLesson[les].length;
+    const correct=byLesson[les].filter(r=>r.correct).length;
+    lessons[les]=Math.round(correct/total*100);
+  }
+  return {lessons,days:[...dayset]};
+}
+/* laad voortgang van de ingelogde gebruiker in progCache */
+async function refreshProgress(){
+  if(CLOUD&&currentUser&&currentUser.id){
+    try{ const {data}=await sb.from('answers').select('lesson,q_index,correct,updated_at').eq('user_id',currentUser.id);
+      progCache=aggregate(data); }catch(e){ progCache={lessons:{},days:[]}; }
+  } else { progCache=loadProg(); }
+}
+function computeStreak(days){
+  if(!days||!days.length)return 0;
+  const set=new Set(days); let streak=0; const d=new Date();
+  for(;;){const key=d.toISOString().slice(0,10); if(set.has(key)){streak++; d.setDate(d.getDate()-1);} else break;}
+  return streak;
+}
+
+async function sha256(txt){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function emailName(email){const p=(email||'').split('@')[0].replace(/[._]/g,' ');
+  return p.replace(/\b\w/g,m=>m.toUpperCase())||'Cursist';}
+
+/* cloud-login via Supabase Auth; haalt rol/naam uit de profiles-tabel */
+async function cloudSignIn(email,pw){
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error||!data||!data.user)return null;
+    let role='student', name=emailName(email);
+    try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',data.user.id).maybeSingle();
+      if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
+    return {id:data.user.id, email:data.user.email, name, role};
+  }catch(e){ return null; }
+}
+
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  $('loginError').classList.remove('show');
+  $('submitBtn').disabled=true;
+  const email=$('email').value.trim().toLowerCase();
+  const pw=$('pw').value;
+  let user=null;
+  if(CLOUD){ user=await cloudSignIn(email,pw); }
+  else{
+    const acc=ACCOUNTS.find(a=>a.email.toLowerCase()===email);
+    if(acc){ try{ if((await sha256(pw))===acc.hash)
+      user={email:acc.email,name:acc.name,role:(acc.email==='docent@sekibar.nl'?'teacher':'student')}; }catch(err){} }
+  }
+  $('submitBtn').disabled=false;
+  if(user){ await login(user); }
+  else{ $('loginError').classList.add('show'); $('pw').value=''; $('pw').focus(); }
+});
+$('forgot').addEventListener('click',e=>{e.preventDefault();
+  alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
+
+async function login(u){
+  currentUser=u;
+  const first=(u.name||'Cursist').split(' ')[0];
+  $('username').textContent=first;
+  $('avatar').textContent=((u.name&&u.name[0])||'C').toUpperCase();
   const h=new Date().getHours();
-  $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+name.split(' ')[0]+' 👋';
+  $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+first+' 👋';
   $('loginView').classList.add('hidden');
   $('appView').classList.remove('hidden');
-  renderDash();
+  if(u.role==='teacher'){ await showTeacher(); }
+  else { await showDash(); }
   window.scrollTo(0,0);
 }
-$('logoutBtn').addEventListener('click',()=>{$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');showDash();});
-$('homeLink').addEventListener('click',showDash);
+$('logoutBtn').addEventListener('click',async ()=>{
+  if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} }
+  currentUser=null; progCache={lessons:{},days:[]};
+  $('appView').classList.add('hidden'); $('teacherView').classList.add('hidden'); $('loginView').classList.remove('hidden');
+  $('dashView').classList.remove('hidden'); $('quizView').classList.add('hidden');
+  $('pw').value='';$('email').value='';$('loginError').classList.remove('show');});
+$('homeLink').addEventListener('click',()=>{ if(currentUser&&currentUser.role==='teacher')showTeacher(); else showDash(); });
 
 /* ---------------- dashboard render ---------------- */
 function pill(status){const map={done:['done','✓ Afgerond'],busy:['busy','● Mee bezig'],new:['new','Nieuw'],soon:['soon','Binnenkort']};
   const[cls,txt]=map[status]||map.soon;return `<span class="pill ${cls}">${txt}</span>`;}
 function renderDash(){
+  const prog=progCache;
   const grid=$('courseGrid');
+  let done=0, busy=0;
   let html=`<button class="card featured live" data-course="1">
       <div class="kick">Startpunt</div>
       <div class="num">Instaples</div>
       <h3>Test je Nederlands</h3>
-      <p>Fris je basis op en test je niveau in 5 korte vragen.</p>
+      <p>Fris je basis op en test je niveau in ${QUIZZES["1"].q.length} korte vragen.</p>
       <div class="go">Start de check →</div></button>`;
   COURSES.forEach(c=>{
-    const live=c.tag==='live';
+    const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
+    const pct=prog.lessons[c.n];                  // beste score, of undefined
+    let status='soon';
+    if(live){
+      if(pct===undefined) status='new';
+      else if(pct>=PASS){ status='done'; done++; }
+      else { status='busy'; busy++; }
+    }
+    const barPct=pct||0;
     const cls='card '+(live?'live':'soon');
     html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
       ${c.bookmark?'<span class="bookmark"></span>':''}
       <div class="num">Les ${c.n}</div>
       <h3>${c.t}</h3>
-      ${live?`<div class="progress"><i style="width:${c.prog}%"></i></div>`:''}
-      <div class="meta">${live?`${c.prog}% voltooid`:'lesstof volgt'}${pill(c.status)}</div>
+      ${live?`<div class="progress"><i style="width:${barPct}%"></i></div>`:''}
+      <div class="meta">${live?`${barPct}% voltooid`:'lesstof volgt'}${pill(status)}</div>
     </button>`;
   });
   grid.innerHTML=html;
   $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
       <div class="num">Les ${c.n}</div><h3>${c.t}</h3>
       <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
-  $('courseCount').textContent=COURSES.filter(c=>c.tag==='live').length+' actief · '+COURSES.length+' lessen';
+  $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
+  // dashboard-stats automatisch
+  $('statDone').textContent=done;
+  $('statBusy').textContent=busy;
+  $('statStreak').textContent=computeStreak(prog.days);
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startQuiz(b.dataset.course)));
 }
-function showDash(){$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
+async function showDash(){if(currentUser){await refreshProgress();renderDash();}
+  $('teacherView').classList.add('hidden');$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
+
+/* ---------------- docenten-dashboard ---------------- */
+async function showTeacher(){
+  $('dashView').classList.add('hidden'); $('quizView').classList.add('hidden');
+  $('teacherView').classList.remove('hidden');
+  $('teacherView').innerHTML='<p style="padding:24px 4px">Laden…</p>';
+  const students=await gatherTeacherData();
+  renderTeacher(students);
+  window.scrollTo(0,0);
+}
+/* haal leerlingen + antwoorden op (cloud), of lees lokale voortgang (fallback) */
+async function gatherTeacherData(){
+  if(CLOUD){
+    const [{data:profs}={},{data:ans}={}]=await Promise.all([
+      sb.from('profiles').select('id,email,full_name,role'),
+      sb.from('answers').select('user_id,email,lesson,q_index,correct,updated_at')
+    ]);
+    return (profs||[]).filter(p=>p.role!=='teacher').map(p=>({
+      name:p.full_name||emailName(p.email), email:p.email, perQ:true,
+      rows:(ans||[]).filter(a=>a.user_id===p.id)
+    }));
+  }
+  return ACCOUNTS.filter(a=>a.email!=='docent@sekibar.nl').map(a=>{
+    let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
+    return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}};
+  });
+}
+/* voortgang van één leerling voor één les */
+function lessonStat(stu,lesId){
+  const total=QUIZZES[lesId].q.length;
+  if(stu.perQ){
+    const perQ=[]; let correct=0, answered=0;
+    for(let i=0;i<total;i++){
+      const r=stu.rows.find(x=>String(x.lesson)===String(lesId)&&x.q_index===i);
+      if(!r)perQ.push(null); else {perQ.push(!!r.correct); answered++; if(r.correct)correct++;}
+    }
+    return {total,correct,answered,pct:Math.round(correct/total*100),perQ};
+  }
+  const pct=stu.lessonsPct[lesId]||0;
+  return {total,correct:Math.round(pct/100*total),answered:pct>0?total:0,pct,perQ:null};
+}
+function renderTeacher(students){
+  const playable=COURSES.filter(c=>QUIZZES[c.n]);
+  const banner = CLOUD ? '' :
+    `<div class="tv-banner">⚠️ Centrale database nog niet gekoppeld — je ziet alleen leerlingen die op <b>dit apparaat</b> hebben geoefend, zonder detail per vraag. Vul je Supabase-sleutels in (zie <b>DOCENT-SETUP.md</b>) voor volledig inzicht vanaf alle apparaten.</div>`;
+  let rows='';
+  students.forEach((stu,idx)=>{
+    let totC=0,totT=0,cells='';
+    playable.forEach(c=>{const s=lessonStat(stu,c.n); totC+=s.correct; totT+=s.total;
+      cells+=`<td class="tnum">${s.answered?s.pct+'%':'—'}</td>`;});
+    const overall=totT?Math.round(totC/totT*100):0;
+    rows+=`<tr class="tv-row" data-i="${idx}"><td class="tv-name">${stu.name}<small>${stu.email}</small></td>${cells}<td class="tnum tv-overall">${overall}%</td><td class="tv-open">bekijk →</td></tr>`;
+  });
+  const heads=playable.map(c=>`<th title="${c.t}">Les ${c.n}</th>`).join('');
+  $('teacherView').innerHTML=`
+    <div class="welcome">
+      <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Voortgang van je leerlingen${CLOUD?' — live uit de database':''}.</p></div>
+      <div class="stat-strip">
+        <div class="stat"><div class="n tnum">${students.length}</div><div class="l">leerlingen</div></div>
+        <div class="stat"><div class="n tnum">${playable.length}</div><div class="l">lessen</div></div>
+      </div>
+    </div>
+    ${banner}
+    <div class="tv-tablewrap">
+      <table class="tv-table">
+        <thead><tr><th>Leerling</th>${heads}<th>Totaal</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="99" style="padding:18px;color:var(--ink-faint)">Nog geen gegevens.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  $('teacherView').querySelectorAll('.tv-row').forEach(tr=>
+    tr.addEventListener('click',()=>renderTeacherStudent(students[+tr.dataset.i],students)));
+}
+function renderTeacherStudent(stu,students){
+  const playable=COURSES.filter(c=>QUIZZES[c.n]);
+  let blocks='';
+  playable.forEach(c=>{
+    const s=lessonStat(stu,c.n); const qz=QUIZZES[c.n]; let dots='';
+    for(let i=0;i<s.total;i++){
+      let cls='q-na',lab='niet gemaakt';
+      if(s.perQ){ if(s.perQ[i]===true){cls='q-ok';lab='goed';} else if(s.perQ[i]===false){cls='q-no';lab='fout';} }
+      const qtxt=qz.q[i]?qz.q[i].t.replace(/<[^>]+>/g,''):('Vraag '+(i+1));
+      dots+=`<div class="q-item ${cls}"><span class="q-txt">${i+1}. ${qtxt}</span><span class="q-res">${cls==='q-ok'?'✓':cls==='q-no'?'✗':'–'}</span></div>`;
+    }
+    blocks+=`<div class="tv-lesson">
+      <div class="tv-lesson-head"><b>Les ${c.n} · ${c.t}</b><span class="tnum">${s.answered?s.pct+'% ('+s.correct+'/'+s.total+' goed)':'nog niet gemaakt'}</span></div>
+      ${s.perQ?`<div class="q-list">${dots}</div>`:`<div class="tv-note">Detail per vraag verschijnt zodra de database gekoppeld is.</div>`}
+    </div>`;
+  });
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar overzicht</button>
+    <div class="welcome"><div><h1>${stu.name}</h1><p>${stu.email}</p></div></div>
+    ${blocks}`;
+  $('tvBack').addEventListener('click',()=>renderTeacher(students));
+}
 
 /* ---------------- quiz engine ---------------- */
 let state=null;
@@ -552,6 +797,7 @@ function renderQ(){const {data,i,score}=state;const total=data.q.length;
 function answer(btn){if(state.answered)return;state.answered=true;
   const q=state.data.q[state.i];const k=+btn.dataset.k;const correct=k===q.c;
   if(correct)state.score++;
+  cloudRecordAnswer(state.id,state.i,correct);   // per vraag opslaan in de database
   document.querySelectorAll('#opts .opt').forEach(b=>{const bk=+b.dataset.k;b.disabled=true;
     const mark=b.querySelector('.mark');
     if(bk===q.c){b.classList.add('correct');mark.textContent='✓';}
@@ -562,6 +808,7 @@ function answer(btn){if(state.answered)return;state.answered=true;
   document.getElementById('nextBtn').disabled=false;
 }
 function renderResult(){const {data,score}=state;const total=data.q.length;const pct=Math.round(score/total*100);
+  if(!CLOUD)recordResult(state.id,pct);   // lokale modus: voortgang + activiteit opslaan (cloud slaat per vraag op)
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze les beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste vragen.':'Nog even oefenen. Bekijk de uitleg en probeer opnieuw.';
