@@ -1,0 +1,27 @@
+name: Lesdata valideren
+
+# Controleert bij elke push/PR of de vragenbank in index.html klopt
+# (geldige antwoord-index, geen dubbele opties, tekst/tag/uitleg aanwezig).
+
+on:
+  push:
+    paths:
+      - "index.html"
+      - "scripts/validate-lessons.js"
+      - ".github/workflows/validate-lessons.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "scripts/validate-lessons.js"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Vragenbank valideren
+        run: node scripts/validate-lessons.js
