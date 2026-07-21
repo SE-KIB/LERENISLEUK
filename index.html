@@ -347,6 +347,8 @@ a{color:var(--brand-deep)}
 .tv-badge{display:inline-block; margin-left:6px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--good); background:var(--good-tint); border-radius:999px; padding:1px 7px}
 .tv-gave{display:block; margin-top:3px; color:var(--ink-faint); font-weight:500; font-size:12.5px}
 .tv-given-no{color:var(--bad); text-decoration:line-through}
+.tv-wipe{cursor:pointer; align-self:center; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:700; color:var(--bad); background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 35%,transparent); transition:background .12s, transform .12s}
+.tv-wipe:hover{background:color-mix(in srgb,var(--bad) 20%,transparent); transform:translateY(-1px)}
 
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
@@ -920,7 +922,7 @@ async function gatherTeacherData(){
       sb.from('attempts').select('user_id,lesson,mode,score,total,pct,details,created_at').order('created_at',{ascending:false})
     ]);
     return (profs||[]).filter(p=>p.role!=='teacher').map(p=>({
-      name:p.full_name||emailName(p.email), email:p.email, perQ:true,
+      id:p.id, name:p.full_name||emailName(p.email), email:p.email, perQ:true,
       rows:(ans||[]).filter(a=>a.user_id===p.id),
       attempts:(att||[]).filter(a=>a.user_id===p.id)
     }));
@@ -1064,17 +1066,49 @@ function renderTeacherStudentLesson(stu,lesId,students){
       ${s.perQ?`<div class="q-list">${dots}</div>`:`<div class="tv-note">Detail per vraag verschijnt zodra de database gekoppeld is.</div>`}</div>`;
     listHtml=`<div class="tv-note">Nog geen losse pogingen bewaard. Zodra deze leerling de les (opnieuw) maakt, verschijnt elke poging hier apart — met wat er precies is ingevuld.</div>`;
   }
+  const hasData=atts.length||lessonStat(stu,lesId).answered;
   $('teacherView').innerHTML=`
     <button class="back" id="tvBack">← Terug naar les ${lesId}</button>
-    <div class="welcome"><div><h1>${esc(stu.name)}</h1><p>Les ${lesId} · ${esc(lessonTitle(lesId))} — ${esc(stu.email)}</p></div></div>
+    <div class="welcome">
+      <div><h1>${esc(stu.name)}</h1><p>Les ${lesId} · ${esc(lessonTitle(lesId))} — ${esc(stu.email)}</p></div>
+      ${hasData?`<button class="tv-wipe" id="tvWipe" title="Wis de voortgang van deze leerling voor deze les">🗑 Voortgang wissen</button>`:''}
+    </div>
     ${recentHtml}
     <div class="tv-lesson">
       <div class="tv-lesson-head"><b>Alle pogingen (${atts.length})</b><span class="tnum">nieuwste bovenaan</span></div>
       <div class="tv-attempts">${listHtml}</div>
     </div>`;
   $('tvBack').addEventListener('click',()=>renderTeacherLesson(lesId,students));
+  const wipe=$('tvWipe'); if(wipe)wipe.addEventListener('click',()=>teacherWipeLesson(stu,lesId,students));
   $('teacherView').querySelectorAll('.tv-attempt').forEach(b=>
     b.addEventListener('click',()=>renderAttemptDetail(atts[+b.dataset.i],stu,lesId,students)));
+}
+/* wis de voortgang van één leerling voor één les — hij begint dan opnieuw */
+async function teacherWipeLesson(stu,lesId,students){
+  if(!confirm('Voortgang van '+stu.name+' voor les '+lesId+' wissen?\n\n'+
+    'Alle antwoorden én pogingen van deze les worden verwijderd. '+
+    'De leerling begint deze les daarna weer helemaal opnieuw.\n\n'+
+    'Dit kan niet ongedaan worden gemaakt.'))return;
+  if(CLOUD){
+    if(!stu.id){ alert('Kan deze leerling niet vinden in de database.'); return; }
+    try{
+      const r1=await sb.from('attempts').delete().eq('user_id',stu.id).eq('lesson',String(lesId));
+      const r2=await sb.from('answers').delete().eq('user_id',stu.id).eq('lesson',String(lesId));
+      if((r1&&r1.error)||(r2&&r2.error))throw (r1.error||r2.error);
+    }catch(e){
+      alert('Wissen mislukt. Heb je de nieuwe database-regel voor wissen al toegevoegd?\n\n'+
+            'Zie DOCENT-SETUP.md (blok "docent mag wissen").'); return;
+    }
+  } else {
+    try{ const key='lil-prog-'+stu.email;
+      const p=JSON.parse(localStorage.getItem(key))||{lessons:{},days:[]};
+      delete p.lessons[lesId]; localStorage.setItem(key,JSON.stringify(p));
+    }catch(e){}
+  }
+  $('teacherView').innerHTML='<p style="padding:24px 4px">Bijwerken…</p>';
+  const fresh=await gatherTeacherData();
+  const s=fresh.find(x=>x.email===stu.email)||stu;
+  renderTeacherStudentLesson(s,lesId,fresh);
 }
 /* NIVEAU 4 — één poging in detail: wat de leerling toen invoerde en behaalde */
 function renderAttemptDetail(att,stu,lesId,students){

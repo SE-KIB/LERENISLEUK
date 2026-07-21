@@ -96,12 +96,20 @@ create policy at_sel on public.attempts for select
   using (user_id = auth.uid() or public.is_teacher());
 drop policy if exists at_ins on public.attempts;
 create policy at_ins on public.attempts for insert with check (user_id = auth.uid());
+
+-- Docent mag voortgang wissen (leerling opnieuw laten maken)
+drop policy if exists a_del on public.answers;
+create policy a_del on public.answers for delete
+  using (user_id = auth.uid() or public.is_teacher());
+drop policy if exists at_del on public.attempts;
+create policy at_del on public.attempts for delete
+  using (user_id = auth.uid() or public.is_teacher());
 ```
 
 > **Al een database van vóór deze update?** Draai alleen de `attempts`-blokken
 > (de tabel, het `alter table … enable row level security` voor `attempts`, en
-> de twee `at_*`-policies) opnieuw; de rest is ongewijzigd. Bestaande gegevens
-> blijven behouden.
+> de `at_*`- en `a_del`-policies) opnieuw; de rest is ongewijzigd. Bestaande
+> gegevens blijven behouden.
 
 ## Stap 3 — Maak de accounts aan
 1. Ga links naar **Authentication** → **Users** → **Add user** → **Create new user**.
@@ -148,7 +156,9 @@ const SUPABASE_ANON_KEY = "eyJhbGciOi...jouw-anon-sleutel...";
   tabel met alle leerlingen × alle vragen (laatste resultaat per vraag). Klik een
   leerling en je ziet **de meest recente poging** plus een **lijst met álle
   pogingen** — elke poging is aanklikbaar om te zien wat de leerling toen precies
-  invoerde en behaalde (goed / fout, per vraag).
+  invoerde en behaalde (goed / fout, per vraag). Met de knop **Voortgang wissen**
+  op de leerling-pagina kun je, indien nodig, de voortgang van die leerling voor
+  díe les verwijderen zodat hij de les opnieuw kan maken.
 
 ## Veilig?
 Ja. De *anon*-sleutel mag publiek in de website staan — de beveiliging zit in de
