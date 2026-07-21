@@ -409,7 +409,7 @@ const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
    bepaald door of er vragen voor bestaan in QUIZZES. Voortgang en status
    worden per ingelogd account bijgehouden (zie progress-store hieronder). */
 const COURSES = [
-  {n:"1", t:"Woorden & begroetingen", desc:"Alledaagse woorden, groeten en getallen."},
+  {n:"1", t:"Woorden: Verhuizen (Thema 1)", desc:"Nederlandse woorden uit thema Verhuizen, met Turkse hulp."},
   {n:"2", t:"Lidwoorden: de, het, een", desc:"Wanneer gebruik je de, het of een?"},
   {n:"3", t:"Werkwoorden: tegenwoordige tijd", desc:"Vervoegen: ik loop, hij werkt, wij zijn."},
   {n:"4", t:"Meervoud: -en en -s"},
@@ -425,17 +425,37 @@ const SOON = [
 
 /* ---------------- vragenbanken ---------------- */
 const QUIZZES = {
-  "1":{ title:"Woorden & begroetingen", sub:"Alledaagse woorden, groeten, kleuren en getallen.", q:[
-    {tag:"Begroeting", t:"Hoe begroet je iemand beleefd overdag?", o:["Goedendag","Welterusten","Tot ziens","Alsjeblieft"], c:0,
-      e:"<b>Goedendag</b> gebruik je overdag. 'Welterusten' zeg je voor het slapen, 'tot ziens' bij het weggaan."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>groot</span>?", o:["klein","hoog","zwaar","lang"], c:0,
-      e:"Het tegenovergestelde van groot is <b>klein</b>."},
-    {tag:"Getallen", t:"Hoe schrijf je het getal <span class='m'>12</span> in woorden?", o:["twaalf","twintig","tweeëntwintig","tien"], c:0,
-      e:"12 = <b>twaalf</b>. Let op: 20 = twintig."},
-    {tag:"Woordenschat", t:"Waar koop je vers brood?", o:["bij de bakker","bij de slager","bij de kapper","bij de garage"], c:0,
-      e:"Brood koop je <b>bij de bakker</b>. Bij de slager koop je vlees."},
-    {tag:"Kleuren", t:"Welke kleur heeft gras meestal?", o:["groen","blauw","rood","geel"], c:0,
-      e:"Gras is <b>groen</b>."},
+  "1":{ title:"Woorden: Verhuizen (Thema 1)", sub:"Lees het woord. Kies het goede antwoord. Bij elke vraag zie je ook het Turkse woord (Türkçe) als hulp.", q:[
+    {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
+      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verhuizen</span>?", o:["taşınmak","temizlemek","satın almak","aramak"], c:0,
+      e:"<b>verhuizen</b> = taşınmak. Je gaat in een ander huis wonen. Voorbeeld: <i>Wij verhuizen naar een nieuw huis.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>komşular</span> (de mensen naast je)?", o:["de buren","de gast","de wijk","de hulp"], c:0,
+      e:"komşular = <b>de buren</b>. 'de gast' = misafir, 'de wijk' = mahalle."},
+    {tag:"de of het", t:"Wat is goed: <span class='m'>___ huis</span>?", o:["het huis","de huis","een huizen","dat huizen"], c:0,
+      e:"Het is <b>het huis</b>. Dit woord krijgt 'het'. Deze woorden leer je uit je hoofd."},
+    {tag:"de of het", t:"Wat is goed: <span class='m'>___ wijk</span> (mahalle)?", o:["de wijk","het wijk","een wijken","die wijken"], c:0,
+      e:"Het is <b>de wijk</b> = mahalle. De meeste woorden krijgen 'de'."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de huur</span>?", o:["kira","fiyat","ev","oda"], c:0,
+      e:"<b>de huur</b> = kira. Dat is het geld dat je elke maand voor je huis betaalt."},
+    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>zwaar</span> (ağır)?", o:["licht","breed","hoog","modern"], c:0,
+      e:"Het tegenovergestelde van <b>zwaar</b> (ağır) is <b>licht</b> (hafif). Let op: 'licht' betekent ook ışık / açık renk."},
+    {tag:"Werkwoord", t:"Welke zin is goed? <span class='m'>Gisteren ___ wij naar een nieuw huis. (verhuizen)</span>", o:["verhuisden","verhuizen","verhuis","verhuist"], c:0,
+      e:"Verleden tijd: <b>verhuisden</b>. Nu = wij verhuizen, gisteren = wij verhuisden."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
+      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
+      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>duidelijk</span>?", o:["açık (net anlaşılır)","zor","yavaş","sessiz"], c:0,
+      e:"<b>duidelijk</b> = açık / net. Je snapt het meteen. Voorbeeld: <i>De uitleg is duidelijk.</i>"},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>op tijd</span>?", o:["zamanında","geç","erken","bazen"], c:0,
+      e:"<b>op tijd</b> = zamanında. Niet te laat en niet te vroeg. Voorbeeld: <i>De trein is op tijd.</i>"},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de vertraging</span>?", o:["gecikme","yardım","gürültü","mesaj"], c:0,
+      e:"<b>de vertraging</b> = gecikme. De trein of bus komt later dan normaal."},
+    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
+      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
+    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vieren</span>?", o:["kutlamak","çalışmak","beklemek","taşınmak"], c:0,
+      e:"<b>vieren</b> = kutlamak. Voorbeeld: <i>Wij vieren mijn verjaardag.</i>"},
   ]},
   "2":{ title:"Lidwoorden: de, het, een", sub:"Kies het juiste lidwoord.", q:[
     {tag:"Lidwoord", t:"Kies het juiste lidwoord: <span class='m'>___ huis</span>", o:["het","de","een paar","dat"], c:0,
