@@ -127,8 +127,9 @@ a{color:var(--brand-deep)}
 .btn-primary:active{transform:translateY(0)}
 .signup-line{text-align:center; margin-top:22px; font-size:14px; color:var(--ink-soft)}
 .signup-line button{background:none; border:none; color:var(--brand-deep); font-weight:750; font-size:14px; padding:0}
-.demo-hint{margin-top:18px; padding:11px 13px; border-radius:10px; background:var(--brand-tint); border:1px dashed color-mix(in srgb,var(--brand) 45%,transparent);
-  font-size:12.5px; color:var(--brand-deep); display:flex; gap:8px; align-items:flex-start}
+.login-error{margin-top:14px; padding:11px 13px; border-radius:10px; background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 45%,transparent);
+  font-size:13px; color:var(--bad); font-weight:600; display:none}
+.login-error.show{display:block}
 
 /* ---------- app / dashboard ---------- */
 .app{max-width:var(--maxw); margin:0 auto; padding:26px 20px 80px}
@@ -261,9 +262,9 @@ a{color:var(--brand-deep)}
         <p>Interactieve modules, directe feedback en heldere uitleg. Voor de basisschool en inburgering / NT2.</p>
       </div>
       <div class="aside-stats">
-        <div><div class="n tnum">12</div><div class="l">modules</div></div>
-        <div><div class="n tnum">150+</div><div class="l">oefeningen</div></div>
-        <div><div class="n tnum">4.8</div><div class="l">beoordeling</div></div>
+        <div><div class="n tnum">12</div><div class="l">lessen</div></div>
+        <div><div class="n tnum">3</div><div class="l">nu speelbaar</div></div>
+        <div><div class="n tnum">15</div><div class="l">oefeningen</div></div>
       </div>
     </aside>
 
@@ -272,20 +273,7 @@ a{color:var(--brand-deep)}
       <div class="login-card">
         <div class="brand mobile-brand"><span class="logo">Aa</span><div>LerenIsLeuk<small>Nederlands leren</small></div></div>
         <h1 id="loginTitle">Welkom terug</h1>
-        <p class="sub" id="loginSub">Log in om verder te gaan met je lessen.</p>
-
-        <div class="sso">
-          <button class="sso-btn" data-sso="Google">
-            <svg class="g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.5 30.1 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.8 6c1.9-5.6 7.1-9.8 13.7-9.8z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 6.9l7.1 5.5c4.2-3.9 6.2-9.6 6.2-16.9z"/><path fill="#FBBC05" d="M10.3 28.3c-.5-1.4-.8-2.9-.8-4.3s.3-3 .8-4.3l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.5 10.3l7.8-6z"/><path fill="#34A853" d="M24 48c6.1 0 11.3-2 15-5.5l-7.1-5.5c-2 1.4-4.6 2.2-7.9 2.2-6.6 0-11.8-4.2-13.7-9.8l-7.8 6C6.4 42.6 14.6 48 24 48z"/></svg>
-            Doorgaan met Google
-          </button>
-          <button class="sso-btn" data-sso="Schoolaccount">
-            <svg class="g" viewBox="0 0 24 24" fill="none" stroke="#12a06a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-            Inloggen met schoolaccount
-          </button>
-        </div>
-
-        <div class="divider">of met e-mail</div>
+        <p class="sub" id="loginSub">Log in met je account om verder te gaan met je lessen.</p>
 
         <form id="loginForm">
           <div class="field">
@@ -300,11 +288,10 @@ a{color:var(--brand-deep)}
             <label class="check"><input type="checkbox" id="remember" checked> Onthoud mij</label>
           </div>
           <button type="submit" class="btn-primary" id="submitBtn">Inloggen</button>
+          <div class="login-error" id="loginError">E-mailadres of wachtwoord klopt niet.</div>
         </form>
 
-        <div class="signup-line" id="signupLine">Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button></div>
-
-        <div class="demo-hint"><span>💡</span><div><b>Demo:</b> elk e-mailadres en wachtwoord werkt. Of gebruik één van de knoppen hierboven om direct rond te kijken.</div></div>
+        <div class="signup-line">Nog geen account? <a href="mailto:info@sekibar.nl">Neem contact op</a></div>
       </div>
     </main>
   </div>
@@ -453,37 +440,53 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
   init();addEventListener('resize',init);
   if(!matchMedia('(prefers-reduced-motion:reduce)').matches)draw();})();
 
-/* ---------------- auth ---------------- */
-let isRegister=false;
+/* ---------------- auth ----------------
+   Toegestane accounts. Wachtwoorden staan versleuteld (SHA-256), niet leesbaar.
+   Nieuw account toevoegen? Bereken de hash van het wachtwoord en zet een regel
+   hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
+   waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
+const ACCOUNTS = [
+  {email:"docent@sekibar.nl", name:"Docent", hash:"aebfd71200d4801d245f568bcc326f7b92a8656c67fbb73ba24852dc6c5f0aa8"},
+  {email:"ali@sekibar.nl",    name:"Ali",    hash:"360c5966ccf4a54482c1dd3ea3b644e60f103123f464b59268aebd82c139ac72"},
+  {email:"fatima@sekibar.nl", name:"Fatima", hash:"eba43825abece1c6792869aa1d08acb762a19a5897ae95e78a932e5776bee3a1"},
+  {email:"jan@sekibar.nl",    name:"Jan",    hash:"65c956a8a68af12f2ecc06c2e7978ff6ec3d2c07415da1ea0dfd7bf18472d8a7"},
+  {email:"sara@sekibar.nl",   name:"Sara",   hash:"94f1c7543d9f0b45ee2ac4a4875064c9e7c7d3e5ec3bb2312dbe71724978156a"},
+];
+
 const $=id=>document.getElementById(id);
-function bindToggle(){const el=document.getElementById('toggleMode');if(!el)return;
-  el.addEventListener('click',()=>{isRegister=!isRegister;
-    $('loginTitle').textContent=isRegister?'Account aanmaken':'Welkom terug';
-    $('loginSub').textContent=isRegister?'Gratis, in minder dan een minuut.':'Log in om verder te gaan met je lessen.';
-    $('submitBtn').textContent=isRegister?'Account aanmaken':'Inloggen';
-    $('signupLine').innerHTML=isRegister?'Heb je al een account? <button id="toggleMode" type="button">Log in</button>':'Nog geen account? <button id="toggleMode" type="button">Registreer gratis</button>';
-    bindToggle();});}
-bindToggle();
 
-$('loginForm').addEventListener('submit',e=>{e.preventDefault();
-  const email=$('email').value.trim();login(email||'cursist@voorbeeld.nl');});
-document.querySelectorAll('[data-sso]').forEach(b=>b.addEventListener('click',()=>login(null,b.dataset.sso)));
-$('forgot').addEventListener('click',e=>{e.preventDefault();alert('In de demo-omgeving is wachtwoordherstel uitgeschakeld — elk wachtwoord werkt.');});
+async function sha256(txt){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 
-function nameFrom(email,sso){if(sso)return 'Cursist';if(!email)return 'Cursist';
-  const p=email.split('@')[0].replace(/[._]/g,' ');return p.replace(/\b\w/g,m=>m.toUpperCase());}
-function login(email,sso){
-  const name=nameFrom(email,sso);
-  $('username').textContent=name.split(' ')[0];
-  $('avatar').textContent=(name[0]||'C').toUpperCase();
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  $('loginError').classList.remove('show');
+  const email=$('email').value.trim().toLowerCase();
+  const pw=$('pw').value;
+  const acc=ACCOUNTS.find(a=>a.email.toLowerCase()===email);
+  let ok=false;
+  if(acc){ try{ ok=(await sha256(pw))===acc.hash; }catch(err){ ok=false; } }
+  if(ok){ login(acc); }
+  else{ $('loginError').classList.add('show'); $('pw').value=''; $('pw').focus(); }
+});
+$('forgot').addEventListener('click',e=>{e.preventDefault();
+  alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
+
+function login(acc){
+  const first=acc.name.split(' ')[0];
+  $('username').textContent=first;
+  $('avatar').textContent=(acc.name[0]||'C').toUpperCase();
   const h=new Date().getHours();
-  $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+name.split(' ')[0]+' 👋';
+  $('greeting').textContent=(h<12?'Goedemorgen':h<18?'Goedemiddag':'Goedenavond')+', '+first+' 👋';
   $('loginView').classList.add('hidden');
   $('appView').classList.remove('hidden');
   renderDash();
   window.scrollTo(0,0);
 }
-$('logoutBtn').addEventListener('click',()=>{$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');showDash();});
+$('logoutBtn').addEventListener('click',()=>{$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');
+  $('pw').value='';$('email').value='';$('loginError').classList.remove('show');showDash();});
 $('homeLink').addEventListener('click',showDash);
 
 /* ---------------- dashboard render ---------------- */
