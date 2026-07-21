@@ -304,8 +304,8 @@ a{color:var(--brand-deep)}
 
         <form id="loginForm">
           <div class="field">
-            <label for="email">E-mailadres</label>
-            <input type="email" id="email" placeholder="jij@voorbeeld.nl" autocomplete="email" required>
+            <label for="email">E-mailadres of gebruikersnaam</label>
+            <input type="text" id="email" placeholder="serkan of jij@voorbeeld.nl" autocomplete="username" required>
           </div>
           <div class="field">
             <div class="lbl-row"><label for="pw">Wachtwoord</label><a href="#" id="forgot">Vergeten?</a></div>
@@ -499,7 +499,7 @@ const ACCOUNTS = [
   {email:"fatima@sekibar.nl", name:"Fatima", hash:"eba43825abece1c6792869aa1d08acb762a19a5897ae95e78a932e5776bee3a1"},
   {email:"jan@sekibar.nl",    name:"Jan",    hash:"65c956a8a68af12f2ecc06c2e7978ff6ec3d2c07415da1ea0dfd7bf18472d8a7"},
   {email:"sara@sekibar.nl",   name:"Sara",   hash:"94f1c7543d9f0b45ee2ac4a4875064c9e7c7d3e5ec3bb2312dbe71724978156a"},
-  {email:"se@kibar.nl",       name:"Se",     hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher"},
+  {email:"serkan",            name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
 ];
 
 const $=id=>document.getElementById(id);
