@@ -323,6 +323,32 @@ a{color:var(--brand-deep)}
 .q-item.q-no{background:var(--bad-tint); border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
 .q-item.q-no .q-res{color:var(--bad)}
 .q-item.q-na .q-res{color:var(--ink-faint)}
+/* les-kaarten in het docenten-overzicht */
+.tv-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px}
+.tv-card{text-align:left; cursor:pointer; padding:16px 17px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); transition:transform .12s, border-color .12s}
+.tv-card:hover{transform:translateY(-2px); border-color:var(--brand)}
+.tv-card .num{font-size:12px; font-weight:800; color:var(--brand-deep); text-transform:uppercase; letter-spacing:.04em}
+.tv-card h3{margin:4px 0 12px; font-size:16px; color:var(--ink)}
+.tv-card-meta{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.tv-chip{font-size:12px; color:var(--ink-faint); background:var(--surface-2); border:1px solid var(--line-soft); border-radius:999px; padding:3px 9px}
+.tv-card-avg{font-weight:800; color:var(--brand-deep); font-size:13.5px}
+/* per-vraag stippen in de les-tabel */
+.tv-dot{font-weight:800; font-size:15px}
+.tv-dot.q-ok{color:var(--good)}
+.tv-dot.q-no{color:var(--bad)}
+.tv-dot.q-na{color:var(--ink-faint)}
+/* pogingen-lijst */
+.tv-attempts{display:grid; gap:8px}
+.tv-attempt{display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer; padding:11px 14px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2); transition:border-color .12s, background .12s}
+.tv-attempt:hover{border-color:var(--brand); background:var(--surface)}
+.tv-att-when{flex:1; font-weight:700; color:var(--ink); font-size:13.5px}
+.tv-att-mode{color:var(--ink-faint); font-size:12.5px}
+.tv-att-score{font-weight:800; color:var(--brand-deep); font-size:13.5px}
+.tv-badge{display:inline-block; margin-left:6px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--good); background:var(--good-tint); border-radius:999px; padding:1px 7px}
+.tv-gave{display:block; margin-top:3px; color:var(--ink-faint); font-weight:500; font-size:12.5px}
+.tv-given-no{color:var(--bad); text-decoration:line-through}
+.tv-wipe{cursor:pointer; align-self:center; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:700; color:var(--bad); background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 35%,transparent); transition:background .12s, transform .12s}
+.tv-wipe:hover{background:color-mix(in srgb,var(--bad) 20%,transparent); transform:translateY(-1px)}
 
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
@@ -683,6 +709,14 @@ async function cloudRecordAnswer(lesson,qIndex,correct){
     {user_id:currentUser.id, email:currentUser.email, lesson:String(lesson), q_index:qIndex, correct:!!correct, updated_at:new Date().toISOString()},
     {onConflict:'user_id,lesson,q_index'}); }catch(e){}
 }
+/* cloud: bewaar één volledige poging (met per-vraag detail) als geschiedenis */
+async function cloudRecordAttempt(lesson,mode,score,total,details){
+  if(!CLOUD||!currentUser||!currentUser.id)return;
+  try{ await sb.from('attempts').insert(
+    {user_id:currentUser.id, email:currentUser.email, lesson:String(lesson), mode:mode||'',
+     score:score, total:total, pct:total?Math.round(score/total*100):0,
+     details:details||[], created_at:new Date().toISOString()}); }catch(e){}
+}
 /* zet per-vraag rijen om naar {lessons:{les:pct}, days:[]} */
 function aggregate(rows){
   const byLesson={}, dayset=new Set();
@@ -879,22 +913,37 @@ async function showTeacher(){
   renderTeacher(students);
   window.scrollTo(0,0);
 }
-/* haal leerlingen + antwoorden op (cloud), of lees lokale voortgang (fallback) */
+/* haal leerlingen + antwoorden + pogingen op (cloud), of lees lokale voortgang (fallback) */
 async function gatherTeacherData(){
   if(CLOUD){
-    const [{data:profs}={},{data:ans}={}]=await Promise.all([
+    const [{data:profs}={},{data:ans}={},{data:att}={}]=await Promise.all([
       sb.from('profiles').select('id,email,full_name,role'),
-      sb.from('answers').select('user_id,email,lesson,q_index,correct,updated_at')
+      sb.from('answers').select('user_id,email,lesson,q_index,correct,updated_at'),
+      sb.from('attempts').select('user_id,lesson,mode,score,total,pct,details,created_at').order('created_at',{ascending:false})
     ]);
     return (profs||[]).filter(p=>p.role!=='teacher').map(p=>({
-      name:p.full_name||emailName(p.email), email:p.email, perQ:true,
-      rows:(ans||[]).filter(a=>a.user_id===p.id)
+      id:p.id, name:p.full_name||emailName(p.email), email:p.email, perQ:true,
+      rows:(ans||[]).filter(a=>a.user_id===p.id),
+      attempts:(att||[]).filter(a=>a.user_id===p.id)
     }));
   }
   return ACCOUNTS.filter(a=>a.role!=='teacher').map(a=>{
     let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
-    return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}};
+    return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}, attempts:[]};
   });
+}
+/* pogingen van één leerling voor één les, nieuwste eerst */
+function attemptsFor(stu,lesId){
+  return (stu.attempts||[]).filter(a=>String(a.lesson)===String(lesId))
+    .sort((x,y)=>String(y.created_at).localeCompare(String(x.created_at)));
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function fmtDate(iso){
+  if(!iso)return '';
+  try{ const d=new Date(iso);
+    return d.toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'})+' · '+
+           d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return String(iso).slice(0,16).replace('T',' '); }
 }
 /* voortgang van één leerling voor één les */
 function lessonStat(stu,lesId){
@@ -910,58 +959,169 @@ function lessonStat(stu,lesId){
   const pct=stu.lessonsPct[lesId]||0;
   return {total,correct:Math.round(pct/100*total),answered:pct>0?total:0,pct,perQ:null};
 }
+/* NIVEAU 1 — overzicht van alle lessen (klik een les om erin te gaan) */
 function renderTeacher(students){
   const playable=COURSES.filter(c=>QUIZZES[c.n]);
   const banner = CLOUD ? '' :
     `<div class="tv-banner">⚠️ Centrale database nog niet gekoppeld — je ziet alleen leerlingen die op <b>dit apparaat</b> hebben geoefend, zonder detail per vraag. Vul je Supabase-sleutels in (zie <b>DOCENT-SETUP.md</b>) voor volledig inzicht vanaf alle apparaten.</div>`;
-  let rows='';
-  students.forEach((stu,idx)=>{
-    let totC=0,totT=0,cells='';
-    playable.forEach(c=>{const s=lessonStat(stu,c.n); totC+=s.correct; totT+=s.total;
-      cells+=`<td class="tnum">${s.answered?s.pct+'%':'—'}</td>`;});
-    const overall=totT?Math.round(totC/totT*100):0;
-    rows+=`<tr class="tv-row" data-i="${idx}"><td class="tv-name">${stu.name}<small>${stu.email}</small></td>${cells}<td class="tnum tv-overall">${overall}%</td><td class="tv-open">bekijk →</td></tr>`;
+  let cards='';
+  playable.forEach(c=>{
+    let done=0,sumPct=0,seen=0;
+    students.forEach(stu=>{const s=lessonStat(stu,c.n); if(s.answered){seen++;sumPct+=s.pct; if(s.pct>=PASS)done++;}});
+    const avg=seen?Math.round(sumPct/seen):0;
+    cards+=`<button class="tv-card" data-les="${c.n}">
+      <div class="num">Les ${c.n}</div>
+      <h3>${esc(c.t)}</h3>
+      <div class="tv-card-meta">
+        <span class="tv-chip">${seen}/${students.length} gemaakt</span>
+        <span class="tnum tv-card-avg">${seen?avg+'% gem.':'—'}</span>
+      </div>
+    </button>`;
   });
-  const heads=playable.map(c=>`<th title="${c.t}">Les ${c.n}</th>`).join('');
   $('teacherView').innerHTML=`
     <div class="welcome">
-      <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Voortgang van je leerlingen${CLOUD?' — live uit de database':''}.</p></div>
+      <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
       <div class="stat-strip">
         <div class="stat"><div class="n tnum">${students.length}</div><div class="l">leerlingen</div></div>
         <div class="stat"><div class="n tnum">${playable.length}</div><div class="l">lessen</div></div>
       </div>
     </div>
     ${banner}
+    <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
+  $('teacherView').querySelectorAll('.tv-card').forEach(b=>
+    b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
+}
+/* NIVEAU 2 — één les: tabel met leerlingen × vragen (laatste resultaat per vraag) */
+function renderTeacherLesson(lesId,students){
+  const qz=QUIZZES[lesId]; const total=qz.q.length;
+  const heads=qz.q.map((q,i)=>`<th title="${esc(stripTags(q.t))}">V${i+1}</th>`).join('');
+  let rows='';
+  students.forEach((stu,idx)=>{
+    const s=lessonStat(stu,lesId);
+    let cells='';
+    for(let i=0;i<total;i++){
+      let cls='q-na',mark='–';
+      if(s.perQ){ if(s.perQ[i]===true){cls='q-ok';mark='✓';} else if(s.perQ[i]===false){cls='q-no';mark='✗';} }
+      cells+=`<td class="tv-dot ${cls}">${mark}</td>`;
+    }
+    const nA=attemptsFor(stu,lesId).length;
+    rows+=`<tr class="tv-row" data-i="${idx}">
+      <td class="tv-name">${esc(stu.name)}<small>${esc(stu.email)}</small></td>
+      ${cells}
+      <td class="tnum tv-overall">${s.answered?s.pct+'%':'—'}</td>
+      <td class="tnum">${nA||'—'}</td>
+      <td class="tv-open">bekijk →</td></tr>`;
+  });
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar lessen</button>
+    <div class="welcome"><div><h1>Les ${lesId} · ${esc(lessonTitle(lesId))}</h1><p>Laatste resultaat per vraag. Klik een leerling voor alle pogingen.</p></div></div>
     <div class="tv-tablewrap">
       <table class="tv-table">
-        <thead><tr><th>Leerling</th>${heads}<th>Totaal</th><th></th></tr></thead>
+        <thead><tr><th>Leerling</th>${heads}<th>Totaal</th><th>Pogingen</th><th></th></tr></thead>
         <tbody>${rows||'<tr><td colspan="99" style="padding:18px;color:var(--ink-faint)">Nog geen gegevens.</td></tr>'}</tbody>
       </table>
     </div>`;
-  $('teacherView').querySelectorAll('.tv-row').forEach(tr=>
-    tr.addEventListener('click',()=>renderTeacherStudent(students[+tr.dataset.i],students)));
-}
-function renderTeacherStudent(stu,students){
-  const playable=COURSES.filter(c=>QUIZZES[c.n]);
-  let blocks='';
-  playable.forEach(c=>{
-    const s=lessonStat(stu,c.n); const qz=QUIZZES[c.n]; let dots='';
-    for(let i=0;i<s.total;i++){
-      let cls='q-na',lab='niet gemaakt';
-      if(s.perQ){ if(s.perQ[i]===true){cls='q-ok';lab='goed';} else if(s.perQ[i]===false){cls='q-no';lab='fout';} }
-      const qtxt=qz.q[i]?qz.q[i].t.replace(/<[^>]+>/g,''):('Vraag '+(i+1));
-      dots+=`<div class="q-item ${cls}"><span class="q-txt">${i+1}. ${qtxt}</span><span class="q-res">${cls==='q-ok'?'✓':cls==='q-no'?'✗':'–'}</span></div>`;
-    }
-    blocks+=`<div class="tv-lesson">
-      <div class="tv-lesson-head"><b>Les ${c.n} · ${c.t}</b><span class="tnum">${s.answered?s.pct+'% ('+s.correct+'/'+s.total+' goed)':'nog niet gemaakt'}</span></div>
-      ${s.perQ?`<div class="q-list">${dots}</div>`:`<div class="tv-note">Detail per vraag verschijnt zodra de database gekoppeld is.</div>`}
-    </div>`;
-  });
-  $('teacherView').innerHTML=`
-    <button class="back" id="tvBack">← Terug naar overzicht</button>
-    <div class="welcome"><div><h1>${stu.name}</h1><p>${stu.email}</p></div></div>
-    ${blocks}`;
   $('tvBack').addEventListener('click',()=>renderTeacher(students));
+  $('teacherView').querySelectorAll('.tv-row').forEach(tr=>
+    tr.addEventListener('click',()=>renderTeacherStudentLesson(students[+tr.dataset.i],lesId,students)));
+}
+/* per-vraag detaillijst uit een poging (details jsonb) */
+function attemptDetailHtml(att,lesId){
+  const qz=QUIZZES[lesId], det=Array.isArray(att.details)?att.details:[];
+  if(!det.length)return `<div class="tv-note">Geen vraagdetail bewaard voor deze poging (score ${att.score}/${att.total}).</div>`;
+  return `<div class="q-list">`+det.map((d,i)=>{
+    const cls=d.correct?'q-ok':'q-no';
+    const q=(d.question!=null&&d.question!=='')?d.question:(qz&&qz.q[d.q_index]?stripTags(qz.q[d.q_index].t):('Vraag '+(i+1)));
+    const gave=d.correct?`<b>${esc(d.given)}</b>`:`<span class="tv-given-no">${esc(d.given)}</span> → goed: <b>${esc(d.answer)}</b>`;
+    return `<div class="q-item ${cls}">
+      <span class="q-txt">${esc(q)}<small class="tv-gave">${gave}</small></span>
+      <span class="q-res">${d.correct?'✓':'✗'}</span></div>`;
+  }).join('')+`</div>`;
+}
+/* NIVEAU 3 — één leerling in één les: meest recente poging + lijst met alle pogingen */
+function renderTeacherStudentLesson(stu,lesId,students){
+  const atts=attemptsFor(stu,lesId);
+  const recent=atts[0];
+  let recentHtml, listHtml;
+  if(recent){
+    recentHtml=`<div class="tv-lesson">
+      <div class="tv-lesson-head"><b>Meest recente poging</b>
+        <span class="tnum">${fmtDate(recent.created_at)} · ${esc(recent.mode||'')} · ${recent.score}/${recent.total} (${recent.pct}%)</span></div>
+      ${attemptDetailHtml(recent,lesId)}</div>`;
+    listHtml=atts.map((a,i)=>`<button class="tv-attempt" data-i="${i}">
+        <span class="tv-att-when">${fmtDate(a.created_at)}${i===0?' <span class="tv-badge">nieuwste</span>':''}</span>
+        <span class="tv-att-mode">${esc(a.mode||'oefening')}</span>
+        <span class="tnum tv-att-score">${a.score}/${a.total} · ${a.pct}%</span>
+      </button>`).join('');
+  } else {
+    // Terugval: geen poging-geschiedenis (bv. oude gegevens) — toon laatste per-vraag status
+    const s=lessonStat(stu,lesId); const qz=QUIZZES[lesId]; let dots='';
+    for(let i=0;i<s.total;i++){
+      let cls='q-na'; if(s.perQ){ if(s.perQ[i]===true)cls='q-ok'; else if(s.perQ[i]===false)cls='q-no'; }
+      const qtxt=qz.q[i]?stripTags(qz.q[i].t):('Vraag '+(i+1));
+      dots+=`<div class="q-item ${cls}"><span class="q-txt">${i+1}. ${esc(qtxt)}</span><span class="q-res">${cls==='q-ok'?'✓':cls==='q-no'?'✗':'–'}</span></div>`;
+    }
+    recentHtml=`<div class="tv-lesson">
+      <div class="tv-lesson-head"><b>Laatste resultaat</b><span class="tnum">${s.answered?s.pct+'% ('+s.correct+'/'+s.total+')':'nog niet gemaakt'}</span></div>
+      ${s.perQ?`<div class="q-list">${dots}</div>`:`<div class="tv-note">Detail per vraag verschijnt zodra de database gekoppeld is.</div>`}</div>`;
+    listHtml=`<div class="tv-note">Nog geen losse pogingen bewaard. Zodra deze leerling de les (opnieuw) maakt, verschijnt elke poging hier apart — met wat er precies is ingevuld.</div>`;
+  }
+  const hasData=atts.length||lessonStat(stu,lesId).answered;
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar les ${lesId}</button>
+    <div class="welcome">
+      <div><h1>${esc(stu.name)}</h1><p>Les ${lesId} · ${esc(lessonTitle(lesId))} — ${esc(stu.email)}</p></div>
+      ${hasData?`<button class="tv-wipe" id="tvWipe" title="Wis de voortgang van deze leerling voor deze les">🗑 Voortgang wissen</button>`:''}
+    </div>
+    ${recentHtml}
+    <div class="tv-lesson">
+      <div class="tv-lesson-head"><b>Alle pogingen (${atts.length})</b><span class="tnum">nieuwste bovenaan</span></div>
+      <div class="tv-attempts">${listHtml}</div>
+    </div>`;
+  $('tvBack').addEventListener('click',()=>renderTeacherLesson(lesId,students));
+  const wipe=$('tvWipe'); if(wipe)wipe.addEventListener('click',()=>teacherWipeLesson(stu,lesId,students));
+  $('teacherView').querySelectorAll('.tv-attempt').forEach(b=>
+    b.addEventListener('click',()=>renderAttemptDetail(atts[+b.dataset.i],stu,lesId,students)));
+}
+/* wis de voortgang van één leerling voor één les — hij begint dan opnieuw */
+async function teacherWipeLesson(stu,lesId,students){
+  if(!confirm('Voortgang van '+stu.name+' voor les '+lesId+' wissen?\n\n'+
+    'Alle antwoorden én pogingen van deze les worden verwijderd. '+
+    'De leerling begint deze les daarna weer helemaal opnieuw.\n\n'+
+    'Dit kan niet ongedaan worden gemaakt.'))return;
+  if(CLOUD){
+    if(!stu.id){ alert('Kan deze leerling niet vinden in de database.'); return; }
+    try{
+      const r1=await sb.from('attempts').delete().eq('user_id',stu.id).eq('lesson',String(lesId));
+      const r2=await sb.from('answers').delete().eq('user_id',stu.id).eq('lesson',String(lesId));
+      if((r1&&r1.error)||(r2&&r2.error))throw (r1.error||r2.error);
+    }catch(e){
+      alert('Wissen mislukt. Heb je de nieuwe database-regel voor wissen al toegevoegd?\n\n'+
+            'Zie DOCENT-SETUP.md (blok "docent mag wissen").'); return;
+    }
+  } else {
+    try{ const key='lil-prog-'+stu.email;
+      const p=JSON.parse(localStorage.getItem(key))||{lessons:{},days:[]};
+      delete p.lessons[lesId]; localStorage.setItem(key,JSON.stringify(p));
+    }catch(e){}
+  }
+  $('teacherView').innerHTML='<p style="padding:24px 4px">Bijwerken…</p>';
+  const fresh=await gatherTeacherData();
+  const s=fresh.find(x=>x.email===stu.email)||stu;
+  renderTeacherStudentLesson(s,lesId,fresh);
+}
+/* NIVEAU 4 — één poging in detail: wat de leerling toen invoerde en behaalde */
+function renderAttemptDetail(att,stu,lesId,students){
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar pogingen</button>
+    <div class="welcome"><div><h1>${esc(stu.name)} — poging</h1>
+      <p>Les ${lesId} · ${esc(lessonTitle(lesId))} · ${esc(att.mode||'oefening')} · ${fmtDate(att.created_at)}</p></div>
+      <div class="stat-strip"><div class="stat"><div class="n tnum">${att.pct}%</div><div class="l">${att.score}/${att.total} goed</div></div></div>
+    </div>
+    <div class="tv-lesson">
+      <div class="tv-lesson-head"><b>Ingevoerde antwoorden</b><span class="tnum">${att.score}/${att.total} goed</span></div>
+      ${attemptDetailHtml(att,lesId)}</div>`;
+  $('tvBack').addEventListener('click',()=>renderTeacherStudentLesson(stu,lesId,students));
 }
 
 /* ---------------- spel-hulpjes ---------------- */
@@ -1032,7 +1192,7 @@ function startQuiz(id){ runSeq(id,'Quiz',buildQuizItems(id),()=>startQuiz(id)); 
 function startInvullen(id){ runSeq(id,'Invullen',shuffle(buildFillItems(id)),()=>startInvullen(id)); }
 function startMix(id){ runSeq(id,'Mix',buildMixItems(id),()=>startMix(id)); }
 function runSeq(id,label,items,onRetry){
-  game={id,label,items,i:0,score:0,answered:false,onRetry};
+  game={id,label,items,i:0,score:0,answered:false,onRetry,details:[]};
   openLessonView(); renderItem();
 }
 function seqHead(){
@@ -1047,7 +1207,7 @@ function seqHead(){
 }
 function renderItem(){
   const g=game,total=g.items.length;
-  if(g.i>=total)return showResult(g.id,g.label,g.score,total,g.onRetry);
+  if(g.i>=total){ cloudRecordAttempt(g.id,g.label,g.score,total,g.details); return showResult(g.id,g.label,g.score,total,g.onRetry); }
   const it=g.items[g.i]; g.answered=false;
   it.kind==='fill'?renderFill(it):renderQuizItem(it);
   $('backBtn').addEventListener('click',()=>startLesson(g.id));
@@ -1075,6 +1235,7 @@ function answerQuiz(btn,it,q){
   if(game.answered)return; game.answered=true;
   const k=+btn.dataset.k,correct=k===q.c; if(correct)game.score++;
   cloudRecordAnswer(game.id,it.qi,correct);
+  if(game.details)game.details.push({q_index:it.qi, question:stripTags(q.t), given:q.o[k], answer:q.o[q.c], correct:!!correct});
   document.querySelectorAll('#opts .opt').forEach(b=>{const bk=+b.dataset.k;b.disabled=true;
     const mark=b.querySelector('.mark');
     if(bk===q.c){b.classList.add('correct');mark.textContent='✓';}
@@ -1109,6 +1270,7 @@ function checkFill(it,p){
   const opts=p.nl.split('/').map(x=>norm(x));
   const correct=opts.includes(norm(val)); if(correct)game.score++;
   cloudRecordAnswer(game.id,it.qi,correct);
+  if(game.details)game.details.push({q_index:it.qi, question:'Welk woord betekent “'+p.tr+'”?', given:val||'(leeg)', answer:p.nl, correct:!!correct});
   const inp=$('fillInput'); inp.disabled=true; inp.classList.add(correct?'ok':'no');
   $('checkBtn').disabled=true;
   const ex=QUIZZES[game.id].q[it.qi];
@@ -1123,12 +1285,16 @@ function checkFill(it,p){
 let sl=null;
 function startSlepen(id){
   const all=shuffle(wordPairs(id)); if(all.length<2)return startQuiz(id);
-  sl={id,all,pos:0,size:5,correct:0,errored:new Set()};
+  sl={id,all,pos:0,size:5,correct:0,errored:new Set(),details:[]};
   openLessonView(); renderSlepen();
 }
 function renderSlepen(){
   const s=sl, batch=s.all.slice(s.pos,s.pos+s.size);
-  if(!batch.length)return showResult(s.id,'Slepen',s.correct,s.all.length,()=>startSlepen(s.id));
+  if(!batch.length){
+    const det=s.all.map(p=>({q_index:p.qi, question:p.nl+' ↔ '+p.tr, given:s.errored.has(p.qi)?'in één keer fout gekoppeld':p.nl, answer:p.tr, correct:!s.errored.has(p.qi)}));
+    cloudRecordAttempt(s.id,'Slepen',s.correct,s.all.length,det);
+    return showResult(s.id,'Slepen',s.correct,s.all.length,()=>startSlepen(s.id));
+  }
   const totalRounds=Math.ceil(s.all.length/s.size), roundNo=Math.floor(s.pos/s.size)+1, last=s.pos+s.size>=s.all.length;
   const left=shuffle(batch.slice()), right=shuffle(batch.slice());
   $('quizView').innerHTML=`
@@ -1182,12 +1348,12 @@ function renderSlepen(){
 let fc=null;
 function startFlashcards(id){
   const cards=shuffle(wordPairs(id)); if(!cards.length)return startQuiz(id);
-  fc={id,cards,i:0,known:0,flipped:false};
+  fc={id,cards,i:0,known:0,flipped:false,details:[]};
   openLessonView(); renderFlash();
 }
 function renderFlash(){
   const f=fc,total=f.cards.length;
-  if(f.i>=total)return showResult(f.id,'Flitskaarten',f.known,total,()=>startFlashcards(f.id));
+  if(f.i>=total){ cloudRecordAttempt(f.id,'Flitskaarten',f.known,total,f.details); return showResult(f.id,'Flitskaarten',f.known,total,()=>startFlashcards(f.id)); }
   const c=f.cards[f.i],ex=QUIZZES[f.id].q[c.qi];
   $('quizView').innerHTML=`
     <button class="back" id="backBtn">← Andere spelvorm</button>
@@ -1211,7 +1377,9 @@ function renderFlash(){
   const card=$('flashCard');
   card.addEventListener('click',()=>{card.classList.toggle('flip');
     if(card.classList.contains('flip'))$('flashActs').classList.remove('hidden');});
-  const nextCard=known=>{if(known)fc.known++;cloudRecordAnswer(f.id,c.qi,known);fc.i++;renderFlash();};
+  const nextCard=known=>{if(known)fc.known++;cloudRecordAnswer(f.id,c.qi,known);
+    if(fc.details)fc.details.push({q_index:c.qi, question:c.nl+' ↔ '+c.tr, given:known?'wist het':'nog oefenen', answer:c.tr, correct:!!known});
+    fc.i++;renderFlash();};
   $('fcAgain').addEventListener('click',()=>nextCard(false));
   $('fcKnown').addEventListener('click',()=>nextCard(true));
 }
