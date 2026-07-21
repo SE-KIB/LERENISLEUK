@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leren is Leuk — Bijles &amp; Educatie | sekibar.nl</title>
+  <meta name="description" content="Leren is leuk! Persoonlijke bijles en heldere uitleg voor basisschool, middelbare school en meer. Wiskunde, taal, en studievaardigheden." />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>" />
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav container">
+      <a href="#" class="brand">📚 Leren&nbsp;is&nbsp;Leuk</a>
+      <button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
+      <ul class="nav-links">
+        <li><a href="#over">Over</a></li>
+        <li><a href="#vakken">Vakken</a></li>
+        <li><a href="#aanpak">Aanpak</a></li>
+        <li><a href="#contact" class="btn btn-small">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <h1>Leren is <span class="accent">leuk</span> — als je de juiste hulp hebt</h1>
+          <p class="lead">Persoonlijke bijles en heldere uitleg voor de basisschool, middelbare school en daarna. Samen maken we lastige stof begrijpelijk én leuk.</p>
+          <div class="hero-actions">
+            <a href="#contact" class="btn">Plan een gratis kennismaking</a>
+            <a href="#aanpak" class="btn btn-ghost">Zo werkt het</a>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="blob"></div>
+          <span class="float f1">➗</span>
+          <span class="float f2">✏️</span>
+          <span class="float f3">🔬</span>
+          <span class="float f4">📖</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="over" class="section">
+      <div class="container">
+        <h2>Over Leren is Leuk</h2>
+        <p class="section-lead">Iedereen kan leren — met een beetje geduld, de juiste uitleg en veel oefenen. Bij Leren is Leuk staat de leerling centraal: we sluiten aan bij het niveau, het tempo en de manier waarop jíj het beste leert.</p>
+        <div class="cards">
+          <div class="card">
+            <div class="card-icon">🎯</div>
+            <h3>Op maat</h3>
+            <p>Elke les is afgestemd op de leerling. Geen standaardaanpak, maar precies wat nodig is.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">😊</div>
+            <h3>Met plezier</h3>
+            <p>Zelfvertrouwen groeit als leren leuk wordt. We vieren elke stap vooruit.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">📈</div>
+            <h3>Zichtbaar resultaat</h3>
+            <p>Betere cijfers, maar vooral: meer begrip en zelfstandigheid.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="vakken" class="section section-alt">
+      <div class="container">
+        <h2>Vakken &amp; hulp</h2>
+        <p class="section-lead">Van rekenen op de basisschool tot examenstof op de middelbare school.</p>
+        <ul class="subjects">
+          <li>➗ Wiskunde &amp; rekenen</li>
+          <li>📖 Nederlands</li>
+          <li>🌍 Engels</li>
+          <li>🔬 Natuurkunde &amp; scheikunde</li>
+          <li>🧠 Studievaardigheden</li>
+          <li>📝 Examentraining</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="aanpak" class="section">
+      <div class="container">
+        <h2>Zo werkt het</h2>
+        <div class="steps">
+          <div class="step">
+            <span class="step-num">1</span>
+            <h3>Kennismaking</h3>
+            <p>We bespreken vrijblijvend waar je tegenaan loopt en wat je doel is.</p>
+          </div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <h3>Plan op maat</h3>
+            <p>Samen maken we een aanpak die past bij jouw niveau en tempo.</p>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <h3>Aan de slag</h3>
+            <p>Heldere uitleg, oefenen en direct feedback — tot het klikt.</p>
+          </div>
+          <div class="step">
+            <span class="step-num">4</span>
+            <h3>Groeien</h3>
+            <p>Meer begrip, meer zelfvertrouwen en betere resultaten.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section section-cta">
+      <div class="container">
+        <h2>Neem contact op</h2>
+        <p class="section-lead">Vragen of direct een gratis kennismaking plannen? Stuur gerust een berichtje.</p>
+        <div class="contact-actions">
+          <a href="mailto:info@sekibar.nl" class="btn">✉️ info@sekibar.nl</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© <span id="year"></span> Leren is Leuk · sekibar.nl</p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    const toggle = document.querySelector('.nav-toggle');
+    const links = document.querySelector('.nav-links');
+    toggle.addEventListener('click', () => {
+      const open = links.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open);
+    });
+    links.addEventListener('click', e => {
+      if (e.target.tagName === 'A') links.classList.remove('open');
+    });
+  </script>
+</body>
+</html>
