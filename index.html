@@ -968,9 +968,10 @@ function renderTeacherStudent(stu,students){
 
 /* ---------------- spel-hulpjes ---------------- */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function lessonTitle(id){const c=COURSES.find(x=>x.n===id);return c?c.t:(QUIZZES[id]?QUIZZES[id].title:('Les '+id));}
 function stripTags(s){return (s||'').replace(/<[^>]+>/g,'').trim();}
 function mWord(t){const m=/<span class=['"]m['"]>([\s\S]*?)<\/span>/.exec(t||'');return m?stripTags(m[1]):null;}
-function norm(s){return (s||'').toLowerCase().replace(/^(de |het |een )/,'').replace(/[.,!?¿¡]/g,'').replace(/\s+/g,' ').trim();}
+function norm(s){return (s||'').toLowerCase().replace(/[.,!?¿¡]/g,'').replace(/\s+/g,' ').trim().replace(/^(de|het|een)\s+/,'');}
 /* NL ↔ TR woordparen uit de vraagbank van een les (alleen de woord-vragen) */
 function wordPairs(id){
   const data=QUIZZES[id]; if(!data)return [];
@@ -994,7 +995,7 @@ function startLesson(id){
     <button class="back" id="backBtn">← Terug naar lessen</button>
     <div class="quiz-head">
       <div class="num">Les ${id}</div>
-      <h1>${data.title}</h1>
+      <h1>${lessonTitle(id)}</h1>
       <p>Kies hoe je deze woorden wilt oefenen.</p>
     </div>
     <div class="modes">
@@ -1041,7 +1042,7 @@ function seqHead(){
   return `<button class="back" id="backBtn">← Andere spelvorm</button>
     <div class="quiz-head">
       <div class="num">Les ${g.id} · ${g.label}</div>
-      <h1>${QUIZZES[g.id].title}</h1>
+      <h1>${lessonTitle(g.id)}</h1>
       <div class="qbar"><i style="width:${(g.i/total)*100}%"></i></div>
       <div class="qmeta"><span>Vraag ${g.i+1} van ${total}</span><span class="tnum">Score ${g.score}/${g.i}</span></div>
     </div>`;
@@ -1056,12 +1057,13 @@ function renderItem(){
 }
 function renderQuizItem(it){
   const g=game,q=QUIZZES[g.id].q[it.qi],last=g.i===g.items.length-1;
+  const order=it.order||(it.order=shuffle(q.o.map((_,k)=>k)));   // husselvolgorde, stabiel per vraag
   $('quizView').innerHTML=seqHead()+`
     <div class="qcard">
       <span class="qtag">${q.tag}</span>
       <div class="qtext">${q.t}</div>
       <div class="opts" id="opts">
-        ${q.o.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+k)}</span><span>${o}</span><span class="mark"></span></button>`).join('')}
+        ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
       <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
       <div class="qfoot">
@@ -1135,7 +1137,7 @@ function renderSlepen(){
     <button class="back" id="backBtn">← Andere spelvorm</button>
     <div class="quiz-head">
       <div class="num">Les ${s.id} · Slepen</div>
-      <h1>${QUIZZES[s.id].title}</h1>
+      <h1>${lessonTitle(s.id)}</h1>
       <p>Sleep het Nederlandse woord naar de juiste vertaling. Op de telefoon: tik een woord en tik daarna de vertaling.</p>
       <div class="qmeta"><span>Ronde ${roundNo} van ${totalRounds}</span><span class="tnum" id="slScore">Goed: ${s.correct}</span></div>
     </div>
@@ -1193,7 +1195,7 @@ function renderFlash(){
     <button class="back" id="backBtn">← Andere spelvorm</button>
     <div class="quiz-head">
       <div class="num">Les ${f.id} · Flitskaarten</div>
-      <h1>${QUIZZES[f.id].title}</h1>
+      <h1>${lessonTitle(f.id)}</h1>
       <div class="qbar"><i style="width:${(f.i/total)*100}%"></i></div>
       <div class="qmeta"><span>Kaart ${f.i+1} van ${total}</span><span class="tnum">Gewust: ${f.known}</span></div>
     </div>
@@ -1234,7 +1236,7 @@ function showResult(id,label,score,total,onRetry){
         </svg>
         <div class="pct tnum" style="color:${col}">${pct}%</div>
       </div>
-      <h2>${QUIZZES[id].title} · ${label}</h2>
+      <h2>${lessonTitle(id)} · ${label}</h2>
       <p>Je had <b>${score} van de ${total}</b> goed. ${msg}</p>
       <div class="acts">
         <button class="btn-ghost" id="retry">Opnieuw proberen</button>
@@ -1263,8 +1265,9 @@ document.addEventListener('keydown',e=>{
   if(typing)return;
   const it=game&&game.items&&game.items[game.i];
   if(game&&!game.answered&&it&&it.kind==='quiz'){
-    const k=e.key.toUpperCase().charCodeAt(0)-65;
-    if(k>=0&&k<4){const b=document.querySelector(`#opts .opt[data-k="${k}"]`);if(b)b.click();}
+    const pos=e.key.toUpperCase().charCodeAt(0)-65;
+    const opts=document.querySelectorAll('#opts .opt');
+    if(pos>=0&&pos<opts.length){opts[pos].click();}
   }
 });
 
