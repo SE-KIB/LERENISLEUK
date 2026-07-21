@@ -304,8 +304,8 @@ a{color:var(--brand-deep)}
 
         <form id="loginForm">
           <div class="field">
-            <label for="email">E-mailadres of gebruikersnaam</label>
-            <input type="text" id="email" placeholder="serkan of jij@voorbeeld.nl" autocomplete="username" required>
+            <label for="email">E-mailadres</label>
+            <input type="text" id="email" placeholder="E-mailadres" autocomplete="username" required>
           </div>
           <div class="field">
             <div class="lbl-row"><label for="pw">Wachtwoord</label><a href="#" id="forgot">Vergeten?</a></div>
@@ -644,7 +644,7 @@ $('forgot').addEventListener('click',e=>{e.preventDefault();
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
 function updateSwitchBtn(){
   const b=$('switchBtn');
-  if(currentUser&&currentUser.joker){
+  if(currentUser&&(currentUser.joker||currentUser.role==='teacher')){
     b.style.display='';
     b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
   } else { b.style.display='none'; }
