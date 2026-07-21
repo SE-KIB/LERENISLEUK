@@ -399,8 +399,8 @@ a{color:var(--brand-deep)}
    database + docenten-dashboard te activeren. De anon-sleutel mag publiek
    zijn; de beveiliging zit in de database-regels (RLS).
    ============================================================ */
-const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
+const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
 const CLOUD = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
