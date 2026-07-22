@@ -1,0 +1,34 @@
+name: Update PR version in footer
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set PR number in footer
+        run: |
+          sed -i -E 's#(<span id="version">Serkan Yapiyor Bu Isi - Version \(PR\()[^)]*(\)\)</span>)#\1${{ github.event.pull_request.number }}\2#' index.html
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- index.html; then
+            git add index.html
+            git commit -m "Update footer version to PR #${{ github.event.pull_request.number }}"
+            git push
+          else
+            echo "No change needed."
+          fi
