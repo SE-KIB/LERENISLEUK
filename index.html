@@ -404,6 +404,7 @@ a{color:var(--brand-deep)}
         <div><div class="n tnum" id="asideSpeelbaar">–</div><div class="l">nu speelbaar</div></div>
         <div><div class="n tnum" id="asideOefeningen">–</div><div class="l">oefeningen</div></div>
       </div>
+      <div class="aside-version" id="versionFront" style="position:relative; z-index:2; margin-top:18px; font-size:12px; color:#a9f0cf; letter-spacing:.02em">Serkan Yapiyor Bu Isi - Version PR20 - 10:16</div>
     </aside>
 
     <main class="login-main">
@@ -496,7 +497,7 @@ a{color:var(--brand-deep)}
 
   <footer class="footer">
     <span>© <span id="year"></span> Çalış Artık Da · sekibar.nl</span><span class="spacer"></span>
-    <span id="version">Serkan Yapiyor Bu Isi - Version PR19 - 09:39</span>
+    <span id="version">Serkan Yapiyor Bu Isi - Version PR20 - 10:16</span>
   </footer>
 </div>
 
@@ -1468,6 +1469,26 @@ document.addEventListener('keydown',e=>{
 });
 
 document.getElementById('year').textContent=new Date().getFullYear();
+
+/* Footer-versie automatisch: haalt de laatst samengevoegde PR op via de GitHub API,
+   zodat de tekst altijd meebeweegt met elke nieuwe PR. Lukt het ophalen niet
+   (offline / API-limiet), dan blijft de reeds in de HTML aanwezige tekst staan. */
+(function updateVersionFromLatestPR(){
+  const els=[document.getElementById('version'),document.getElementById('versionFront')].filter(Boolean);
+  if(!els.length)return;
+  const PREFIX='Serkan Yapiyor Bu Isi';
+  fetch('https://api.github.com/repos/SE-KIB/LERENISLEUK/pulls?state=closed&sort=updated&direction=desc&per_page=20')
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(list=>{
+      const pr=list.find(p=>p.merged_at);
+      if(!pr)return;
+      const t=new Date(pr.merged_at)
+        .toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      const txt=`${PREFIX} - Version PR${pr.number} - ${t}`;
+      els.forEach(el=>{el.textContent=txt;});
+    })
+    .catch(()=>{/* stille fallback: laat bestaande tekst staan */});
+})();
 </script>
 </body>
 </html>
