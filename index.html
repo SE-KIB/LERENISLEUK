@@ -1390,13 +1390,20 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
-/* Vrolijk geluidje bij een hoge score — met de Web Audio API, dus geen los bestand nodig. */
-function playSuccessSound(){
+/* Geluidsbestanden waaruit willekeurig één gekozen wordt bij een hoge score.
+   Zet je eigen (rechtenvrije) fragmenten in de map /sounds/ en voeg de
+   bestandsnamen hieronder toe. Ontbreekt een bestand of lukt afspelen niet,
+   dan valt de code terug op een opgewekt toontje (Web Audio). */
+const SUCCESS_SOUNDS=[
+  'sounds/geluid1.mp3'
+  // ,'sounds/geluid2.mp3'   // <- 2e geluid: bestand in /sounds/ zetten en deze regel activeren
+];
+
+function playToneFallback(){
   try{
     const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
     const ctx=new AC();
-    // Kort opgewekt melodietje (C – E – G – hoge C)
-    const notes=[523.25,659.25,783.99,1046.50];
+    const notes=[523.25,659.25,783.99,1046.50];   // C – E – G – hoge C
     notes.forEach((freq,i)=>{
       const t=ctx.currentTime+i*0.13;
       const osc=ctx.createOscillator(), gain=ctx.createGain();
@@ -1409,6 +1416,19 @@ function playSuccessSound(){
     });
     setTimeout(()=>ctx.close(),1200);
   }catch(e){/* geluid is niet essentieel; stil falen */}
+}
+
+function playSuccessSound(){
+  if(!SUCCESS_SOUNDS.length){ playToneFallback(); return; }
+  const src=SUCCESS_SOUNDS[Math.floor(Math.random()*SUCCESS_SOUNDS.length)];
+  try{
+    const audio=new Audio(src);
+    audio.volume=0.7;
+    // Lukt afspelen of laden niet (bestand ontbreekt e.d.) → toontje als terugval.
+    audio.addEventListener('error',playToneFallback,{once:true});
+    const p=audio.play();
+    if(p&&p.catch)p.catch(playToneFallback);
+  }catch(e){ playToneFallback(); }
 }
 
 function showResult(id,label,score,total,onRetry){
