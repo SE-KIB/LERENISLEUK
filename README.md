@@ -7,7 +7,9 @@ feedback en uitleg. Voor de basisschool en inburgering / NT2.
 Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**.
 
 ## Bestanden
-- `index.html` — de volledige app (HTML, CSS en JavaScript in één bestand)
+- `index.html` — de app (HTML, CSS en de app-logica in JavaScript)
+- `lessons.js` — alle lesinhoud (`COURSES`, `SOON`, `QUIZZES`), los van de app
+- `scripts/validate-lessons.js` — controleert de vragenbank (draait ook in CI)
 - `CNAME` — koppelt sekibar.nl aan GitHub Pages
 
 ## Functies
@@ -18,13 +20,19 @@ Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**
 - Contactsectie met e-mail + formulier
 
 ## Lessen aanpassen of toevoegen
-Alle inhoud staat bovenaan het `<script>`-blok in `index.html`:
-- `COURSES` — de lessen op het dashboard (nummer, titel, status, voortgang)
+Alle inhoud staat in **`lessons.js`** (los van de app-logica in `index.html`):
+- `COURSES` — de lessen op het dashboard (nummer, titel, omschrijving)
 - `QUIZZES` — de vragen per les: `t` = vraag, `o` = antwoorden, `c` = index
-  van het juiste antwoord (0 = eerste), `e` = uitleg.
+  van het juiste antwoord (0 = eerste), `e` = uitleg, `tag` = vraagtype.
 
-Nieuwe les toevoegen? Zet een regel in `COURSES` met `tag:"live"` en voeg een
-bijpassend blok toe in `QUIZZES` met hetzelfde lesnummer.
+Nieuwe les toevoegen? Zet een regel in `COURSES` en voeg een bijpassend blok toe
+in `QUIZZES` met hetzelfde lesnummer. Controleer daarna met:
+
+```bash
+node scripts/validate-lessons.js
+```
+
+Deze check draait ook automatisch bij elke push/PR (GitHub Actions).
 
 ## Docenten-dashboard & centrale voortgang (Supabase)
 De site houdt voortgang standaard lokaal bij (per apparaat). Voor een echt
