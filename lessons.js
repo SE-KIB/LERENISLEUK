@@ -28,11 +28,14 @@ const SOON = [
 const QUIZZES = {
   "1":{ title:"Nieuwe buren & verhuizen", sub:"Lees het woord. Kies het goede antwoord. Bij elke vraag zie je ook het Turkse woord (Türkçe) als hulp.", q:[
     {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
-      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
+      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen.",
+      tip:"In een zin: <i>De <b>buren</b> wonen naast ons huis.</i> Het gaat dus over de mensen die naast je wonen."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de buurman</span>?", o:["komşu (erkek)","misafir","aile","arkadaş"], c:0,
-      e:"<b>de buurman</b> = (erkek) komşu. De man die naast je woont. De vrouw is <i>de buurvrouw</i>."},
+      e:"<b>de buurman</b> = (erkek) komşu. De man die naast je woont. De vrouw is <i>de buurvrouw</i>.",
+      tip:"In een zin: <i>De <b>buurman</b> is een man die naast je woont.</i> Denk aan 'man' in het woord."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verhuizen</span>?", o:["taşınmak","temizlemek","satın almak","aramak"], c:0,
-      e:"<b>verhuizen</b> = taşınmak. Je gaat in een ander huis wonen. Voorbeeld: <i>Wij verhuizen naar een nieuw huis.</i>"},
+      e:"<b>verhuizen</b> = taşınmak. Je gaat in een ander huis wonen. Voorbeeld: <i>Wij verhuizen naar een nieuw huis.</i>",
+      tip:"In een zin: <i>Wij <b>verhuizen</b> naar een nieuw huis.</i> Je gaat dus ergens anders wonen."},
     {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>komşular</span> (de mensen naast je)?", o:["de buren","de gast","de wijk","de hulp"], c:0,
       e:"komşular = <b>de buren</b>. 'de gast' = misafir, 'de wijk' = mahalle."},
     {tag:"de of het", t:"Wat is goed: <span class='m'>___ huis</span>?", o:["het huis","de huis","een huizen","dat huizen"], c:0,
