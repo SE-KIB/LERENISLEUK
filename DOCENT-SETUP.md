@@ -196,3 +196,60 @@ docent ziet alles. Gebruik nooit de *service_role*-sleutel in de website.
 ## Nieuwe leerling toevoegen (later)
 Authentication → Users → Add user (met Auto Confirm). Meer niet — bij de eerste
 oefening verschijnt de leerling vanzelf in het docenten-dashboard.
+
+---
+
+## E-mail bij een afgeronde les (optioneel)
+
+Wil je automatisch een mailtje krijgen zodra een leerling een les **foutloos
+(100%) afrondt**? Dat regel je met een **Edge Function** + een **Database
+Webhook**. De code staat al klaar in dit project onder
+`supabase/functions/notify-completion/`.
+
+> Vereist de cloudmodus uit de stappen hierboven (Supabase gekoppeld). Je krijgt
+> per leerling **één** mail per les — herhalen van dezelfde les mailt niet nog eens.
+
+### 1 — Maak een gratis mail-account bij Resend
+1. Ga naar <https://resend.com> → maak een gratis account.
+2. Ga naar **API Keys** → **Create API Key** → kopieer de sleutel (`re_...`).
+3. Afzender: zonder eigen domein mag je `onboarding@resend.dev` als afzender
+   gebruiken. Heb je een eigen domein (bijv. sekibar.nl)? Verifieer dat dan bij
+   Resend onder **Domains** en gebruik bijv. `meldingen@sekibar.nl`.
+
+### 2 — Zet de function neer
+De makkelijkste weg is de **Supabase CLI** (eenmalig installeren):
+
+```bash
+supabase login
+supabase link --project-ref <jouw-project-ref>
+supabase functions deploy notify-completion --no-verify-jwt
+```
+
+> `--no-verify-jwt` is nodig omdat de database-webhook de function aanroept
+> zonder ingelogde gebruiker.
+
+Geen CLI? Je kunt de function ook via het Supabase-dashboard aanmaken
+(**Edge Functions** → **Deploy a new function**) en de inhoud van
+`supabase/functions/notify-completion/index.ts` erin plakken.
+
+### 3 — Zet de secrets (instellingen) klaar
+In **Edge Functions** → **Secrets** (of via CLI):
+
+```bash
+supabase secrets set RESEND_API_KEY="re_...jouw-sleutel..."
+supabase secrets set NOTIFY_TO="serkan07eren@gmail.com"
+supabase secrets set NOTIFY_FROM="Calis Artik Da <onboarding@resend.dev>"
+```
+
+### 4 — Maak de Database Webhook
+1. Ga in Supabase naar **Database** → **Webhooks** → **Create a new hook**.
+2. Kies:
+   - **Table:** `attempts`
+   - **Events:** alleen **Insert**
+   - **Type:** **Supabase Edge Functions** → functie `notify-completion`
+3. Opslaan. Klaar!
+
+Vanaf nu krijg je op `serkan07eren@gmail.com` een mail zodra een leerling een
+les op 100% afrondt. De drempel staat als `PASS_PCT` bovenin
+`supabase/functions/notify-completion/index.ts` — pas die aan en deploy opnieuw
+als je een andere grens wilt.
