@@ -238,7 +238,7 @@ In **Edge Functions** → **Secrets** (of via CLI):
 ```bash
 supabase secrets set RESEND_API_KEY="re_...jouw-sleutel..."
 supabase secrets set NOTIFY_TO="serkan07eren@gmail.com"
-supabase secrets set NOTIFY_FROM="Leren is Leuk <onboarding@resend.dev>"
+supabase secrets set NOTIFY_FROM="Calis Artik Da <onboarding@resend.dev>"
 ```
 
 ### 4 — Maak de Database Webhook
