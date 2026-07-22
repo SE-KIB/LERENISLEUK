@@ -1390,42 +1390,21 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
-/* Vrolijke toontjes bij een hoge score — allemaal met de Web Audio API opgewekt,
-   dus geen bestanden nodig en volledig rechtenvrij. Er wordt willekeurig één
-   melodie gekozen. Een melodie is een lijst [frequentie(Hz), duur(s)]-tonen. */
-const SUCCESS_MELODIES=[
-  // 1) Opgaand fanfare-akkoord: C – E – G – hoge C
-  {wave:'triangle', gap:0.13, notes:[[523.25,0.34],[659.25,0.34],[783.99,0.34],[1046.50,0.40]]},
-  // 2) Speels dribbeltje: E – G – hoge C – hoge E
-  {wave:'square',   gap:0.11, notes:[[659.25,0.26],[783.99,0.26],[1046.50,0.26],[1318.51,0.36]]},
-  // 3) Zachte glimlach: G – A – hoge C – hoge D
-  {wave:'sine',     gap:0.14, notes:[[783.99,0.34],[880.00,0.34],[1046.50,0.34],[1174.66,0.44]]},
-  // 4) Trompetstootje: C – G – hoge C, kort en pittig
-  {wave:'sawtooth', gap:0.12, notes:[[523.25,0.22],[783.99,0.22],[1046.50,0.42]]}
+/* Geluid bij een hoge score. Er wordt willekeurig één bestand uit /sounds/
+   gekozen — nu nog één; voeg extra bestandsnamen toe voor meer variatie. */
+const SUCCESS_SOUNDS=[
+  'sounds/geluid1.mp3'
 ];
 
-function playMelody(mel){
-  try{
-    const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
-    const ctx=new AC();
-    let t=ctx.currentTime;
-    mel.notes.forEach(([freq,dur])=>{
-      const osc=ctx.createOscillator(), gain=ctx.createGain();
-      osc.type=mel.wave; osc.frequency.value=freq;
-      gain.gain.setValueAtTime(0.0001,t);
-      gain.gain.exponentialRampToValueAtTime(0.22,t+0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t); osc.stop(t+dur+0.02);
-      t+=mel.gap;
-    });
-    setTimeout(()=>ctx.close(),(t+0.6)*1000);
-  }catch(e){/* geluid is niet essentieel; stil falen */}
-}
-
 function playSuccessSound(){
-  const mel=SUCCESS_MELODIES[Math.floor(Math.random()*SUCCESS_MELODIES.length)];
-  playMelody(mel);
+  if(!SUCCESS_SOUNDS.length)return;
+  const src=SUCCESS_SOUNDS[Math.floor(Math.random()*SUCCESS_SOUNDS.length)];
+  try{
+    const audio=new Audio(src);
+    audio.volume=0.8;
+    const p=audio.play();
+    if(p&&p.catch)p.catch(()=>{/* geluid is niet essentieel; stil falen */});
+  }catch(e){/* stil falen */}
 }
 
 function showResult(id,label,score,total,onRetry){
