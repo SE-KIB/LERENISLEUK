@@ -496,7 +496,7 @@ a{color:var(--brand-deep)}
 
   <footer class="footer">
     <span>© <span id="year"></span> Çalış Artık Da · sekibar.nl</span><span class="spacer"></span>
-    <span id="version">Serkan Yapiyor Bu Isi - Version (PR(18))</span>
+    <span id="version">Serkan Yapiyor Bu Isi - Version (PR(19))</span>
   </footer>
 </div>
 
@@ -1390,9 +1390,27 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
+/* Geluid bij een hoge score. Er wordt willekeurig één bestand uit /sounds/
+   gekozen — nu nog één; voeg extra bestandsnamen toe voor meer variatie. */
+const SUCCESS_SOUNDS=[
+  'sounds/geluid1.mp3'
+];
+
+function playSuccessSound(){
+  if(!SUCCESS_SOUNDS.length)return;
+  const src=SUCCESS_SOUNDS[Math.floor(Math.random()*SUCCESS_SOUNDS.length)];
+  try{
+    const audio=new Audio(src);
+    audio.volume=0.8;
+    const p=audio.play();
+    if(p&&p.catch)p.catch(()=>{/* geluid is niet essentieel; stil falen */});
+  }catch(e){/* stil falen */}
+}
+
 function showResult(id,label,score,total,onRetry){
   const pct=total?Math.round(score/total*100):0;
   if(!CLOUD)recordResult(id,pct);
+  if(pct>=90)playSuccessSound();          // les met succes afgerond → geluidje
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
