@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LerenIsLeuk — Nederlands leren</title>
+<title>Çalış Artık Da — Nederlands leren</title>
 <meta name="description" content="Leer Nederlands in je eigen tempo: interactieve modules, directe feedback en uitleg. Voor de basisschool en inburgering / NT2.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <style>
@@ -214,7 +214,16 @@ a{color:var(--brand-deep)}
   font-size:14px; color:var(--ink); display:none}
 .explain.show{display:block}
 .explain b{color:var(--brand-deep)}
-.qfoot{display:flex; justify-content:space-between; align-items:center; margin-top:22px}
+.tip-box{margin-top:16px; padding:13px 16px; border-radius:11px; border-left:3px solid var(--accent); background:var(--accent-tint);
+  font-size:14px; color:var(--ink); display:none}
+.tip-box.show{display:block}
+.tip-box b{color:var(--accent-deep)}
+.tip-btn{display:inline-flex; align-items:center; gap:6px; padding:9px 15px; border:1.5px solid var(--accent); border-radius:10px;
+  background:var(--surface); color:var(--accent-deep); font-weight:750; font-size:13.5px; font-family:inherit; transition:.13s}
+.tip-btn:hover:not(:disabled){background:var(--accent-tint); transform:translateY(-1px)}
+.tip-btn:disabled{opacity:.45; cursor:default}
+.qfoot{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:22px}
+.qfoot .score{flex:1 1 auto}
 .score{font-size:13.5px; color:var(--ink-soft); font-weight:650}
 .btn-next{padding:11px 22px; border:none; border-radius:10px; background:linear-gradient(180deg,var(--brand),var(--brand-deep));
   color:#fff; font-weight:750; font-size:14.5px; box-shadow:0 8px 18px -8px var(--brand); transition:.15s}
@@ -349,6 +358,28 @@ a{color:var(--brand-deep)}
 .tv-given-no{color:var(--bad); text-decoration:line-through}
 .tv-wipe{cursor:pointer; align-self:center; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:700; color:var(--bad); background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 35%,transparent); transition:background .12s, transform .12s}
 .tv-wipe:hover{background:color-mix(in srgb,var(--bad) 20%,transparent); transform:translateY(-1px)}
+/* lessen vrijgeven — paneel */
+.rel-panel{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; box-shadow:var(--shadow)}
+.rel-panel > summary{cursor:pointer; font-size:15px; list-style:none; user-select:none}
+.rel-panel > summary::-webkit-details-marker{display:none}
+.rel-panel > summary::before{content:"▸"; display:inline-block; margin-right:8px; color:var(--ink-faint); transition:transform .15s}
+.rel-panel[open] > summary::before{transform:rotate(90deg)}
+.rel-hint{color:var(--ink-faint); font-weight:500; font-size:13px}
+.rel-list{display:grid; gap:8px; margin-top:4px}
+.rel-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 13px; border:1px solid var(--line-soft); border-radius:11px; background:var(--surface-2); cursor:pointer}
+.rel-info{display:flex; flex-direction:column; gap:1px; min-width:0}
+.rel-num{font-size:11.5px; font-weight:800; color:var(--brand-deep); letter-spacing:.03em; text-transform:uppercase}
+.rel-title{font-weight:650; color:var(--ink); font-size:14.5px}
+.rel-toggle{display:flex; align-items:center; gap:10px; flex:0 0 auto}
+.rel-state{font-size:12px; font-weight:700; color:var(--ink-faint); min-width:82px; text-align:right}
+.rel-state.on{color:var(--good)}
+.rel-check{position:absolute; opacity:0; width:0; height:0}
+.rel-switch{position:relative; width:44px; height:26px; border-radius:999px; background:var(--line); transition:background .15s; flex:0 0 auto}
+.rel-switch::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .15s}
+.rel-check:checked + .rel-switch{background:var(--good)}
+.rel-check:checked + .rel-switch::after{transform:translateX(18px)}
+.rel-check:focus-visible + .rel-switch{outline:3px solid color-mix(in srgb,var(--brand) 55%,transparent); outline-offset:2px}
+.rel-check:disabled + .rel-switch{opacity:.5}
 
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
@@ -362,7 +393,7 @@ a{color:var(--brand-deep)}
   <div class="login-wrap">
     <aside class="login-aside">
       <canvas id="bgCanvas"></canvas>
-      <div class="aside-top"><span>📖</span> LerenIsLeuk</div>
+      <div class="aside-top"><span>📖</span> Çalış Artık Da</div>
       <div class="aside-mid">
         <div class="eyebrow">Nederlands leren</div>
         <h2>Van eerste woorden tot vloeiend — in jouw tempo.</h2>
@@ -373,12 +404,13 @@ a{color:var(--brand-deep)}
         <div><div class="n tnum" id="asideSpeelbaar">–</div><div class="l">nu speelbaar</div></div>
         <div><div class="n tnum" id="asideOefeningen">–</div><div class="l">oefeningen</div></div>
       </div>
+      <div class="aside-version" id="versionFront" style="position:relative; z-index:2; margin-top:18px; font-size:12px; color:#a9f0cf; letter-spacing:.02em">Serkan Yapiyor Bu Isi - Version PR20 - 10:16</div>
     </aside>
 
     <main class="login-main">
       <button class="iconbtn themebtn" id="themeToggle" title="Wissel thema" aria-label="Wissel thema">🌙</button>
       <div class="login-card">
-        <div class="brand mobile-brand"><span class="logo">Aa</span><div>LerenIsLeuk<small>Nederlands leren</small></div></div>
+        <div class="brand mobile-brand"><span class="logo">Aa</span><div>Çalış Artık Da<small>Nederlands leren</small></div></div>
         <h1 id="loginTitle">Welkom terug</h1>
         <p class="sub" id="loginSub">Log in met je account om verder te gaan met je lessen.</p>
 
@@ -408,7 +440,7 @@ a{color:var(--brand-deep)}
 <div id="appView" class="hidden">
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><span class="logo">Aa</span><div>LerenIsLeuk<small>Nederlands leren</small></div></div>
+      <div class="brand"><span class="logo">Aa</span><div>Çalış Artık Da<small>Nederlands leren</small></div></div>
       <div class="spacer"></div>
       <button class="linkbtn" id="switchBtn" style="display:none; color:var(--brand-deep)">↔ Wissel weergave</button>
       <button class="linkbtn" id="homeLink">Lessen</button>
@@ -464,8 +496,8 @@ a{color:var(--brand-deep)}
   <div id="teacherView" class="app hidden"></div>
 
   <footer class="footer">
-    <span>© <span id="year"></span> LerenIsLeuk · sekibar.nl</span><span class="spacer"></span>
-    <span>Nederlands leren · basisschool &amp; inburgering / NT2</span>
+    <span>© <span id="year"></span> Çalış Artık Da · sekibar.nl</span><span class="spacer"></span>
+    <span id="version">Serkan Yapiyor Bu Isi - Version PR20 - 10:16</span>
   </footer>
 </div>
 
@@ -476,6 +508,8 @@ a{color:var(--brand-deep)}
   integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
   crossorigin="anonymous"
   onerror="window.__supabaseLoadFailed=true"></script>
+<!-- Lesdata (leerlijn + vragenbanken), los van de app-logica -->
+<script src="lessons.js"></script>
 <script>
 /* ============================================================
    SUPABASE CONFIG
@@ -490,196 +524,9 @@ const CLOUD_CONFIGURED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);   // sleutels in
 const CLOUD = !!(CLOUD_CONFIGURED && window.supabase);            // écht actief: sleutels + script geladen
 const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-/* ---------------- data: leerlijn ---------------- */
-/* Alleen titel/omschrijving. Of een les 'speelbaar' is, wordt automatisch
-   bepaald door of er vragen voor bestaan in QUIZZES. Voortgang en status
-   worden per ingelogd account bijgehouden (zie progress-store hieronder). */
-const COURSES = [
-  {n:"1", t:"Nieuwe buren & verhuizen", desc:"Woorden uit thema 1: buren, huur, wijk, verhuizen."},
-  {n:"2", t:"Marktplaats & spullen", desc:"Woorden over kopen, verkopen en spullen in huis."},
-  {n:"3", t:"Op het station", desc:"Woorden over de trein, berichten en vertraging."},
-  {n:"4", t:"Reizen & OV-chipkaart", desc:"Woorden over pinnen, opladen en veilig reizen."},
-  {n:"5", t:"Contact met de buren", desc:"Woorden over gasten, feest en samenwonen.", bookmark:true},
-  {n:"6", t:"Het huis beschrijven", desc:"Woorden over vorm, maat en materiaal."},
-  {n:"7", t:"Grote mix: les 1 t/m 6", desc:"Alle thema's door elkaar. Herhaal en test wat je geleerd hebt.", feat:true},
-];
-const SOON = [
-  {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
-  {n:"11", t:"Leestekens & hoofdletters"},
-];
-
-/* ---------------- vragenbanken ---------------- */
-const QUIZZES = {
-  "1":{ title:"Nieuwe buren & verhuizen", sub:"Lees het woord. Kies het goede antwoord. Bij elke vraag zie je ook het Turkse woord (Türkçe) als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
-      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de buurman</span>?", o:["komşu (erkek)","misafir","aile","arkadaş"], c:0,
-      e:"<b>de buurman</b> = (erkek) komşu. De man die naast je woont. De vrouw is <i>de buurvrouw</i>."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verhuizen</span>?", o:["taşınmak","temizlemek","satın almak","aramak"], c:0,
-      e:"<b>verhuizen</b> = taşınmak. Je gaat in een ander huis wonen. Voorbeeld: <i>Wij verhuizen naar een nieuw huis.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>komşular</span> (de mensen naast je)?", o:["de buren","de gast","de wijk","de hulp"], c:0,
-      e:"komşular = <b>de buren</b>. 'de gast' = misafir, 'de wijk' = mahalle."},
-    {tag:"de of het", t:"Wat is goed: <span class='m'>___ huis</span>?", o:["het huis","de huis","een huizen","dat huizen"], c:0,
-      e:"Het is <b>het huis</b>. Dit woord krijgt 'het'. Deze woorden leer je uit je hoofd."},
-    {tag:"de of het", t:"Wat is goed: <span class='m'>___ wijk</span> (mahalle)?", o:["de wijk","het wijk","een wijken","die wijken"], c:0,
-      e:"Het is <b>de wijk</b> = mahalle. De meeste woorden krijgen 'de'."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de huur</span>?", o:["kira","fiyat","ev","oda"], c:0,
-      e:"<b>de huur</b> = kira. Dat is het geld dat je elke maand voor je huis betaalt."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het adres</span>?", o:["adres","isim","şehir","numara"], c:0,
-      e:"<b>het adres</b> = adres. Straat, huisnummer en plaats waar je woont. Let op: het is 'het adres'."},
-    {tag:"Werkwoord", t:"Welke zin is goed? <span class='m'>Gisteren ___ wij naar een nieuw huis. (verhuizen)</span>", o:["verhuisden","verhuizen","verhuis","verhuist"], c:0,
-      e:"Verleden tijd: <b>verhuisden</b>. Nu = wij verhuizen, gisteren = wij verhuisden."},
-  ]},
-  "2":{ title:"Marktplaats & spullen", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de advertentie</span>?", o:["reklam / ilan","fiyat","dükkan","hediye"], c:0,
-      e:"<b>de advertentie</b> = ilan/reklam. Bijvoorbeeld op Marktplaats zet je een advertentie om iets te verkopen."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verkopen</span>?", o:["satmak","almak","bakmak","aramak"], c:0,
-      e:"<b>verkopen</b> = satmak. Het tegenovergestelde is 'kopen' (satın almak)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>bieden</span>?", o:["teklif vermek","ödemek","göndermek","sormak"], c:0,
-      e:"<b>bieden</b> = teklif vermek. Voorbeeld: <i>Ik bied 10 euro voor de stoel.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>hout</span> (houten)?", o:["tahta / ahşap","cam","demir","yün"], c:0,
-      e:"<b>hout</b> = tahta. Een houten tafel = ahşap masa."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>wol</span> (wollen)?", o:["yün","pamuk","deri","plastik"], c:0,
-      e:"<b>wol</b> = yün. Een wollen trui = yün kazak."},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>halı</span>?", o:["het kleed","de spiegel","de knop","de hamer"], c:0,
-      e:"halı = <b>het kleed</b>. Let op: het is 'het kleed'."},
-    {tag:"Tegenstelling", t:"Wat past bij <span class='m'>rond</span> (yuvarlak)? Kies het tegenovergestelde.", o:["vierkant","breed","zwaar","laag"], c:0,
-      e:"<b>rond</b> = yuvarlak, <b>vierkant</b> = kare. Dat zijn tegenovergestelde vormen."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>opsturen</span>?", o:["göndermek","almak","yırtmak","saklamak"], c:0,
-      e:"<b>opsturen</b> = göndermek. Voorbeeld: <i>Ik stuur het pakket op met de post.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>zwaar</span>?", o:["ağır","hafif","geniş","dar"], c:0,
-      e:"<b>zwaar</b> = ağır. Het tegenovergestelde is 'licht' (hafif)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>breed</span>?", o:["geniş","dar","yüksek","alçak"], c:0,
-      e:"<b>breed</b> = geniş. Het tegenovergestelde is 'smal' (dar)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
-      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
-      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
-  ]},
-  "3":{ title:"Op het station", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de automaat</span>?", o:["makine / otomat","tren","bilet","kapı"], c:0,
-      e:"<b>de automaat</b> = makine/otomat. Bij de automaat op het station koop je een kaartje."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het bericht</span>?", o:["mesaj","ses","kağıt","resim"], c:0,
-      e:"<b>het bericht</b> = mesaj. Voorbeeld: <i>Ik krijg een bericht op mijn telefoon.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>handig</span>?", o:["kullanışlı / pratik","zor","pahalı","tehlikeli"], c:0,
-      e:"<b>handig</b> = kullanışlı. Iets dat makkelijk is om te gebruiken."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het lawaai</span>?", o:["gürültü","müzik","sessizlik","haber"], c:0,
-      e:"<b>het lawaai</b> = gürültü. Veel hard geluid."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de hulp</span>?", o:["yardım","soru","zaman","yol"], c:0,
-      e:"<b>de hulp</b> = yardım. Werkwoord: helpen = yardım etmek."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>ergens</span>?", o:["bir yerde","hiçbir yerde","her zaman","şimdi"], c:0,
-      e:"<b>ergens</b> = bir yerde. Voorbeeld: <i>Mijn kaartje ligt ergens in mijn tas.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de vertraging</span>?", o:["gecikme","varış","hız","durak"], c:0,
-      e:"<b>de vertraging</b> = gecikme. De trein komt later dan normaal."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>op tijd</span>?", o:["zamanında","geç","erken","asla"], c:0,
-      e:"<b>op tijd</b> = zamanında. Niet te laat en niet te vroeg."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>duidelijk</span>?", o:["açık (net anlaşılır)","zor","yavaş","sessiz"], c:0,
-      e:"<b>duidelijk</b> = açık / net. Je snapt het meteen. Voorbeeld: <i>Het bericht op het bord is duidelijk.</i>"},
-    {tag:"de of het", t:"Wat is goed? <span class='m'>___ bericht</span>", o:["het bericht","de bericht","een berichten","die berichten"], c:0,
-      e:"Het is <b>het bericht</b>. Dit woord krijgt 'het'."},
-  ]},
-  "4":{ title:"Reizen & OV-chipkaart", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>opladen</span>?", o:["şarj etmek","kapatmak","satmak","kırmak"], c:0,
-      e:"<b>opladen</b> = şarj etmek. Je laadt je OV-chipkaart of je telefoon op."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de pinpas</span>?", o:["banka kartı","para","cüzdan","fatura"], c:0,
-      e:"<b>de pinpas</b> = banka kartı. Hiermee betaal je in de winkel."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de pincode</span>?", o:["pin kodu / şifre","adres","isim","numara"], c:0,
-      e:"<b>de pincode</b> = pin kodu. De geheime cijfers van je pinpas."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het scherm</span>?", o:["ekran","tuş","kart","ses"], c:0,
-      e:"<b>het scherm</b> = ekran. Bijvoorbeeld het scherm van de automaat of je telefoon."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>veilig</span>?", o:["güvenli","tehlikeli","hızlı","yavaş"], c:0,
-      e:"<b>veilig</b> = güvenli. Het tegenovergestelde is 'gevaarlijk' (tehlikeli)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de knop</span>?", o:["düğme / tuş","kapı","yol","ekran"], c:0,
-      e:"<b>de knop</b> = düğme/tuş. Je drukt op de knop."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>drukken op</span>?", o:["basmak","çekmek","tutmak","atmak"], c:0,
-      e:"<b>drukken op</b> = basmak. Voorbeeld: <i>Druk op de groene knop.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>minimaal</span>?", o:["en az","en çok","bazen","hemen"], c:0,
-      e:"<b>minimaal</b> = en az. Voorbeeld: <i>Je hebt minimaal 4 euro nodig.</i>"},
-    {tag:"de of het", t:"Wat is goed? <span class='m'>___ scherm</span>", o:["het scherm","de scherm","een schermen","dat schermen"], c:0,
-      e:"Het is <b>het scherm</b>. Dit woord krijgt 'het'."},
-  ]},
-  "5":{ title:"Contact met de buren", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>boos</span>?", o:["kızgın","mutlu","yorgun","üzgün"], c:0,
-      e:"<b>boos</b> = kızgın. Voorbeeld: <i>De buurman is boos om het lawaai.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de gast</span>?", o:["misafir","komşu","aile","çocuk"], c:0,
-      e:"<b>de gast</b> = misafir. Iemand die bij je op bezoek komt."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>moe</span>?", o:["yorgun","kızgın","mutlu","hasta"], c:0,
-      e:"<b>moe</b> = yorgun. Voorbeeld: <i>Ik ben moe na het verhuizen.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>overmorgen</span>?", o:["öbür gün","dün","bugün","her gün"], c:0,
-      e:"<b>overmorgen</b> = öbür gün (yarından sonraki gün). Vandaag → morgen → overmorgen."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>hard</span> (sert / yüksek sesli)?", o:["zacht","stil","boos","moe"], c:0,
-      e:"<b>hard</b> ↔ <b>zacht</b> (yumuşak / hafif). 'zacht' betekent ook: niet luid."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>stil</span>?", o:["sessiz","gürültülü","hızlı","güvenli"], c:0,
-      e:"<b>stil</b> = sessiz. Het tegenovergestelde van lawaai."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de leeftijd</span>?", o:["yaş","isim","adres","boy"], c:0,
-      e:"<b>de leeftijd</b> = yaş. Voorbeeld: <i>Wat is de leeftijd van je kind?</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de verjaardag</span>?", o:["doğum günü","davetiye","tatil","bayram"], c:0,
-      e:"<b>de verjaardag</b> = doğum günü. Op je verjaardag word je een jaar ouder."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>oppassen</span>?", o:["göz kulak olmak","uyumak","oynamak","beklemek"], c:0,
-      e:"<b>oppassen</b> = göz kulak olmak. Voorbeeld: <i>Ik pas op de kinderen van de buren.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
-      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vieren</span>?", o:["kutlamak","çalışmak","beklemek","taşınmak"], c:0,
-      e:"<b>vieren</b> = kutlamak. Voorbeeld: <i>Wij vieren mijn verjaardag met de buren.</i>"},
-    {tag:"de of het", t:"Wat is goed? <span class='m'>___ gesprek</span> (konuşma)", o:["het gesprek","de gesprek","een gesprekken","die gesprekken"], c:0,
-      e:"Het is <b>het gesprek</b>. Dit woord krijgt 'het'."},
-  ]},
-  "6":{ title:"Het huis beschrijven", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>modern</span>?", o:["modern / yeni tarz","eski","küçük","ucuz"], c:0,
-      e:"<b>modern</b> = modern. Het tegenovergestelde is 'ouderwets' (eski)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>ruim</span>?", o:["geniş / ferah","dar","karanlık","dolu"], c:0,
-      e:"<b>ruim</b> = geniş/ferah. Er is veel plek. Voorbeeld: <i>Een ruime kamer.</i>"},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vierkant</span>?", o:["kare","yuvarlak","üçgen","uzun"], c:0,
-      e:"<b>vierkant</b> = kare. Een vorm met vier gelijke kanten."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de meter</span>?", o:["metre","kilo","litre","saat"], c:0,
-      e:"<b>de meter</b> = metre. Je meet lengte in meters. 100 cm = 1 meter."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>laag</span> (alçak)?", o:["hoog","breed","rond","licht"], c:0,
-      e:"<b>laag</b> = alçak, <b>hoog</b> = yüksek. Dat zijn tegenovergestelden."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de hamer</span>?", o:["çekiç","testere","vida","merdiven"], c:0,
-      e:"<b>de hamer</b> = çekiç. Gereedschap om te timmeren."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>licht</span>?", o:["hafif / aydınlık","ağır","karanlık","sıcak"], c:0,
-      e:"<b>licht</b> heeft twee betekenissen: hafif (niet zwaar) én aydınlık/ışık. Tegenovergestelde van zwaar én van donker."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>rond</span>?", o:["yuvarlak","kare","düz","köşeli"], c:0,
-      e:"<b>rond</b> = yuvarlak. Zoals een bal of een bord."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>breed</span>?", o:["geniş","dar","yüksek","kısa"], c:0,
-      e:"<b>breed</b> = geniş. Het tegenovergestelde is 'smal' (dar)."},
-  ]},
-  "7":{ title:"Grote mix: les 1 t/m 6", sub:"Alle thema's uit les 1 t/m 6 door elkaar. Türkçe woord staat erbij als hulp. Elke keer in andere volgorde.", q:[
-    {tag:"Woord → betekenis", t:"Wat betekent het woord <span class='m'>de buren</span>?", o:["komşular","misafir","aile","arkadaş"], c:0,
-      e:"<b>de buren</b> = komşular. Dat zijn de mensen die naast je wonen."},
-    {tag:"Werkwoord", t:"Welke zin is goed? <span class='m'>Gisteren ___ wij naar een nieuw huis. (verhuizen)</span>", o:["verhuisden","verhuizen","verhuis","verhuist"], c:0,
-      e:"Verleden tijd: <b>verhuisden</b>. Nu = wij verhuizen, gisteren = wij verhuisden."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>verkopen</span>?", o:["satmak","almak","bakmak","aramak"], c:0,
-      e:"<b>verkopen</b> = satmak. Het tegenovergestelde is 'kopen' (satın almak)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>tweedehands</span>?", o:["ikinci el","yeni","pahalı","bedava"], c:0,
-      e:"<b>tweedehands</b> = ikinci el. Iemand heeft het al gebruikt. Voorbeeld: <i>Ik koop een tweedehands bank.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>ayna</span>?", o:["de spiegel","het kleed","de hamer","de knop"], c:0,
-      e:"ayna = <b>de spiegel</b>. In de spiegel zie je jezelf. 'het kleed' = halı, 'de hamer' = çekiç."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de vertraging</span>?", o:["gecikme","varış","hız","durak"], c:0,
-      e:"<b>de vertraging</b> = gecikme. De trein komt later dan normaal."},
-    {tag:"de of het", t:"Wat is goed? <span class='m'>___ bericht</span>", o:["het bericht","de bericht","een berichten","die berichten"], c:0,
-      e:"Het is <b>het bericht</b>. Dit woord krijgt 'het'."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>opladen</span>?", o:["şarj etmek","kapatmak","satmak","kırmak"], c:0,
-      e:"<b>opladen</b> = şarj etmek. Je laadt je OV-chipkaart of je telefoon op."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de pincode</span>?", o:["pin kodu / şifre","adres","isim","numara"], c:0,
-      e:"<b>de pincode</b> = pin kodu. De geheime cijfers van je pinpas."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>veilig</span>?", o:["güvenli","tehlikeli","hızlı","yavaş"], c:0,
-      e:"<b>veilig</b> = güvenli. Het tegenovergestelde is 'gevaarlijk' (tehlikeli)."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>boos</span>?", o:["kızgın","mutlu","yorgun","üzgün"], c:0,
-      e:"<b>boos</b> = kızgın. Voorbeeld: <i>De buurman is boos om het lawaai.</i>"},
-    {tag:"Betekenis → woord", t:"Welk woord betekent <span class='m'>davetiye</span>?", o:["de uitnodiging","de verjaardag","het gesprek","de gast"], c:0,
-      e:"davetiye = <b>de uitnodiging</b>. Je krijgt een uitnodiging voor een feest. 'de verjaardag' = doğum günü."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>hard</span> (sert / yüksek sesli)?", o:["zacht","stil","boos","moe"], c:0,
-      e:"<b>hard</b> ↔ <b>zacht</b> (yumuşak / hafif). 'zacht' betekent ook: niet luid."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>vierkant</span>?", o:["kare","yuvarlak","üçgen","uzun"], c:0,
-      e:"<b>vierkant</b> = kare. Een vorm met vier gelijke kanten."},
-    {tag:"Tegenstelling", t:"Wat is het tegenovergestelde van <span class='m'>laag</span> (alçak)?", o:["hoog","breed","rond","licht"], c:0,
-      e:"<b>laag</b> = alçak, <b>hoog</b> = yüksek. Dat zijn tegenovergestelden."},
-    {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de hamer</span>?", o:["çekiç","testere","vida","merdiven"], c:0,
-      e:"<b>de hamer</b> = çekiç. Gereedschap om te timmeren."},
-  ]},
-};
-
+/* ---------------- lesdata ----------------
+   COURSES, SOON en QUIZZES staan in lessons.js (hierboven geladen).
+   Zo blijft dit bestand de app-logica en lessons.js de inhoud. */
 /* ---------------- theme ---------------- */
 const root=document.documentElement;
 function setTheme(t){root.setAttribute('data-theme',t);
@@ -783,6 +630,39 @@ async function refreshProgress(){
     }catch(e){ progCache={lessons:{},days:[]}; }
   } else { progCache=loadProg(); }
 }
+/* ---------------- lessen vrijgeven (per les aan/uit) ----------------
+   Bepaalt welke lessen een leerling te zien krijgt. Een les zonder eigen
+   instelling geldt als 'vrij' (zo blijven bestaande lessen zichtbaar).
+   De docent zet lessen die nog in de maak zijn op 'niet vrij'; leerlingen
+   zien die dan niet, de docent zelf wél (om te ontwerpen en te testen). */
+let releaseCache=null;   // {lesId: boolean}  — undefined/ontbrekend = vrij
+async function loadReleases(){
+  if(CLOUD){
+    try{ const {data}=await sb.from('lesson_settings').select('lesson,released');
+      const m={}; (data||[]).forEach(r=>m[String(r.lesson)]=!!r.released); releaseCache=m;
+    }catch(e){ releaseCache={}; }
+  } else {
+    try{ releaseCache=JSON.parse(localStorage.getItem('lil-releases'))||{}; }catch(e){ releaseCache={}; }
+  }
+}
+function isReleased(id){
+  if(!releaseCache)return true;                 // nog niet geladen = niet blokkeren
+  return releaseCache[String(id)]!==false;      // standaard vrij, alleen expliciet 'false' verbergt
+}
+function isTeacherViewer(){ return !!(currentUser&&(currentUser.role==='teacher'||currentUser.joker)); }
+async function setReleased(id,val){
+  if(!releaseCache)releaseCache={};
+  releaseCache[String(id)]=!!val;
+  if(CLOUD){
+    try{ const {error}=await sb.from('lesson_settings').upsert(
+      {lesson:String(id), released:!!val, updated_at:new Date().toISOString()},{onConflict:'lesson'});
+      if(error)throw error; return true;
+    }catch(e){ return false; }
+  } else {
+    try{ localStorage.setItem('lil-releases',JSON.stringify(releaseCache)); return true; }catch(e){ return false; }
+  }
+}
+
 function computeStreak(days){
   if(!days||!days.length)return 0;
   const set=new Set(days); let streak=0; const d=new Date();
@@ -933,26 +813,34 @@ function renderDash(){
   const grid=$('courseGrid');
   let done=0, busy=0;
   let html='';
+  const teacherView=isTeacherViewer();
+  let shown=0;
   COURSES.forEach(c=>{
     const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
+    const released=isReleased(c.n);               // door de docent vrijgegeven?
+    // Niet vrijgegeven les: leerling ziet hem niet; de docent wél (om te ontwerpen/testen).
+    if(live && !released && !teacherView) return;
+    shown++;
     const pct=prog.lessons[c.n];                  // beste score, of undefined
     let status='soon';
     if(live){
-      if(pct===undefined) status='new';
+      if(!released) status='soon';                // docent-preview: markeer als 'in voorbereiding'
+      else if(pct===undefined) status='new';
       else if(pct>=PASS){ status='done'; done++; }
       else { status='busy'; busy++; }
     }
     const barPct=pct||0;
-    const cls='card '+(live?'live':'soon')+(c.feat&&live?' featured':'');
+    const cls='card '+(live?'live':'soon')+(c.feat&&live&&released?' featured':'');
     html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
-      ${c.bookmark?'<span class="bookmark"></span>':''}
-      ${c.feat&&live?'<div class="kick">🎲 Herhaling</div>':''}
+      ${c.bookmark&&released?'<span class="bookmark"></span>':''}
+      ${!released&&live?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':(c.feat&&live?'<div class="kick">🎲 Herhaling</div>':'')}
       <div class="num">Les ${c.n}</div>
       <h3>${c.t}</h3>
       ${live?`<div class="progress"><i style="width:${barPct}%"></i></div>`:''}
-      <div class="meta">${live?`${barPct}% voltooid`:'lesstof volgt'}${pill(status)}</div>
+      <div class="meta">${!released&&live?'alleen voor jou zichtbaar':(live?`${barPct}% voltooid`:'lesstof volgt')}${pill(!released&&live?'soon':status)}</div>
     </button>`;
   });
+  if(!shown) html='<p style="color:var(--ink-faint);grid-column:1/-1">Er zijn nog geen lessen vrijgegeven. Kom snel terug!</p>';
   grid.innerHTML=html;
   $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
       <div class="num">Les ${c.n}</div><h3>${c.t}</h3>
@@ -964,7 +852,7 @@ function renderDash(){
   $('statStreak').textContent=computeStreak(prog.days);
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startLesson(b.dataset.course)));
 }
-async function showDash(){if(currentUser){await refreshProgress();renderDash();}
+async function showDash(){if(currentUser){await Promise.all([refreshProgress(),loadReleases()]);renderDash();}
   $('teacherView').classList.add('hidden');$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
 
 /* ---------------- docenten-dashboard ---------------- */
@@ -972,7 +860,7 @@ async function showTeacher(){
   $('dashView').classList.add('hidden'); $('quizView').classList.add('hidden');
   $('teacherView').classList.remove('hidden');
   $('teacherView').innerHTML='<p style="padding:24px 4px">Laden…</p>';
-  const students=await gatherTeacherData();
+  const [students]=await Promise.all([gatherTeacherData(),loadReleases()]);
   renderTeacher(students);
   window.scrollTo(0,0);
 }
@@ -1050,9 +938,49 @@ function renderTeacher(students){
       </div>
     </div>
     ${banner}
+    ${releasePanelHtml()}
     <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
   $('teacherView').querySelectorAll('.tv-card').forEach(b=>
     b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
+  wireReleasePanel(students);
+}
+/* paneel: per les een schakelaar 'vrijgeven / verbergen voor leerlingen' */
+function releasePanelHtml(){
+  const playable=COURSES.filter(c=>QUIZZES[c.n]);
+  const rows=playable.map(c=>{
+    const on=isReleased(c.n);
+    return `<label class="rel-row">
+      <span class="rel-info"><span class="rel-num">Les ${c.n}</span><span class="rel-title">${esc(c.t)}</span></span>
+      <span class="rel-toggle">
+        <span class="rel-state ${on?'on':''}">${on?'Vrijgegeven':'Verborgen'}</span>
+        <input type="checkbox" class="rel-check" data-les="${c.n}" ${on?'checked':''} aria-label="Les ${c.n} vrijgeven voor leerlingen">
+        <span class="rel-switch"></span>
+      </span>
+    </label>`;
+  }).join('');
+  return `<details class="rel-panel" open>
+    <summary><b>Lessen vrijgeven</b> <span class="rel-hint">— vink aan welke lessen je leerlingen mogen zien</span></summary>
+    <p class="tv-note" style="margin:2px 0 12px">Een les die niet is vrijgegeven, is voor leerlingen onzichtbaar. Zo kun je rustig een nieuwe les ontwerpen. Jij ziet verborgen lessen zelf wél (met 🔒) om te testen.</p>
+    <div class="rel-list">${rows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
+  </details>`;
+}
+function wireReleasePanel(students){
+  $('teacherView').querySelectorAll('.rel-check').forEach(chk=>{
+    chk.addEventListener('change',async ()=>{
+      const id=chk.dataset.les, val=chk.checked;
+      chk.disabled=true;
+      const ok=await setReleased(id,val);
+      chk.disabled=false;
+      if(!ok){
+        chk.checked=!val; releaseCache[String(id)]=!val;
+        alert('Opslaan mislukt. Heb je de database-regel voor "lesson_settings" al toegevoegd?\n\nZie DOCENT-SETUP.md (blok "lessen vrijgeven").');
+        return;
+      }
+      // werk het label bij zonder alles opnieuw te tekenen
+      const row=chk.closest('.rel-row'), state=row&&row.querySelector('.rel-state');
+      if(state){ state.textContent=val?'Vrijgegeven':'Verborgen'; state.classList.toggle('on',val); }
+    });
+  });
 }
 /* NIVEAU 2 — één les: tabel met leerlingen × vragen (laatste resultaat per vraag) */
 function renderTeacherLesson(lesId,students){
@@ -1286,13 +1214,27 @@ function renderQuizItem(it){
       <div class="opts" id="opts">
         ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
+      <div class="tip-box" id="tipBox"></div>
       <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
       <div class="qfoot">
+        <button class="tip-btn" id="tipBtn" type="button">💡 Tip</button>
         <span class="score" id="fb">Kies een antwoord.</span>
         <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
       </div>
     </div>`;
   document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answerQuiz(b,it,q)));
+  $('tipBtn').addEventListener('click',()=>{
+    const box=$('tipBox'); box.innerHTML='<b>💡 Tip.</b> '+tipFor(q); box.classList.add('show');
+    $('tipBtn').disabled=true;
+  });
+}
+/* Geeft een hint terug: een eigen 'tip' bij de vraag, anders een automatische letter-hint. */
+function tipFor(q){
+  if(q.tip)return q.tip;
+  const ans=stripTags(q.o[q.c]).trim();
+  const first=ans.split('/')[0].trim();
+  const letters=first.replace(/[^A-Za-zÀ-ÿ]/g,'').length;
+  return `Het juiste antwoord begint met de letter <b>${first.charAt(0).toUpperCase()}</b> en heeft <b>${letters}</b> letters.`;
 }
 function answerQuiz(btn,it,q){
   if(game.answered)return; game.answered=true;
@@ -1449,9 +1391,37 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
+/* Geluid bij een hoge score. Er wordt willekeurig één bestand uit /sounds/
+   gekozen — nu nog één; voeg extra bestandsnamen toe voor meer variatie. */
+const SUCCESS_SOUNDS=[
+  'sounds/geluid1.mp3',
+  'sounds/geluid2.mp3',
+  'sounds/geluid3.mp3',
+  'sounds/geluid4.mp3'
+];
+
+let lastSoundIndex=-1;
+function playSuccessSound(){
+  if(!SUCCESS_SOUNDS.length)return;
+  let idx=Math.floor(Math.random()*SUCCESS_SOUNDS.length);
+  // Bij meerdere geluiden: nooit twee keer hetzelfde achter elkaar.
+  if(SUCCESS_SOUNDS.length>1){
+    while(idx===lastSoundIndex)idx=Math.floor(Math.random()*SUCCESS_SOUNDS.length);
+  }
+  lastSoundIndex=idx;
+  const src=SUCCESS_SOUNDS[idx];
+  try{
+    const audio=new Audio(src);
+    audio.volume=0.8;
+    const p=audio.play();
+    if(p&&p.catch)p.catch(()=>{/* geluid is niet essentieel; stil falen */});
+  }catch(e){/* stil falen */}
+}
+
 function showResult(id,label,score,total,onRetry){
   const pct=total?Math.round(score/total*100):0;
   if(!CLOUD)recordResult(id,pct);
+  if(pct>=90)playSuccessSound();          // les met succes afgerond → geluidje
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
@@ -1506,6 +1476,26 @@ document.addEventListener('keydown',e=>{
 });
 
 document.getElementById('year').textContent=new Date().getFullYear();
+
+/* Footer-versie automatisch: haalt de laatst samengevoegde PR op via de GitHub API,
+   zodat de tekst altijd meebeweegt met elke nieuwe PR. Lukt het ophalen niet
+   (offline / API-limiet), dan blijft de reeds in de HTML aanwezige tekst staan. */
+(function updateVersionFromLatestPR(){
+  const els=[document.getElementById('version'),document.getElementById('versionFront')].filter(Boolean);
+  if(!els.length)return;
+  const PREFIX='Serkan Yapiyor Bu Isi';
+  fetch('https://api.github.com/repos/SE-KIB/LERENISLEUK/pulls?state=closed&sort=updated&direction=desc&per_page=20')
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(list=>{
+      const pr=list.find(p=>p.merged_at);
+      if(!pr)return;
+      const t=new Date(pr.merged_at)
+        .toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      const txt=`${PREFIX} - Version PR${pr.number} - ${t}`;
+      els.forEach(el=>{el.textContent=txt;});
+    })
+    .catch(()=>{/* stille fallback: laat bestaande tekst staan */});
+})();
 </script>
 </body>
 </html>
