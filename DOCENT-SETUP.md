@@ -54,6 +54,13 @@ create table if not exists public.attempts (
 );
 create index if not exists attempts_user_lesson_idx on public.attempts (user_id, lesson, created_at desc);
 
+-- Lessen vrijgeven: welke lessen mogen leerlingen zien? (docent bepaalt)
+create table if not exists public.lesson_settings (
+  lesson text primary key,
+  released boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
 -- Nieuw account -> automatisch een profiles-rij
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -77,6 +84,16 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.answers  enable row level security;
 alter table public.attempts enable row level security;
+alter table public.lesson_settings enable row level security;
+
+-- Lessen vrijgeven: iedereen mag lezen welke lessen vrij zijn, alleen de docent wijzigt
+drop policy if exists ls_sel on public.lesson_settings;
+create policy ls_sel on public.lesson_settings for select using (true);
+drop policy if exists ls_ins on public.lesson_settings;
+create policy ls_ins on public.lesson_settings for insert with check (public.is_teacher());
+drop policy if exists ls_upd on public.lesson_settings;
+create policy ls_upd on public.lesson_settings for update
+  using (public.is_teacher()) with check (public.is_teacher());
 
 drop policy if exists p_sel on public.profiles;
 create policy p_sel on public.profiles for select
@@ -106,10 +123,13 @@ create policy at_del on public.attempts for delete
   using (user_id = auth.uid() or public.is_teacher());
 ```
 
-> **Al een database van vóór deze update?** Draai alleen de `attempts`-blokken
-> (de tabel, het `alter table … enable row level security` voor `attempts`, en
-> de `at_*`- en `a_del`-policies) opnieuw; de rest is ongewijzigd. Bestaande
-> gegevens blijven behouden.
+> **Al een database van vóór deze update?** Draai alleen de nieuwe blokken
+> opnieuw; de rest is ongewijzigd. Bestaande gegevens blijven behouden:
+> - *Pogingen* (eerdere update): de `attempts`-tabel, het bijbehorende
+>   `alter table … enable row level security`, en de `at_*`- en `a_del`-policies.
+> - *Lessen vrijgeven* (deze update): de tabel `lesson_settings`, het
+>   `alter table public.lesson_settings enable row level security`, en de
+>   `ls_sel`/`ls_ins`/`ls_upd`-policies.
 
 ## Stap 3 — Maak de accounts aan
 1. Ga links naar **Authentication** → **Users** → **Add user** → **Create new user**.
@@ -159,6 +179,14 @@ const SUPABASE_ANON_KEY = "eyJhbGciOi...jouw-anon-sleutel...";
   invoerde en behaalde (goed / fout, per vraag). Met de knop **Voortgang wissen**
   op de leerling-pagina kun je, indien nodig, de voortgang van die leerling voor
   díe les verwijderen zodat hij de les opnieuw kan maken.
+- **Lessen vrijgeven.** Bovenaan het docenten-dashboard staat het paneel
+  **"Lessen vrijgeven"** met per les een schakelaar. Zet een les op *Verborgen*
+  en leerlingen zien die les niet meer — handig om rustig een nieuwe les te
+  ontwerpen zonder dat leerlingen een halve module te zien krijgen. Zet hem op
+  *Vrijgegeven* zodra hij klaar is. Jij als docent ziet verborgen lessen zelf
+  wél staan (met een 🔒 en de tekst "alleen voor jou zichtbaar") zodat je ze kunt
+  testen via **↔ Naar leerlingscherm**. Lessen zonder eigen instelling staan
+  standaard op vrijgegeven, dus bestaande lessen blijven gewoon zichtbaar.
 
 ## Veilig?
 Ja. De *anon*-sleutel mag publiek in de website staan — de beveiliging zit in de

@@ -349,6 +349,28 @@ a{color:var(--brand-deep)}
 .tv-given-no{color:var(--bad); text-decoration:line-through}
 .tv-wipe{cursor:pointer; align-self:center; padding:9px 14px; border-radius:10px; font-size:13px; font-weight:700; color:var(--bad); background:var(--bad-tint); border:1px solid color-mix(in srgb,var(--bad) 35%,transparent); transition:background .12s, transform .12s}
 .tv-wipe:hover{background:color-mix(in srgb,var(--bad) 20%,transparent); transform:translateY(-1px)}
+/* lessen vrijgeven — paneel */
+.rel-panel{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; box-shadow:var(--shadow)}
+.rel-panel > summary{cursor:pointer; font-size:15px; list-style:none; user-select:none}
+.rel-panel > summary::-webkit-details-marker{display:none}
+.rel-panel > summary::before{content:"▸"; display:inline-block; margin-right:8px; color:var(--ink-faint); transition:transform .15s}
+.rel-panel[open] > summary::before{transform:rotate(90deg)}
+.rel-hint{color:var(--ink-faint); font-weight:500; font-size:13px}
+.rel-list{display:grid; gap:8px; margin-top:4px}
+.rel-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 13px; border:1px solid var(--line-soft); border-radius:11px; background:var(--surface-2); cursor:pointer}
+.rel-info{display:flex; flex-direction:column; gap:1px; min-width:0}
+.rel-num{font-size:11.5px; font-weight:800; color:var(--brand-deep); letter-spacing:.03em; text-transform:uppercase}
+.rel-title{font-weight:650; color:var(--ink); font-size:14.5px}
+.rel-toggle{display:flex; align-items:center; gap:10px; flex:0 0 auto}
+.rel-state{font-size:12px; font-weight:700; color:var(--ink-faint); min-width:82px; text-align:right}
+.rel-state.on{color:var(--good)}
+.rel-check{position:absolute; opacity:0; width:0; height:0}
+.rel-switch{position:relative; width:44px; height:26px; border-radius:999px; background:var(--line); transition:background .15s; flex:0 0 auto}
+.rel-switch::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .15s}
+.rel-check:checked + .rel-switch{background:var(--good)}
+.rel-check:checked + .rel-switch::after{transform:translateX(18px)}
+.rel-check:focus-visible + .rel-switch{outline:3px solid color-mix(in srgb,var(--brand) 55%,transparent); outline-offset:2px}
+.rel-check:disabled + .rel-switch{opacity:.5}
 
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
@@ -783,6 +805,39 @@ async function refreshProgress(){
     }catch(e){ progCache={lessons:{},days:[]}; }
   } else { progCache=loadProg(); }
 }
+/* ---------------- lessen vrijgeven (per les aan/uit) ----------------
+   Bepaalt welke lessen een leerling te zien krijgt. Een les zonder eigen
+   instelling geldt als 'vrij' (zo blijven bestaande lessen zichtbaar).
+   De docent zet lessen die nog in de maak zijn op 'niet vrij'; leerlingen
+   zien die dan niet, de docent zelf wél (om te ontwerpen en te testen). */
+let releaseCache=null;   // {lesId: boolean}  — undefined/ontbrekend = vrij
+async function loadReleases(){
+  if(CLOUD){
+    try{ const {data}=await sb.from('lesson_settings').select('lesson,released');
+      const m={}; (data||[]).forEach(r=>m[String(r.lesson)]=!!r.released); releaseCache=m;
+    }catch(e){ releaseCache={}; }
+  } else {
+    try{ releaseCache=JSON.parse(localStorage.getItem('lil-releases'))||{}; }catch(e){ releaseCache={}; }
+  }
+}
+function isReleased(id){
+  if(!releaseCache)return true;                 // nog niet geladen = niet blokkeren
+  return releaseCache[String(id)]!==false;      // standaard vrij, alleen expliciet 'false' verbergt
+}
+function isTeacherViewer(){ return !!(currentUser&&(currentUser.role==='teacher'||currentUser.joker)); }
+async function setReleased(id,val){
+  if(!releaseCache)releaseCache={};
+  releaseCache[String(id)]=!!val;
+  if(CLOUD){
+    try{ const {error}=await sb.from('lesson_settings').upsert(
+      {lesson:String(id), released:!!val, updated_at:new Date().toISOString()},{onConflict:'lesson'});
+      if(error)throw error; return true;
+    }catch(e){ return false; }
+  } else {
+    try{ localStorage.setItem('lil-releases',JSON.stringify(releaseCache)); return true; }catch(e){ return false; }
+  }
+}
+
 function computeStreak(days){
   if(!days||!days.length)return 0;
   const set=new Set(days); let streak=0; const d=new Date();
@@ -933,26 +988,34 @@ function renderDash(){
   const grid=$('courseGrid');
   let done=0, busy=0;
   let html='';
+  const teacherView=isTeacherViewer();
+  let shown=0;
   COURSES.forEach(c=>{
     const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
+    const released=isReleased(c.n);               // door de docent vrijgegeven?
+    // Niet vrijgegeven les: leerling ziet hem niet; de docent wél (om te ontwerpen/testen).
+    if(live && !released && !teacherView) return;
+    shown++;
     const pct=prog.lessons[c.n];                  // beste score, of undefined
     let status='soon';
     if(live){
-      if(pct===undefined) status='new';
+      if(!released) status='soon';                // docent-preview: markeer als 'in voorbereiding'
+      else if(pct===undefined) status='new';
       else if(pct>=PASS){ status='done'; done++; }
       else { status='busy'; busy++; }
     }
     const barPct=pct||0;
-    const cls='card '+(live?'live':'soon')+(c.feat&&live?' featured':'');
+    const cls='card '+(live?'live':'soon')+(c.feat&&live&&released?' featured':'');
     html+=`<button class="${cls}" ${live?`data-course="${c.n}"`:'disabled'}>
-      ${c.bookmark?'<span class="bookmark"></span>':''}
-      ${c.feat&&live?'<div class="kick">🎲 Herhaling</div>':''}
+      ${c.bookmark&&released?'<span class="bookmark"></span>':''}
+      ${!released&&live?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':(c.feat&&live?'<div class="kick">🎲 Herhaling</div>':'')}
       <div class="num">Les ${c.n}</div>
       <h3>${c.t}</h3>
       ${live?`<div class="progress"><i style="width:${barPct}%"></i></div>`:''}
-      <div class="meta">${live?`${barPct}% voltooid`:'lesstof volgt'}${pill(status)}</div>
+      <div class="meta">${!released&&live?'alleen voor jou zichtbaar':(live?`${barPct}% voltooid`:'lesstof volgt')}${pill(!released&&live?'soon':status)}</div>
     </button>`;
   });
+  if(!shown) html='<p style="color:var(--ink-faint);grid-column:1/-1">Er zijn nog geen lessen vrijgegeven. Kom snel terug!</p>';
   grid.innerHTML=html;
   $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
       <div class="num">Les ${c.n}</div><h3>${c.t}</h3>
@@ -964,7 +1027,7 @@ function renderDash(){
   $('statStreak').textContent=computeStreak(prog.days);
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startLesson(b.dataset.course)));
 }
-async function showDash(){if(currentUser){await refreshProgress();renderDash();}
+async function showDash(){if(currentUser){await Promise.all([refreshProgress(),loadReleases()]);renderDash();}
   $('teacherView').classList.add('hidden');$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
 
 /* ---------------- docenten-dashboard ---------------- */
@@ -972,7 +1035,7 @@ async function showTeacher(){
   $('dashView').classList.add('hidden'); $('quizView').classList.add('hidden');
   $('teacherView').classList.remove('hidden');
   $('teacherView').innerHTML='<p style="padding:24px 4px">Laden…</p>';
-  const students=await gatherTeacherData();
+  const [students]=await Promise.all([gatherTeacherData(),loadReleases()]);
   renderTeacher(students);
   window.scrollTo(0,0);
 }
@@ -1050,9 +1113,49 @@ function renderTeacher(students){
       </div>
     </div>
     ${banner}
+    ${releasePanelHtml()}
     <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
   $('teacherView').querySelectorAll('.tv-card').forEach(b=>
     b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
+  wireReleasePanel(students);
+}
+/* paneel: per les een schakelaar 'vrijgeven / verbergen voor leerlingen' */
+function releasePanelHtml(){
+  const playable=COURSES.filter(c=>QUIZZES[c.n]);
+  const rows=playable.map(c=>{
+    const on=isReleased(c.n);
+    return `<label class="rel-row">
+      <span class="rel-info"><span class="rel-num">Les ${c.n}</span><span class="rel-title">${esc(c.t)}</span></span>
+      <span class="rel-toggle">
+        <span class="rel-state ${on?'on':''}">${on?'Vrijgegeven':'Verborgen'}</span>
+        <input type="checkbox" class="rel-check" data-les="${c.n}" ${on?'checked':''} aria-label="Les ${c.n} vrijgeven voor leerlingen">
+        <span class="rel-switch"></span>
+      </span>
+    </label>`;
+  }).join('');
+  return `<details class="rel-panel" open>
+    <summary><b>Lessen vrijgeven</b> <span class="rel-hint">— vink aan welke lessen je leerlingen mogen zien</span></summary>
+    <p class="tv-note" style="margin:2px 0 12px">Een les die niet is vrijgegeven, is voor leerlingen onzichtbaar. Zo kun je rustig een nieuwe les ontwerpen. Jij ziet verborgen lessen zelf wél (met 🔒) om te testen.</p>
+    <div class="rel-list">${rows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
+  </details>`;
+}
+function wireReleasePanel(students){
+  $('teacherView').querySelectorAll('.rel-check').forEach(chk=>{
+    chk.addEventListener('change',async ()=>{
+      const id=chk.dataset.les, val=chk.checked;
+      chk.disabled=true;
+      const ok=await setReleased(id,val);
+      chk.disabled=false;
+      if(!ok){
+        chk.checked=!val; releaseCache[String(id)]=!val;
+        alert('Opslaan mislukt. Heb je de database-regel voor "lesson_settings" al toegevoegd?\n\nZie DOCENT-SETUP.md (blok "lessen vrijgeven").');
+        return;
+      }
+      // werk het label bij zonder alles opnieuw te tekenen
+      const row=chk.closest('.rel-row'), state=row&&row.querySelector('.rel-state');
+      if(state){ state.textContent=val?'Vrijgegeven':'Verborgen'; state.classList.toggle('on',val); }
+    });
+  });
 }
 /* NIVEAU 2 — één les: tabel met leerlingen × vragen (laatste resultaat per vraag) */
 function renderTeacherLesson(lesId,students){
