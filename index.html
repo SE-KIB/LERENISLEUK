@@ -1468,6 +1468,25 @@ document.addEventListener('keydown',e=>{
 });
 
 document.getElementById('year').textContent=new Date().getFullYear();
+
+/* Footer-versie automatisch: haalt de laatst samengevoegde PR op via de GitHub API,
+   zodat de tekst altijd meebeweegt met elke nieuwe PR. Lukt het ophalen niet
+   (offline / API-limiet), dan blijft de reeds in de HTML aanwezige tekst staan. */
+(function updateVersionFromLatestPR(){
+  const el=document.getElementById('version');
+  if(!el)return;
+  const PREFIX='Serkan Yapiyor Bu Isi';
+  fetch('https://api.github.com/repos/SE-KIB/LERENISLEUK/pulls?state=closed&sort=updated&direction=desc&per_page=20')
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(list=>{
+      const pr=list.find(p=>p.merged_at);
+      if(!pr)return;
+      const t=new Date(pr.merged_at)
+        .toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      el.textContent=`${PREFIX} - Version PR${pr.number} - ${t}`;
+    })
+    .catch(()=>{/* stille fallback: laat bestaande tekst staan */});
+})();
 </script>
 </body>
 </html>
