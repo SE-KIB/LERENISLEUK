@@ -1,4 +1,4 @@
-# LerenIsLeuk — Nederlands leren (sekibar.nl)
+# Çalış Artık Da — Nederlands leren (sekibar.nl)
 
 Interactieve online cursus om Nederlands te leren, in de stijl van een leer-app:
 inlogscherm, dashboard met lessen + voortgang, en een quiz-engine met directe
