@@ -6,11 +6,13 @@ name: Lesdata valideren
 on:
   push:
     paths:
+      - "lessons.js"
       - "index.html"
       - "scripts/validate-lessons.js"
       - ".github/workflows/validate-lessons.yml"
   pull_request:
     paths:
+      - "lessons.js"
       - "index.html"
       - "scripts/validate-lessons.js"
   workflow_dispatch:

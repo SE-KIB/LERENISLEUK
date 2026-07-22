@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-/* Valideert de vragenbank (QUIZZES) in index.html.
+/* Valideert de vragenbank (QUIZZES) in lessons.js.
    Draait in CI en lokaal: `node scripts/validate-lessons.js`
    Faalt (exit 1) bij een fout, zodat een typefout in een les meteen opvalt. */
 const fs = require('fs');
 const path = require('path');
 
-const file = path.join(__dirname, '..', 'index.html');
+const file = path.join(__dirname, '..', 'lessons.js');
 const s = fs.readFileSync(file, 'utf8');
 
-// QUIZZES-object-literal uit index.html knippen (haakjes-balans).
+// QUIZZES-object-literal uit lessons.js knippen (haakjes-balans).
 const start = s.indexOf('const QUIZZES = {');
-if (start < 0) { console.error('QUIZZES niet gevonden in index.html'); process.exit(1); }
+if (start < 0) { console.error('QUIZZES niet gevonden in lessons.js'); process.exit(1); }
 const from = s.indexOf('{', start);
 let depth = 0, end = -1;
 for (let i = from; i < s.length; i++) {
