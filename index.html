@@ -1390,45 +1390,42 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
-/* Geluidsbestanden waaruit willekeurig één gekozen wordt bij een hoge score.
-   Zet je eigen (rechtenvrije) fragmenten in de map /sounds/ en voeg de
-   bestandsnamen hieronder toe. Ontbreekt een bestand of lukt afspelen niet,
-   dan valt de code terug op een opgewekt toontje (Web Audio). */
-const SUCCESS_SOUNDS=[
-  'sounds/geluid1.mp3'
-  // ,'sounds/geluid2.mp3'   // <- 2e geluid: bestand in /sounds/ zetten en deze regel activeren
+/* Vrolijke toontjes bij een hoge score — allemaal met de Web Audio API opgewekt,
+   dus geen bestanden nodig en volledig rechtenvrij. Er wordt willekeurig één
+   melodie gekozen. Een melodie is een lijst [frequentie(Hz), duur(s)]-tonen. */
+const SUCCESS_MELODIES=[
+  // 1) Opgaand fanfare-akkoord: C – E – G – hoge C
+  {wave:'triangle', gap:0.13, notes:[[523.25,0.34],[659.25,0.34],[783.99,0.34],[1046.50,0.40]]},
+  // 2) Speels dribbeltje: E – G – hoge C – hoge E
+  {wave:'square',   gap:0.11, notes:[[659.25,0.26],[783.99,0.26],[1046.50,0.26],[1318.51,0.36]]},
+  // 3) Zachte glimlach: G – A – hoge C – hoge D
+  {wave:'sine',     gap:0.14, notes:[[783.99,0.34],[880.00,0.34],[1046.50,0.34],[1174.66,0.44]]},
+  // 4) Trompetstootje: C – G – hoge C, kort en pittig
+  {wave:'sawtooth', gap:0.12, notes:[[523.25,0.22],[783.99,0.22],[1046.50,0.42]]}
 ];
 
-function playToneFallback(){
+function playMelody(mel){
   try{
     const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
     const ctx=new AC();
-    const notes=[523.25,659.25,783.99,1046.50];   // C – E – G – hoge C
-    notes.forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.13;
+    let t=ctx.currentTime;
+    mel.notes.forEach(([freq,dur])=>{
       const osc=ctx.createOscillator(), gain=ctx.createGain();
-      osc.type='triangle'; osc.frequency.value=freq;
+      osc.type=mel.wave; osc.frequency.value=freq;
       gain.gain.setValueAtTime(0.0001,t);
-      gain.gain.exponentialRampToValueAtTime(0.25,t+0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+      gain.gain.exponentialRampToValueAtTime(0.22,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
       osc.connect(gain).connect(ctx.destination);
-      osc.start(t); osc.stop(t+0.34);
+      osc.start(t); osc.stop(t+dur+0.02);
+      t+=mel.gap;
     });
-    setTimeout(()=>ctx.close(),1200);
+    setTimeout(()=>ctx.close(),(t+0.6)*1000);
   }catch(e){/* geluid is niet essentieel; stil falen */}
 }
 
 function playSuccessSound(){
-  if(!SUCCESS_SOUNDS.length){ playToneFallback(); return; }
-  const src=SUCCESS_SOUNDS[Math.floor(Math.random()*SUCCESS_SOUNDS.length)];
-  try{
-    const audio=new Audio(src);
-    audio.volume=0.7;
-    // Lukt afspelen of laden niet (bestand ontbreekt e.d.) → toontje als terugval.
-    audio.addEventListener('error',playToneFallback,{once:true});
-    const p=audio.play();
-    if(p&&p.catch)p.catch(playToneFallback);
-  }catch(e){ playToneFallback(); }
+  const mel=SUCCESS_MELODIES[Math.floor(Math.random()*SUCCESS_MELODIES.length)];
+  playMelody(mel);
 }
 
 function showResult(id,label,score,total,onRetry){
