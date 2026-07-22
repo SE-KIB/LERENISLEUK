@@ -1390,9 +1390,31 @@ function renderFlash(){
 }
 
 /* ---------------- resultaat (gedeeld) ---------------- */
+/* Vrolijk geluidje bij een hoge score — met de Web Audio API, dus geen los bestand nodig. */
+function playSuccessSound(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+    const ctx=new AC();
+    // Kort opgewekt melodietje (C – E – G – hoge C)
+    const notes=[523.25,659.25,783.99,1046.50];
+    notes.forEach((freq,i)=>{
+      const t=ctx.currentTime+i*0.13;
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='triangle'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,t);
+      gain.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t); osc.stop(t+0.34);
+    });
+    setTimeout(()=>ctx.close(),1200);
+  }catch(e){/* geluid is niet essentieel; stil falen */}
+}
+
 function showResult(id,label,score,total,onRetry){
   const pct=total?Math.round(score/total*100):0;
   if(!CLOUD)recordResult(id,pct);
+  if(pct>=90)playSuccessSound();          // les met succes afgerond → geluidje
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
