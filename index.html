@@ -214,7 +214,16 @@ a{color:var(--brand-deep)}
   font-size:14px; color:var(--ink); display:none}
 .explain.show{display:block}
 .explain b{color:var(--brand-deep)}
-.qfoot{display:flex; justify-content:space-between; align-items:center; margin-top:22px}
+.tip-box{margin-top:16px; padding:13px 16px; border-radius:11px; border-left:3px solid var(--accent); background:var(--accent-tint);
+  font-size:14px; color:var(--ink); display:none}
+.tip-box.show{display:block}
+.tip-box b{color:var(--accent-deep)}
+.tip-btn{display:inline-flex; align-items:center; gap:6px; padding:9px 15px; border:1.5px solid var(--accent); border-radius:10px;
+  background:var(--surface); color:var(--accent-deep); font-weight:750; font-size:13.5px; font-family:inherit; transition:.13s}
+.tip-btn:hover:not(:disabled){background:var(--accent-tint); transform:translateY(-1px)}
+.tip-btn:disabled{opacity:.45; cursor:default}
+.qfoot{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:22px}
+.qfoot .score{flex:1 1 auto}
 .score{font-size:13.5px; color:var(--ink-soft); font-weight:650}
 .btn-next{padding:11px 22px; border:none; border-radius:10px; background:linear-gradient(180deg,var(--brand),var(--brand-deep));
   color:#fff; font-weight:750; font-size:14.5px; box-shadow:0 8px 18px -8px var(--brand); transition:.15s}
@@ -1204,13 +1213,27 @@ function renderQuizItem(it){
       <div class="opts" id="opts">
         ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
+      <div class="tip-box" id="tipBox"></div>
       <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
       <div class="qfoot">
+        <button class="tip-btn" id="tipBtn" type="button">💡 Tip</button>
         <span class="score" id="fb">Kies een antwoord.</span>
         <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
       </div>
     </div>`;
   document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answerQuiz(b,it,q)));
+  $('tipBtn').addEventListener('click',()=>{
+    const box=$('tipBox'); box.innerHTML='<b>💡 Tip.</b> '+tipFor(q); box.classList.add('show');
+    $('tipBtn').disabled=true;
+  });
+}
+/* Geeft een hint terug: een eigen 'tip' bij de vraag, anders een automatische letter-hint. */
+function tipFor(q){
+  if(q.tip)return q.tip;
+  const ans=stripTags(q.o[q.c]).trim();
+  const first=ans.split('/')[0].trim();
+  const letters=first.replace(/[^A-Za-zÀ-ÿ]/g,'').length;
+  return `Het juiste antwoord begint met de letter <b>${first.charAt(0).toUpperCase()}</b> en heeft <b>${letters}</b> letters.`;
 }
 function answerQuiz(btn,it,q){
   if(game.answered)return; game.answered=true;
