@@ -1400,9 +1400,16 @@ const SUCCESS_SOUNDS=[
   'sounds/geluid4.mp3'
 ];
 
+let lastSoundIndex=-1;
 function playSuccessSound(){
   if(!SUCCESS_SOUNDS.length)return;
-  const src=SUCCESS_SOUNDS[Math.floor(Math.random()*SUCCESS_SOUNDS.length)];
+  let idx=Math.floor(Math.random()*SUCCESS_SOUNDS.length);
+  // Bij meerdere geluiden: nooit twee keer hetzelfde achter elkaar.
+  if(SUCCESS_SOUNDS.length>1){
+    while(idx===lastSoundIndex)idx=Math.floor(Math.random()*SUCCESS_SOUNDS.length);
+  }
+  lastSoundIndex=idx;
+  const src=SUCCESS_SOUNDS[idx];
   try{
     const audio=new Audio(src);
     audio.volume=0.8;
