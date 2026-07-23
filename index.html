@@ -588,8 +588,16 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
    hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
    waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
 const ACCOUNTS = [
-  {email:"s@e.nl", name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
-  {email:"o@k.nl", name:"Ozcan",  hash:"70b1e8e06785cae451496104850781f33faf6cc8e0777ecd3a9ccaaefb154b2d"},
+  // Beheerder-docent (joker): ziet álle klassen en mag ook als leerling oefenen.
+  {email:"s@e.nl", name:"Serkan",   hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
+  // Tweede docent: pure docent, ziet alléén klas-2 (geen joker, geen leerlingscherm).
+  {email:"t@k.nl", name:"Docent 2", hash:"7496f3d3859c36d1bfd22156a42d0d533aab4425b80e381d0ab1835ae6b190e3", role:"teacher", class:"klas-2"},
+  // De 5 leerlingen van klas-2 (Docent 2).
+  {email:"o@k.nl", name:"Ozcan",  hash:"b755c94833cb0a82838da57f0fd61c2240ba42827a50e8aa53ee27cc54cf68b4", class:"klas-2"},
+  {email:"e@k.nl", name:"Emre",   hash:"ee7f0d0e8d472215b2222993a81288f873183e7dc4067fb6e2c40780ac3a5ac4", class:"klas-2"},
+  {email:"f@k.nl", name:"Fatma",  hash:"ec6724e794aebb7248688dccb68b23b0a9e524c4fb42531141409a28a20c33b5", class:"klas-2"},
+  {email:"y@k.nl", name:"Yusuf",  hash:"7772448cf067ba366d81d3133feb61e449e65e3e6d516371cb2754e329c691b4", class:"klas-2"},
+  {email:"z@k.nl", name:"Zeynep", hash:"e6f52840f058231ee847a6be51d7eff9210e6e6cf040bc057024cf2ecbddf479", class:"klas-2"},
 ];
 
 const $=id=>document.getElementById(id);
@@ -748,15 +756,24 @@ function sha256js(ascii){
 function emailName(email){const p=(email||'').split('@')[0].replace(/[._]/g,' ');
   return p.replace(/\b\w/g,m=>m.toUpperCase())||'Cursist';}
 
+/* lees rol/naam/joker/klas uit de profiles-tabel. In twee stappen zodat een
+   bestaande database (nog zonder de kolommen 'joker'/'class') blijft werken:
+   de rol/naam laden altijd; joker/klas alleen als die kolommen bestaan. */
+async function readProfile(id,email){
+  let role='student', name=emailName(email), joker=false, klas=null;
+  try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',id).maybeSingle();
+    if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
+  try{ const {data:extra}=await sb.from('profiles').select('joker,class').eq('id',id).maybeSingle();
+    if(extra){ joker=!!extra.joker; klas=extra.class||null; } }catch(e){}
+  return {name, role, joker, class:klas};
+}
 /* cloud-login via Supabase Auth; haalt rol/naam uit de profiles-tabel */
 async function cloudSignIn(email,pw){
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error||!data||!data.user)return null;
-    let role='student', name=emailName(email);
-    try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',data.user.id).maybeSingle();
-      if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
-    return {id:data.user.id, email:data.user.email, name, role};
+    const p=await readProfile(data.user.id, email);
+    return {id:data.user.id, email:data.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class};
   }catch(e){ return null; }
 }
 
@@ -780,7 +797,7 @@ $('loginForm').addEventListener('submit',async e=>{
     if(acc){ try{ if((await sha256(pw))===acc.hash)
       user={email:acc.email, name:acc.name,
         role:acc.role||'student',
-        joker:!!acc.joker}; }catch(err){} }
+        joker:!!acc.joker, class:acc.class||null}; }catch(err){} }
   }
   $('submitBtn').disabled=false;
   if(user){
@@ -808,10 +825,8 @@ async function tryRestoreSession(){
     const {data}=await sb.auth.getSession();
     const s=data&&data.session;
     if(s&&s.user){
-      let role='student', name=emailName(s.user.email);
-      try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',s.user.id).maybeSingle();
-        if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
-      await login({id:s.user.id, email:s.user.email, name, role});
+      const p=await readProfile(s.user.id, s.user.email);
+      await login({id:s.user.id, email:s.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class});
       return true;
     }
   }catch(e){}
@@ -832,7 +847,7 @@ $('forgot').addEventListener('click',async e=>{e.preventDefault();
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
 function updateSwitchBtn(){
   const b=$('switchBtn');
-  if(currentUser&&(currentUser.joker||currentUser.role==='teacher')){
+  if(currentUser&&currentUser.joker){          // alleen de joker wisselt tussen docent- en leerlingscherm; pure docenten niet
     b.style.display='';
     b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
   } else { b.style.display='none'; }
@@ -941,7 +956,9 @@ async function gatherTeacherData(){
       attempts:(att||[]).filter(a=>a.user_id===p.id)
     }));
   }
-  return ACCOUNTS.filter(a=>a.role!=='teacher').map(a=>{
+  // Lokale modus: een docent met een klas ziet alleen díe klas; een docent zonder klas (beheerder) ziet iedereen.
+  const myClass=currentUser&&currentUser.class;
+  return ACCOUNTS.filter(a=>a.role!=='teacher' && (!myClass || a.class===myClass)).map(a=>{
     let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
     return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}, attempts:[]};
   });
