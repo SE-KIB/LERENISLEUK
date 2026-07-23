@@ -16,7 +16,7 @@
 <style>
 :root{
   --ground:#f5faf7; --surface:#ffffff; --surface-2:#eaf5ef;
-  --ink:#0f2a22; --ink-soft:#41645a; --ink-faint:#7d968c;
+  --ink:#0f2a22; --ink-soft:#41645a; --ink-faint:#5f7d72;
   --line:#d6e7de; --line-soft:#e7f1eb;
   --brand:#12a06a; --brand-deep:#0a7048; --brand-tint:#dcf3e8;
   --accent:#f2934b; --accent-deep:#d8722a; --accent-tint:#fdeede;
@@ -41,7 +41,7 @@
 }
 :root[data-theme="light"]{
   --ground:#f5faf7; --surface:#ffffff; --surface-2:#eaf5ef; --ink:#0f2a22; --ink-soft:#41645a;
-  --ink-faint:#7d968c; --line:#d6e7de; --line-soft:#e7f1eb; --brand:#12a06a; --brand-deep:#0a7048;
+  --ink-faint:#5f7d72; --line:#d6e7de; --line-soft:#e7f1eb; --brand:#12a06a; --brand-deep:#0a7048;
   --brand-tint:#dcf3e8; --accent:#f2934b; --accent-deep:#d8722a; --accent-tint:#fdeede;
   --good:#1f9d6b; --good-tint:#e2f4ec; --bad:#d64545; --bad-tint:#fbe6e6;
   --shadow:0 1px 2px rgba(15,42,34,.06), 0 8px 24px -12px rgba(15,42,34,.22);
@@ -66,6 +66,11 @@ p{margin:0}
 button{font-family:inherit; cursor:pointer}
 .tnum{font-variant-numeric:tabular-nums}
 .hidden{display:none !important}
+/* alleen voor schermlezers: onzichtbaar op het scherm, wél voorgelezen */
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+/* duidelijke toetsenbord-focus voor álle interactieve elementen (a11y) */
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--brand) 60%,transparent); outline-offset:2px; border-radius:8px}
 a{color:var(--brand-deep)}
 
 /* ---------- top bar ---------- */
@@ -98,7 +103,7 @@ a{color:var(--brand-deep)}
 .aside-top{position:relative; z-index:2; display:flex; align-items:center; gap:11px; font-weight:800; font-size:19px}
 .aside-mid{position:relative; z-index:2; max-width:420px}
 .aside-mid .eyebrow{text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700; color:#a9f0cf; margin-bottom:16px}
-.aside-mid h2{font-size:clamp(30px,3.6vw,44px); color:#fff; line-height:1.08}
+.aside-mid .aside-title{font-size:clamp(30px,3.6vw,44px); color:#fff; line-height:1.08; font-weight:800; letter-spacing:-.02em; text-wrap:balance; margin:0}
 .aside-mid p{margin-top:16px; color:#cff3e2; font-size:16px; max-width:380px}
 .aside-stats{position:relative; z-index:2; display:flex; gap:30px}
 .aside-stats .n{font-size:26px; font-weight:800; color:#fff}
@@ -323,6 +328,8 @@ a{color:var(--brand-deep)}
 .contact-card input{width:100%; padding:12px 13px; border:1px solid var(--line); border-radius:11px; background:var(--surface); color:var(--ink); font-size:15px; font-family:inherit}
 .contact-card input:focus,.contact-card textarea:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 22%,transparent)}
 .contact-info a{font-weight:700}
+.contact-feedback{margin:2px 0 0; font-size:13.5px; font-weight:600; color:var(--good); min-height:0}
+.contact-feedback:empty{display:none}
 
 /* ---------- docenten-dashboard ---------- */
 .tv-banner{margin:0 2px 18px; padding:12px 15px; border-radius:11px; background:var(--accent-tint); border:1px solid color-mix(in srgb,var(--accent) 40%,transparent); color:var(--accent-deep); font-size:13px}
@@ -438,6 +445,18 @@ details.tv-recent > summary h2{flex:1 1 auto}
 
 .footer{max-width:var(--maxw); margin:0 auto; padding:22px 20px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .footer .spacer{flex:1}
+
+/* ---------- meldingen (toast) ---------- */
+.toast-host{position:fixed; left:0; right:0; bottom:16px; z-index:1000; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; padding:0 12px}
+.toast{pointer-events:auto; max-width:460px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-left:4px solid var(--brand);
+  border-radius:11px; box-shadow:var(--shadow-lg); padding:12px 14px; font-size:13.5px; font-weight:600; line-height:1.4; display:flex; align-items:flex-start; gap:10px;
+  opacity:0; transform:translateY(10px); transition:opacity .2s, transform .2s}
+.toast.show{opacity:1; transform:none}
+.toast.warn{border-left-color:var(--accent)}
+.toast.bad{border-left-color:var(--bad)}
+.toast .toast-x{margin-left:4px; background:none; border:none; color:var(--ink-faint); font-size:18px; line-height:1; padding:0 2px; flex:0 0 auto}
+.toast .toast-x:hover{color:var(--ink)}
+
 @media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
 </style>
 </head>
@@ -447,11 +466,11 @@ details.tv-recent > summary h2{flex:1 1 auto}
 <div id="loginView">
   <div class="login-wrap">
     <aside class="login-aside">
-      <canvas id="bgCanvas"></canvas>
+      <canvas id="bgCanvas" aria-hidden="true"></canvas>
       <div class="aside-top"><span>📖</span> Çalış Artık Da</div>
       <div class="aside-mid">
         <div class="eyebrow">Nederlands leren</div>
-        <h2>Van eerste woorden tot vloeiend — in jouw tempo.</h2>
+        <p class="aside-title">Van eerste woorden tot vloeiend — in jouw tempo.</p>
         <p>Interactieve modules, directe feedback en heldere uitleg. Voor de basisschool en inburgering / NT2.</p>
       </div>
       <div class="aside-stats">
@@ -472,7 +491,7 @@ details.tv-recent > summary h2{flex:1 1 auto}
         <form id="loginForm">
           <div class="field">
             <label for="email">E-mailadres</label>
-            <input type="text" id="email" placeholder="E-mailadres" autocomplete="username" required>
+            <input type="text" id="email" placeholder="E-mailadres" autocomplete="username" inputmode="email" required>
           </div>
           <div class="field">
             <div class="lbl-row"><label for="pw">Wachtwoord</label><a href="#" id="forgot">Vergeten?</a></div>
@@ -535,10 +554,14 @@ details.tv-recent > summary h2{flex:1 1 auto}
              <a href="mailto:info@sekibar.nl">info@sekibar.nl</a>. We reageren meestal binnen één werkdag.</p>
         </div>
         <form id="contactForm" action="https://formspree.io/f/your-form-id" method="POST">
-          <input type="text" name="naam" placeholder="Je naam" required>
-          <input type="email" name="email" placeholder="Je e-mailadres" required>
-          <textarea name="bericht" placeholder="Je vraag of bericht…" required></textarea>
+          <label class="sr-only" for="contactNaam">Je naam</label>
+          <input type="text" id="contactNaam" name="naam" placeholder="Je naam" autocomplete="name" required>
+          <label class="sr-only" for="contactEmail">Je e-mailadres</label>
+          <input type="email" id="contactEmail" name="email" placeholder="Je e-mailadres" autocomplete="email" required>
+          <label class="sr-only" for="contactBericht">Je vraag of bericht</label>
+          <textarea id="contactBericht" name="bericht" placeholder="Je vraag of bericht…" required></textarea>
           <button type="submit" class="btn-primary" style="width:auto; justify-self:start">Versturen →</button>
+          <p id="contactFeedback" class="contact-feedback" role="status" aria-live="polite"></p>
         </form>
       </div>
     </div>
@@ -555,6 +578,9 @@ details.tv-recent > summary h2{flex:1 1 auto}
     <span id="version">Serkan Yapiyor Bu Isi - Version PR20 - 10:16</span>
   </footer>
 </div>
+
+<!-- korte, niet-blokkerende meldingen (bv. 'opslaan mislukt') -->
+<div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="false"></div>
 
 <!-- Supabase JS — vaste versie + SRI-hash (integriteitscontrole tegen CDN-manipulatie).
      Alleen actief zodra je de sleutels hieronder invult. -->
@@ -627,6 +653,25 @@ const ACCOUNTS = [
 
 const $=id=>document.getElementById(id);
 
+/* ---------------- meldingen (toast) ----------------
+   Korte, niet-blokkerende melding onderaan het scherm. Voor situaties waarin
+   een 'alert' te opdringerig is (bv. voortgang die niet kon worden opgeslagen).
+   type: '' (neutraal), 'warn' (oranje) of 'bad' (rood). */
+function notify(msg,type){
+  const host=$('toastHost'); if(!host)return;
+  const t=document.createElement('div');
+  t.className='toast'+(type?(' '+type):'');
+  t.setAttribute('role','status');
+  const txt=document.createElement('span'); txt.textContent=msg; t.appendChild(txt);
+  const x=document.createElement('button');
+  x.type='button'; x.className='toast-x'; x.setAttribute('aria-label','Melding sluiten'); x.textContent='×';
+  const close=()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),200); };
+  x.addEventListener('click',close); t.appendChild(x);
+  host.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(close,6000);
+}
+
 /* ---------------- afgeleide aantallen (inhoud) ---------------- */
 const TOTAL_LESSONS = COURSES.length + SOON.length;                 // alle lessen
 const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // met vragen
@@ -653,20 +698,31 @@ function recordResult(id,pct){                        // lokale modus: beste sco
   if(!p.days.includes(today))p.days.push(today);
   saveProg(p);
 }
+/* melding tonen als opslaan naar de cloud hapert — maar hooguit één keer per
+   sessie, zodat een leerling niet bij elke vraag een melding krijgt. */
+let cloudWarnShown=false;
+function warnCloudSaveFailed(){
+  if(cloudWarnShown)return; cloudWarnShown=true;
+  notify('Verbinding met de server hapert — je voortgang wordt mogelijk niet bewaard. Controleer je internet.','warn');
+}
 /* cloud: sla het antwoord op één vraag op (nieuwste telt) */
 async function cloudRecordAnswer(lesson,qIndex,correct){
   if(!CLOUD||!currentUser||!currentUser.id)return;
-  try{ await sb.from('answers').upsert(
+  try{ const {error}=await sb.from('answers').upsert(
     {user_id:currentUser.id, email:currentUser.email, lesson:String(lesson), q_index:qIndex, correct:!!correct, updated_at:new Date().toISOString()},
-    {onConflict:'user_id,lesson,q_index'}); }catch(e){}
+    {onConflict:'user_id,lesson,q_index'});
+    if(error)warnCloudSaveFailed();
+  }catch(e){ warnCloudSaveFailed(); }
 }
 /* cloud: bewaar één volledige poging (met per-vraag detail) als geschiedenis */
 async function cloudRecordAttempt(lesson,mode,score,total,details){
   if(!CLOUD||!currentUser||!currentUser.id)return;
-  try{ await sb.from('attempts').insert(
+  try{ const {error}=await sb.from('attempts').insert(
     {user_id:currentUser.id, email:currentUser.email, lesson:String(lesson), mode:mode||'',
      score:score, total:total, pct:total?Math.round(score/total*100):0,
-     details:details||[], created_at:new Date().toISOString()}); }catch(e){}
+     details:details||[], created_at:new Date().toISOString()});
+    if(error)warnCloudSaveFailed();
+  }catch(e){ warnCloudSaveFailed(); }
 }
 /* zet per-vraag rijen om naar {lessons:{les:pct}, days:[]} */
 function aggregate(rows){
@@ -900,6 +956,7 @@ $('switchBtn').addEventListener('click',async ()=>{
 });
 $('logoutBtn').addEventListener('click',async ()=>{
   if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} }
+  stopTeacherAutoRefresh();
   currentUser=null; progCache={lessons:{},days:[]};
   $('switchBtn').style.display='none';
   $('appView').classList.add('hidden'); $('teacherView').classList.add('hidden'); $('loginView').classList.remove('hidden');
@@ -1140,7 +1197,7 @@ function wireBlockDragging(){
     handle.addEventListener('pointerdown',onDown);
   });
 }
-/* hoeveel afgeronde lessen tonen — knopjes; standaard 5, uitklapbaar tot 200 */
+/* hoeveel afgeronde lessen tonen — knopjes; standaard 3, uitklapbaar tot 200 */
 const RECENT_LIMITS=[3,50,100,200];
 let recentLimit=3, lastTeacherStudents=[];
 /* bouw de lijst 'laatste afgeronde lessen': alle pogingen van alle leerlingen
@@ -1166,11 +1223,11 @@ function recentCompletedHtml(students, limitOverride){
   </div>`).join('');
   return rows+`<div class="rc-count">${top.length} van ${items.length} afgeronde lessen getoond</div>`;
 }
-/* knopjes 5/50/100/200: pas de weergave meteen aan zonder opnieuw te laden */
+/* knopjes 3/50/100/200: pas de weergave meteen aan zonder opnieuw te laden */
 function wireRecentControls(){
   const box=$('tvRecentControls'); if(!box)return;
   box.querySelectorAll('.rc-limit').forEach(b=>b.addEventListener('click',()=>{
-    recentLimit=parseInt(b.dataset.n,10)||5;
+    recentLimit=parseInt(b.dataset.n,10)||3;
     box.querySelectorAll('.rc-limit').forEach(x=>x.classList.toggle('on',x===b));
     const list=$('tvRecent'); if(list)list.innerHTML=recentCompletedHtml(lastTeacherStudents);
   }));
@@ -1194,6 +1251,11 @@ function startTeacherAutoRefresh(){
         .subscribe();
     }catch(e){}
   }
+}
+/* stop het automatisch verversen (bij uitloggen) — geen onnodige achtergrond-taken */
+function stopTeacherAutoRefresh(){
+  if(teacherRefreshTimer){ clearInterval(teacherRefreshTimer); teacherRefreshTimer=null; }
+  if(teacherRealtime){ try{ sb.removeChannel(teacherRealtime); }catch(e){} teacherRealtime=null; }
 }
 /* paneel: per les een schakelaar 'vrijgeven / verbergen voor leerlingen' */
 function releasePanelHtml(){
@@ -1401,6 +1463,9 @@ function questionDutch(q){
 }
 /* het juiste Nederlandse antwoord (eerste variant vóór een schuine streep) */
 function answerDutch(q){ return stripTags((q.o[q.c]||'').split('/')[0]); }
+/* beschrijvende alt-tekst voor een afbeelding bij een vraag: het Nederlandse
+   woord dat de vraag illustreert (voor schermlezers en als de afbeelding niet laadt) */
+function imgAlt(q){ const nl=questionDutch(q)||answerDutch(q); return nl?('Afbeelding: '+stripTags(nl)):'Illustratie bij de vraag'; }
 /* één gedelegeerde klik-listener voor alle uitspraakknoppen */
 document.addEventListener('click',e=>{const b=e.target.closest('.speakbtn'); if(b){e.preventDefault(); e.stopPropagation(); speak(b.dataset.say,b);}});
 
@@ -1457,13 +1522,13 @@ function startLesson(id){
 /* ---------------- gedeelde vraag-engine (quiz + invullen + mix) ---------------- */
 let game=null;
 function buildQuizItems(id){ return QUIZZES[id].q.map((q,qi)=>({kind:'quiz',qi})); }
-function buildFillItems(id){ return wordPairs(id).map(p=>({kind:'fill',pair:p})); }
+function buildFillItems(id){ return wordPairs(id).map(p=>({kind:'fill',qi:p.qi,pair:p})); }
 function buildMixItems(id){
   const items=QUIZZES[id].q.map((q,qi)=>{
     const isPair=(q.tag==='Woord → betekenis'||q.tag==='Betekenis → woord');
     if(isPair&&Math.random()<0.5){ const nl=q.tag==='Woord → betekenis'?mWord(q.t):q.o[q.c];
       const tr=q.tag==='Woord → betekenis'?q.o[q.c]:mWord(q.t);
-      return {kind:'fill',pair:{nl:stripTags(nl),tr:stripTags(tr),qi}}; }
+      return {kind:'fill',qi,pair:{nl:stripTags(nl),tr:stripTags(tr),qi}}; }
     return {kind:'quiz',qi};
   });
   return shuffle(items);
@@ -1500,7 +1565,7 @@ function renderQuizItem(it){
     <div class="qcard">
       <span class="qtag">${q.tag}</span>
       <div class="qtext-row"><div class="qtext">${q.t}</div>${speakerHtml(questionDutch(q))}</div>
-      ${q.img?`<img class="q-img" src="${esc(q.img)}" alt="" loading="lazy">`:''}
+      ${q.img?`<img class="q-img" src="${esc(q.img)}" alt="${esc(imgAlt(q))}" loading="lazy">`:''}
       <div class="opts" id="opts">
         ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
@@ -1508,14 +1573,14 @@ function renderQuizItem(it){
       <div class="explain" id="explain"><b>Uitleg.</b> ${q.e}</div>
       <div class="qfoot">
         <button class="tip-btn" id="tipBtn" type="button">💡 Tip</button>
-        <span class="score" id="fb">Kies een antwoord.</span>
+        <span class="score" id="fb" role="status" aria-live="polite">Kies een antwoord.</span>
         <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
       </div>
     </div>`;
   document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answerQuiz(b,it,q)));
   $('tipBtn').addEventListener('click',()=>{
     const box=$('tipBox');
-    box.innerHTML='<b>💡 Tip.</b> '+tipFor(q)+(q.tipImg?`<img class="q-img" src="${esc(q.tipImg)}" alt="" loading="lazy">`:'');
+    box.innerHTML='<b>💡 Tip.</b> '+tipFor(q)+(q.tipImg?`<img class="q-img" src="${esc(q.tipImg)}" alt="${esc(imgAlt(q))}" loading="lazy">`:'');
     box.classList.add('show');
     $('tipBtn').disabled=true;
   });
@@ -1555,7 +1620,7 @@ function renderFill(it){
       </form>
       <div class="explain" id="explain"></div>
       <div class="qfoot">
-        <span class="score" id="fb">Typ je antwoord en druk op Enter.</span>
+        <span class="score" id="fb" role="status" aria-live="polite">Typ je antwoord en druk op Enter.</span>
         <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
       </div>
     </div>`;
@@ -1607,7 +1672,7 @@ function renderSlepen(){
       <div class="drag-col" id="dragSrc">${left.map(p=>`<button class="chip" draggable="true" data-q="${p.qi}">${p.nl}</button>`).join('')}</div>
       <div class="drag-col" id="dragTgt">${right.map(p=>`<div class="slot" data-q="${p.qi}" tabindex="0" role="button" aria-label="Vertaling ${p.tr} — kies eerst een woord, druk dan Enter"><span class="slot-tr">${p.tr}</span><span class="slot-drop">sleep hier</span></div>`).join('')}</div>
     </div>
-    <div class="qfoot"><span class="score" id="fb">Nog ${batch.length} te koppelen.</span>
+    <div class="qfoot"><span class="score" id="fb" role="status" aria-live="polite">Nog ${batch.length} te koppelen.</span>
       <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende ronde →'}</button></div>`;
   $('backBtn').addEventListener('click',()=>startLesson(s.id));
   $('nextBtn').addEventListener('click',()=>{sl.pos+=sl.size;renderSlepen();});
@@ -1765,6 +1830,8 @@ document.getElementById('contactForm').addEventListener('submit',e=>{
     const naam=(f.naam.value||'').trim(), email=(f.email.value||'').trim(), bericht=(f.bericht.value||'').trim();
     const subject=encodeURIComponent('Bericht via sekibar.nl'+(naam?' — '+naam:''));
     const body=encodeURIComponent('Naam: '+naam+'\nE-mail: '+email+'\n\n'+bericht);
+    const fb=$('contactFeedback');
+    if(fb)fb.textContent='We openen je e-mailprogramma om het bericht te versturen. Lukt dat niet? Mail dan direct naar info@sekibar.nl.';
     window.location.href='mailto:info@sekibar.nl?subject='+subject+'&body='+body;}
 });
 

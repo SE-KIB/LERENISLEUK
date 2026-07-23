@@ -13,7 +13,7 @@ Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**
 - `CNAME` — koppelt sekibar.nl aan GitHub Pages
 
 ## Functies
-- Inlog-/registratiescherm (demo: elk e-mailadres/wachtwoord werkt)
+- Inlogscherm met vaste accounts (wachtwoorden als SHA-256-hash; met Supabase gekoppeld gaat login via de database)
 - Dashboard met leerlijn, voortgangsbalken, stats en streak
 - Quiz-engine: meerkeuzevragen, directe feedback, uitleg en eindscore
 - Licht/donker thema (volgt systeem, met knop)
