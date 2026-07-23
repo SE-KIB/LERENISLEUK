@@ -9,6 +9,13 @@
      t = vraag, o = antwoorden, c = index van het juiste antwoord (0=eerste),
      e = uitleg, tag = vraagtype, tip = hint (optioneel, meestal een
      makkelijke voorbeeldzin met het woord).
+   Optioneel (laten weg = niets te zien):
+     img    = afbeelding bij de vraag (URL of pad, bijv. "images/trein.jpg").
+     tipImg = afbeelding in het tip-vakje (handig om een woord in beeld uit te
+              leggen). Voorbeeld: {tag:"…", t:"…", o:[…], c:0, e:"…",
+              tip:"Kijk naar het plaatje.", tipImg:"images/hamer.jpg"}.
+   Leerlingen kunnen elk Nederlands woord ook laten uitspreken (🔊-knop);
+   dat werkt automatisch, daar hoef je niets voor in te stellen.
    Controleer met: node scripts/validate-lessons.js
    ============================================================ */
 const COURSES = [
