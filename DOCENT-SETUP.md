@@ -242,13 +242,13 @@ Maak deze 6 accounts aan met precies deze e-mailadressen en wachtwoorden:
 |-----------|--------------------|--------------|
 | Docent 2  | `t@k.nl`           | `docent123`  |
 | Leerling  | `o@k.nl` (Ozcan)   | `ozcan123`   |
-| Leerling  | `e@k.nl` (Emre)    | `emre123`    |
-| Leerling  | `f@k.nl` (Fatma)   | `fatma123`   |
-| Leerling  | `y@k.nl` (Yusuf)   | `yusuf123`   |
-| Leerling  | `z@k.nl` (Zeynep)  | `zeynep123`  |
+| Leerling  | `s1@k.nl`          | `student1`   |
+| Leerling  | `s2@k.nl`          | `student2`   |
+| Leerling  | `s3@k.nl`          | `student3`   |
+| Leerling  | `s4@k.nl`          | `student4`   |
 
-> Bestaat `o@k.nl` (Ozcan) al? Dan hoef je hem niet opnieuw te maken; zet
-> desnoods het wachtwoord op `ozcan123` via **Authentication → Users → … → Reset password**.
+> Bestaat `o@k.nl` (Ozcan) al? Dan hoef je hem niet opnieuw te maken; laat zijn
+> wachtwoord staan zoals het is.
 
 ### 3 — Zet de rol en de klas goed (SQL Editor → Run)
 
@@ -257,11 +257,11 @@ Maak deze 6 accounts aan met precies deze e-mailadressen en wachtwoorden:
 update public.profiles set role='teacher', joker=false, full_name='Docent 2', class='klas-2' where email='t@k.nl';
 
 -- De 5 leerlingen van Docent 2 (klas-2)
-update public.profiles set class='klas-2', full_name='Ozcan'  where email='o@k.nl';
-update public.profiles set class='klas-2', full_name='Emre'   where email='e@k.nl';
-update public.profiles set class='klas-2', full_name='Fatma'  where email='f@k.nl';
-update public.profiles set class='klas-2', full_name='Yusuf'  where email='y@k.nl';
-update public.profiles set class='klas-2', full_name='Zeynep' where email='z@k.nl';
+update public.profiles set class='klas-2', full_name='Ozcan'     where email='o@k.nl';
+update public.profiles set class='klas-2', full_name='Student 1' where email='s1@k.nl';
+update public.profiles set class='klas-2', full_name='Student 2' where email='s2@k.nl';
+update public.profiles set class='klas-2', full_name='Student 3' where email='s3@k.nl';
+update public.profiles set class='klas-2', full_name='Student 4' where email='s4@k.nl';
 ```
 
 Klaar. Docent 2 logt in met `t@k.nl` / `docent123` en ziet **alleen** deze 5
