@@ -354,6 +354,9 @@ a{color:var(--brand-deep)}
 .rc-limit{cursor:pointer; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--surface-2); border:1px solid var(--line-soft); transition:background .12s, border-color .12s, color .12s}
 .rc-limit:hover{border-color:var(--brand)}
 .rc-limit.on{color:#fff; background:var(--brand); border-color:var(--brand)}
+.rc-all-btn{margin-left:auto; padding:5px 13px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--brand-deep);
+  background:var(--brand-tint); border:1px solid color-mix(in srgb,var(--brand) 30%,transparent); transition:.13s}
+.rc-all-btn:hover{border-color:var(--brand); background:var(--surface); transform:translateY(-1px)}
 .rc-count{margin-top:6px; font-size:12px; color:var(--ink-faint); text-align:right}
 .rc-list{display:grid; gap:8px}
 .rc-item{display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; padding:10px 13px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2)}
@@ -362,6 +365,21 @@ a{color:var(--brand-deep)}
 .rc-score{grid-column:2; grid-row:1; font-weight:800; color:var(--brand-deep); font-size:13px; text-align:right}
 .rc-when{grid-column:2; grid-row:2; color:var(--ink-faint); font-size:12.5px; text-align:right; white-space:nowrap}
 .tv-recent-empty{color:var(--ink-faint); font-size:13.5px; font-style:italic; padding:6px 2px}
+/* Serkan: inklapbaar 'Laatste afgeronde lessen' + versleepbare blokken */
+details.tv-recent > summary{list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; user-select:none; margin:0}
+details.tv-recent > summary::-webkit-details-marker{display:none}
+details.tv-recent > summary::before{content:"▸"; color:var(--ink-faint); transition:transform .15s; flex:0 0 auto; font-size:13px}
+details.tv-recent[open] > summary::before{transform:rotate(90deg)}
+details.tv-recent > summary h2{flex:1 1 auto}
+.tv-reorder-tip{margin:0 2px 14px; padding:9px 13px; border-radius:10px; background:var(--surface-2); border:1px dashed var(--line); color:var(--ink-faint); font-size:12.5px}
+.tv-cards-title{margin:0 0 12px; font-size:16px}
+.tv-serkan .tv-block > summary, .tv-serkan .tv-block-title{cursor:grab; touch-action:none}
+.tv-serkan .tv-block{border-radius:var(--radius); transition:box-shadow .15s, transform .1s, opacity .15s}
+.tv-block.tv-armed{opacity:.96; box-shadow:var(--shadow-lg); outline:2px solid var(--brand); outline-offset:2px; transform:scale(1.01)}
+.tv-block.tv-armed summary, .tv-block.tv-armed .tv-block-title{cursor:grabbing}
+.tv-reordering .tv-block:not(.tv-armed){outline:2px dashed var(--line); outline-offset:2px}
+.tv-block > .rel-panel{margin-bottom:0}
+.tv-block{margin-bottom:18px}
 /* les-kaarten in het docenten-overzicht */
 .tv-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px}
 .tv-card{text-align:left; cursor:pointer; padding:16px 17px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); transition:transform .12s, border-color .12s}
@@ -588,8 +606,16 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
    hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
    waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
 const ACCOUNTS = [
-  {email:"s@e.nl", name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
-  {email:"o@k.nl", name:"Ozcan",  hash:"70b1e8e06785cae451496104850781f33faf6cc8e0777ecd3a9ccaaefb154b2d"},
+  // Beheerder-docent (joker): ziet álle klassen en mag ook als leerling oefenen.
+  {email:"s@e.nl", name:"Serkan",   hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
+  // Tweede docent: pure docent, ziet alléén klas-2 (geen joker, geen leerlingscherm).
+  {email:"t@k.nl", name:"Docent 2", hash:"7496f3d3859c36d1bfd22156a42d0d533aab4425b80e381d0ab1835ae6b190e3", role:"teacher", class:"klas-2"},
+  // De 5 leerlingen van klas-2 (Docent 2).
+  {email:"o@k.nl",  name:"Ozcan",     hash:"b755c94833cb0a82838da57f0fd61c2240ba42827a50e8aa53ee27cc54cf68b4", class:"klas-2"},
+  {email:"s1@k.nl", name:"Student 1", hash:"509e87a6c45ee0a3c657bf946dd6dc43d7e5502143be195280f279002e70f7d9", class:"klas-2"},
+  {email:"s2@k.nl", name:"Student 2", hash:"eb4b3111401df980f14f28ad6804ae096df1e1c6963c51eab4140be226f8c94c", class:"klas-2"},
+  {email:"s3@k.nl", name:"Student 3", hash:"373b29d2837e83b9ca5cec712a5985843df271cc7c06e64629472f4d03c6f83c", class:"klas-2"},
+  {email:"s4@k.nl", name:"Student 4", hash:"ba94ccdc15adac7f65efce821dfa9605dfc42cf98da7ce002073604647d40ed2", class:"klas-2"},
 ];
 
 const $=id=>document.getElementById(id);
@@ -748,15 +774,24 @@ function sha256js(ascii){
 function emailName(email){const p=(email||'').split('@')[0].replace(/[._]/g,' ');
   return p.replace(/\b\w/g,m=>m.toUpperCase())||'Cursist';}
 
+/* lees rol/naam/joker/klas uit de profiles-tabel. In twee stappen zodat een
+   bestaande database (nog zonder de kolommen 'joker'/'class') blijft werken:
+   de rol/naam laden altijd; joker/klas alleen als die kolommen bestaan. */
+async function readProfile(id,email){
+  let role='student', name=emailName(email), joker=false, klas=null;
+  try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',id).maybeSingle();
+    if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
+  try{ const {data:extra}=await sb.from('profiles').select('joker,class').eq('id',id).maybeSingle();
+    if(extra){ joker=!!extra.joker; klas=extra.class||null; } }catch(e){}
+  return {name, role, joker, class:klas};
+}
 /* cloud-login via Supabase Auth; haalt rol/naam uit de profiles-tabel */
 async function cloudSignIn(email,pw){
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error||!data||!data.user)return null;
-    let role='student', name=emailName(email);
-    try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',data.user.id).maybeSingle();
-      if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
-    return {id:data.user.id, email:data.user.email, name, role};
+    const p=await readProfile(data.user.id, email);
+    return {id:data.user.id, email:data.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class};
   }catch(e){ return null; }
 }
 
@@ -780,7 +815,7 @@ $('loginForm').addEventListener('submit',async e=>{
     if(acc){ try{ if((await sha256(pw))===acc.hash)
       user={email:acc.email, name:acc.name,
         role:acc.role||'student',
-        joker:!!acc.joker}; }catch(err){} }
+        joker:!!acc.joker, class:acc.class||null}; }catch(err){} }
   }
   $('submitBtn').disabled=false;
   if(user){
@@ -808,10 +843,8 @@ async function tryRestoreSession(){
     const {data}=await sb.auth.getSession();
     const s=data&&data.session;
     if(s&&s.user){
-      let role='student', name=emailName(s.user.email);
-      try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',s.user.id).maybeSingle();
-        if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
-      await login({id:s.user.id, email:s.user.email, name, role});
+      const p=await readProfile(s.user.id, s.user.email);
+      await login({id:s.user.id, email:s.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class});
       return true;
     }
   }catch(e){}
@@ -832,7 +865,7 @@ $('forgot').addEventListener('click',async e=>{e.preventDefault();
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
 function updateSwitchBtn(){
   const b=$('switchBtn');
-  if(currentUser&&(currentUser.joker||currentUser.role==='teacher')){
+  if(currentUser&&currentUser.joker){          // alleen de joker wisselt tussen docent- en leerlingscherm; pure docenten niet
     b.style.display='';
     b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
   } else { b.style.display='none'; }
@@ -941,7 +974,9 @@ async function gatherTeacherData(){
       attempts:(att||[]).filter(a=>a.user_id===p.id)
     }));
   }
-  return ACCOUNTS.filter(a=>a.role!=='teacher').map(a=>{
+  // Lokale modus: een docent met een klas ziet alleen díe klas; een docent zonder klas (beheerder) ziet iedereen.
+  const myClass=currentUser&&currentUser.class;
+  return ACCOUNTS.filter(a=>a.role!=='teacher' && (!myClass || a.class===myClass)).map(a=>{
     let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
     return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}, attempts:[]};
   });
@@ -992,47 +1027,127 @@ function renderTeacher(students){
       </div>
     </button>`;
   });
-  $('teacherView').innerHTML=`
+  const welcome=`
     <div class="welcome">
       <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
       <div class="stat-strip">
         <div class="stat"><div class="n tnum">${students.length}</div><div class="l">leerlingen</div></div>
         <div class="stat"><div class="n tnum">${playable.length}</div><div class="l">lessen</div></div>
       </div>
-    </div>
-    ${banner}
-    <section class="tv-recent">
-      <div class="tv-recent-head">
-        <h2>Laatste afgeronde lessen</h2>
-        <span class="tv-recent-live" title="Werkt automatisch bij — nieuwste bovenaan">live</span>
-      </div>
+    </div>`;
+  const recentControls=`
       <div class="rc-controls" id="tvRecentControls">
         <span class="rc-controls-label">Toon lijst:</span>
         ${RECENT_LIMITS.map(n=>`<button class="rc-limit${n===recentLimit?' on':''}" data-n="${n}">${n}</button>`).join('')}
+        <button class="rc-all-btn" id="rcAll" type="button">Alle bekijken →</button>
       </div>
-      <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>
-    </section>
-    ${releasePanelHtml()}
-    <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
+      <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>`;
+  const cardsInner=cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
+  const serkan=isSerkan();
+  if(serkan){
+    // Serkan mag blokken in-/uitklappen én van volgorde wisselen (3 sec. op de titel houden).
+    const blocks={
+      recent:`<details class="tv-recent tv-block" data-key="recent" ${recentOpenState()?'open':''}>
+          <summary class="tv-recent-head tv-block-title"><h2>Laatste afgeronde lessen</h2><span class="tv-recent-live">live</span></summary>
+          ${recentControls}
+        </details>`,
+      release:`<div class="tv-block" data-key="release">${releasePanelHtml()}</div>`,
+      cards:`<section class="tv-block" data-key="cards"><h2 class="tv-block-title tv-cards-title">Lessen</h2><div class="tv-cards">${cardsInner}</div></section>`
+    };
+    const order=loadTvOrder().filter(k=>blocks[k]);
+    ['recent','release','cards'].forEach(k=>{ if(!order.includes(k))order.push(k); });
+    $('teacherView').innerHTML=welcome+banner+
+      `<div class="tv-reorder-tip">✋ Houd een <b>titel 3 seconden</b> vast om een blok te verslepen · klik een titel om in/uit te klappen</div>
+       <div id="tvBlocks" class="tv-serkan">${order.map(k=>blocks[k]).join('')}</div>`;
+  } else {
+    $('teacherView').innerHTML=welcome+banner+
+      `<details class="tv-recent" ${recentOpenState()?'open':''}>
+        <summary class="tv-recent-head tv-block-title"><h2>Laatste afgeronde lessen</h2><span class="tv-recent-live" title="Werkt automatisch bij — nieuwste bovenaan">live</span></summary>
+        ${recentControls}
+      </details>
+      ${releasePanelHtml()}
+      <div class="tv-cards">${cardsInner}</div>`;
+  }
   $('teacherView').querySelectorAll('.tv-card').forEach(b=>
     b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
   wireRecentControls();
   wireReleasePanel(students);
+  wireRecentCollapse();
+  const rcAll=$('rcAll'); if(rcAll)rcAll.addEventListener('click',()=>renderRecentAll(students));
+  if(serkan){ wireBlockDragging(); }
+}
+/* apart scherm: alléén de laatste afgeronde lessen (alle pogingen, nieuwste bovenaan) */
+function renderRecentAll(students){
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar dashboard</button>
+    <div class="welcome"><div><h1>Laatste afgeronde lessen</h1>
+      <p>Alle pogingen, nieuwste bovenaan${CLOUD?' — live uit de database':''}.</p></div></div>
+    <section class="tv-recent"><div class="rc-list" id="tvRecentAll">${recentCompletedHtml(students,100000)}</div></section>`;
+  $('tvBack').addEventListener('click',()=>renderTeacher(students));
+  window.scrollTo(0,0);
+}
+/* Alleen Serkan (de beheerder/joker) mag het dashboard aanpassen. */
+function isSerkan(){ return !!(currentUser && (currentUser.joker || String(currentUser.email||'').toLowerCase()==='s@e.nl')); }
+const TV_ORDER_KEY='lil-tv-order', TV_RECENT_OPEN_KEY='lil-tv-recent-open';
+function loadTvOrder(){ try{const a=JSON.parse(localStorage.getItem(TV_ORDER_KEY)); if(Array.isArray(a))return a;}catch(e){} return ['recent','release','cards']; }
+function saveTvOrder(a){ try{localStorage.setItem(TV_ORDER_KEY,JSON.stringify(a));}catch(e){} }
+function recentOpenState(){ try{return localStorage.getItem(TV_RECENT_OPEN_KEY)!=='0';}catch(e){return true;} }
+/* onthoud of 'Laatste afgeronde lessen' open of dicht staat */
+function wireRecentCollapse(){
+  const d=$('teacherView').querySelector('details.tv-recent'); if(!d)return;
+  d.addEventListener('toggle',()=>{ try{localStorage.setItem(TV_RECENT_OPEN_KEY, d.open?'1':'0');}catch(e){} });
+}
+/* sleep-om-te-herordenen: houd een bloktitel 3 sec. vast, sleep dan naar de nieuwe plek */
+function wireBlockDragging(){
+  const container=$('tvBlocks'); if(!container)return;
+  container.querySelectorAll(':scope > .tv-block').forEach(block=>{
+    const handle=block.querySelector('summary, .tv-block-title'); if(!handle)return;
+    let timer=null, armed=false, startY=0, moved=false, pid=null;
+    function cleanup(){ document.removeEventListener('pointermove',onMove,true); document.removeEventListener('pointerup',onUp,true); document.removeEventListener('pointercancel',onUp,true); }
+    function onDown(e){
+      if(e.pointerType==='mouse' && e.button!==0)return;
+      pid=e.pointerId; startY=e.clientY; moved=false; armed=false;
+      document.addEventListener('pointermove',onMove,true);
+      document.addEventListener('pointerup',onUp,true);
+      document.addEventListener('pointercancel',onUp,true);
+      timer=setTimeout(()=>{ armed=true; block.classList.add('tv-armed'); container.classList.add('tv-reordering'); }, 3000);
+    }
+    function onMove(e){
+      if(e.pointerId!==pid)return;
+      if(!armed){ if(Math.abs(e.clientY-startY)>10){ clearTimeout(timer); } return; }  // bewegen vóór 3 sec. = annuleren (scrollen)
+      e.preventDefault(); moved=true;
+      const y=e.clientY, sibs=[...container.querySelectorAll(':scope > .tv-block')].filter(b=>b!==block);
+      let ref=null; for(const s of sibs){ const r=s.getBoundingClientRect(); if(y<r.top+r.height/2){ ref=s; break; } }
+      if(ref)container.insertBefore(block,ref); else container.appendChild(block);
+    }
+    function onUp(e){
+      if(e.pointerId!==pid)return;
+      clearTimeout(timer); cleanup();
+      if(armed){
+        armed=false; block.classList.remove('tv-armed'); container.classList.remove('tv-reordering');
+        saveTvOrder([...container.querySelectorAll(':scope > .tv-block')].map(b=>b.dataset.key));
+        if(moved){ const kill=ev=>{ev.preventDefault();ev.stopPropagation();handle.removeEventListener('click',kill,true);}; handle.addEventListener('click',kill,true); }
+      }
+      pid=null;
+    }
+    handle.addEventListener('pointerdown',onDown);
+  });
 }
 /* hoeveel afgeronde lessen tonen — knopjes; standaard 5, uitklapbaar tot 200 */
-const RECENT_LIMITS=[5,50,100,200];
-let recentLimit=5, lastTeacherStudents=[];
+const RECENT_LIMITS=[3,50,100,200];
+let recentLimit=3, lastTeacherStudents=[];
 /* bouw de lijst 'laatste afgeronde lessen': alle pogingen van alle leerlingen
    samengevoegd, nieuwste bovenaan (op afrondtijdstip). */
-function recentCompletedHtml(students){
+function recentCompletedHtml(students, limitOverride){
   lastTeacherStudents=students||[];
+  const lim=limitOverride||recentLimit;
   const items=[];
   (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
     name:stu.name, lesson:a.lesson, created_at:a.created_at,
     score:a.score, total:a.total, pct:a.pct
   })));
   items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
-  const top=items.slice(0,recentLimit);
+  const top=items.slice(0,lim);
   if(!top.length){
     return `<div class="tv-recent-empty">Nog geen afgeronde lessen. Zodra een leerling een les afrondt, verschijnt die hier vanzelf — nieuwste bovenaan.</div>`;
   }

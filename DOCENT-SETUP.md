@@ -188,10 +188,91 @@ const SUPABASE_ANON_KEY = "eyJhbGciOi...jouw-anon-sleutel...";
   testen via **↔ Naar leerlingscherm**. Lessen zonder eigen instelling staan
   standaard op vrijgegeven, dus bestaande lessen blijven gewoon zichtbaar.
 
+## Meer docenten met een eigen klas
+
+Je kunt meerdere docenten hebben die **elk alleen hun eigen leerlingen** zien.
+Dat werkt met een **klas** (`class`) per gebruiker:
+
+- Een docent **met** een klas ziet alléén de leerlingen van die klas.
+- Een docent **zonder** klas is *beheerder* en ziet **alle** klassen (dat is nu Serkan).
+- Een leerling hoort bij één klas; hij verandert daar zelf niets aan.
+
+### 1 — Draai deze SQL één keer (SQL Editor → New query → Run)
+
+```sql
+-- Klas-kolom + 'joker' (mag als leerling oefenen) toevoegen
+alter table public.profiles add column if not exists class text;
+alter table public.profiles add column if not exists joker boolean not null default false;
+
+-- Mag de ingelogde docent deze gebruiker zien?
+--   jezelf: altijd · docent zonder klas: iedereen · docent met klas: alleen dezelfde klas
+create or replace function public.can_view_user(target uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select
+    target = auth.uid()
+    or exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.role = 'teacher'
+        and (me.class is null
+             or me.class = (select p.class from public.profiles p where p.id = target))
+    );
+$$;
+
+-- Policies: docent ziet alleen zijn eigen klas (leerlingen blijven hun eigen data zien)
+drop policy if exists p_sel on public.profiles;
+create policy p_sel on public.profiles for select using (id = auth.uid() or public.can_view_user(id));
+drop policy if exists a_sel on public.answers;
+create policy a_sel on public.answers  for select using (public.can_view_user(user_id));
+drop policy if exists at_sel on public.attempts;
+create policy at_sel on public.attempts for select using (public.can_view_user(user_id));
+drop policy if exists a_del on public.answers;
+create policy a_del on public.answers  for delete using (public.can_view_user(user_id));
+drop policy if exists at_del on public.attempts;
+create policy at_del on public.attempts for delete using (public.can_view_user(user_id));
+
+-- Serkan blijft beheerder (joker, ziet alle klassen)
+update public.profiles set joker = true, class = null where email = 's@e.nl';
+```
+
+### 2 — Maak de accounts (Authentication → Users → Add user, met **Auto Confirm**)
+
+Maak deze 6 accounts aan met precies deze e-mailadressen en wachtwoorden:
+
+| Rol       | E-mail (inlognaam) | Wachtwoord   |
+|-----------|--------------------|--------------|
+| Docent 2  | `t@k.nl`           | `docent123`  |
+| Leerling  | `o@k.nl` (Ozcan)   | `ozcan123`   |
+| Leerling  | `s1@k.nl`          | `student1`   |
+| Leerling  | `s2@k.nl`          | `student2`   |
+| Leerling  | `s3@k.nl`          | `student3`   |
+| Leerling  | `s4@k.nl`          | `student4`   |
+
+> Bestaat `o@k.nl` (Ozcan) al? Dan hoef je hem niet opnieuw te maken; laat zijn
+> wachtwoord staan zoals het is.
+
+### 3 — Zet de rol en de klas goed (SQL Editor → Run)
+
+```sql
+-- Docent 2: pure docent (geen joker), eigen klas 'klas-2'
+update public.profiles set role='teacher', joker=false, full_name='Docent 2', class='klas-2' where email='t@k.nl';
+
+-- De 5 leerlingen van Docent 2 (klas-2)
+update public.profiles set class='klas-2', full_name='Ozcan'     where email='o@k.nl';
+update public.profiles set class='klas-2', full_name='Student 1' where email='s1@k.nl';
+update public.profiles set class='klas-2', full_name='Student 2' where email='s2@k.nl';
+update public.profiles set class='klas-2', full_name='Student 3' where email='s3@k.nl';
+update public.profiles set class='klas-2', full_name='Student 4' where email='s4@k.nl';
+```
+
+Klaar. Docent 2 logt in met `t@k.nl` / `docent123` en ziet **alleen** deze 5
+leerlingen; Serkan blijft alles zien. Wil je nog een derde docent met een eigen
+klas? Herhaal stap 2 en 3 met een nieuwe klasnaam (bijv. `klas-3`).
+
 ## Veilig?
 Ja. De *anon*-sleutel mag publiek in de website staan — de beveiliging zit in de
-database-regels (RLS): leerlingen zien alleen hun eigen gegevens, alleen de
-docent ziet alles. Gebruik nooit de *service_role*-sleutel in de website.
+database-regels (RLS): leerlingen zien alleen hun eigen gegevens, en een docent
+ziet alleen zijn eigen klas (de beheerder zonder klas ziet alles). Gebruik nooit
+de *service_role*-sleutel in de website.
 
 ## Nieuwe leerling toevoegen (later)
 Authentication → Users → Add user (met Auto Confirm). Meer niet — bij de eerste
