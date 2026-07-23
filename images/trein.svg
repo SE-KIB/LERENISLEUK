@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een trein">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <rect x="26" y="34" width="108" height="50" rx="12" fill="#12a06a"/>
+  <path d="M118 34 h4 a12 12 0 0 1 12 12 v26 a12 12 0 0 1 -12 12 h-4 z" fill="#0a7048"/>
+  <rect x="36" y="44" width="20" height="18" rx="3" fill="#dcf3e8"/>
+  <rect x="62" y="44" width="20" height="18" rx="3" fill="#dcf3e8"/>
+  <rect x="88" y="44" width="20" height="18" rx="3" fill="#dcf3e8"/>
+  <rect x="30" y="84" width="104" height="8" rx="4" fill="#41645a"/>
+  <circle cx="52" cy="98" r="9" fill="#0f2a22"/>
+  <circle cx="104" cy="98" r="9" fill="#0f2a22"/>
+</svg>
