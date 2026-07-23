@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een hamer">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <rect x="74" y="46" width="12" height="58" rx="4" fill="#a9744f"/>
+  <path d="M44 34 h56 a6 6 0 0 1 6 6 v10 a6 6 0 0 1 -6 6 h-20 v-6 h-16 v6 h-20 a6 6 0 0 1 -6 -6 v-10 a6 6 0 0 1 6 -6 z" fill="#5a6b64"/>
+  <rect x="48" y="38" width="52" height="6" rx="3" fill="#7d908a"/>
+</svg>

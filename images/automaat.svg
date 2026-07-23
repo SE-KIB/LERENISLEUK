@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een kaartautomaat">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <rect x="54" y="18" width="52" height="92" rx="8" fill="#12a06a"/>
+  <rect x="62" y="28" width="36" height="26" rx="3" fill="#0f2a22"/>
+  <rect x="66" y="32" width="28" height="18" rx="2" fill="#cfe7f5"/>
+  <circle cx="68" cy="66" r="4" fill="#f2934b"/><circle cx="80" cy="66" r="4" fill="#dcf3e8"/><circle cx="92" cy="66" r="4" fill="#dcf3e8"/>
+  <rect x="64" y="80" width="32" height="6" rx="3" fill="#0f2a22"/>
+  <rect x="70" y="94" width="20" height="8" rx="2" fill="#f2934b"/>
+</svg>
