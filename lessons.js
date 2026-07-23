@@ -104,7 +104,7 @@ const QUIZZES = {
   "3":{ title:"Op het station", sub:"Lees het Nederlandse woord en kies het goede antwoord. Türkçe woord staat erbij als hulp.", q:[
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>de automaat</span>?", o:["makine / otomat","tren","bilet","kapı"], c:0,
       e:"<b>de automaat</b> = makine/otomat. Bij de automaat op het station koop je een kaartje.",
-      tip:"In een zin: <i>Bij de <b>automaat</b> koop ik een kaartje.</i> Het is een machine."},
+      tip:"In een zin: <i>Bij de <b>automaat</b> koop ik een kaartje.</i> Het is een machine.", tipImg:"images/automaat.svg"},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het bericht</span>?", o:["mesaj","ses","kağıt","resim"], c:0,
       e:"<b>het bericht</b> = mesaj. Voorbeeld: <i>Ik krijg een bericht op mijn telefoon.</i>",
       tip:"In een zin: <i>Ik krijg een <b>bericht</b> op mijn telefoon.</i> Zoals een appje of sms."},
@@ -145,7 +145,7 @@ const QUIZZES = {
       tip:"In een zin: <i>Ik typ mijn geheime <b>pincode</b> in bij de automaat.</i> De cijfers van je pas."},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>het scherm</span>?", o:["ekran","tuş","kart","ses"], c:0,
       e:"<b>het scherm</b> = ekran. Bijvoorbeeld het scherm van de automaat of je telefoon.",
-      tip:"In een zin: <i>Op het <b>scherm</b> van de automaat lees je de tekst.</i>"},
+      tip:"In een zin: <i>Op het <b>scherm</b> van de automaat lees je de tekst.</i>", tipImg:"images/scherm.svg"},
     {tag:"Woord → betekenis", t:"Wat betekent <span class='m'>veilig</span>?", o:["güvenli","tehlikeli","hızlı","yavaş"], c:0,
       e:"<b>veilig</b> = güvenli. Het tegenovergestelde is 'gevaarlijk' (tehlikeli).",
       tip:"In een zin: <i>Bewaar je pincode <b>veilig</b>, dan kan niemand hem stelen.</i> Niet gevaarlijk."},
