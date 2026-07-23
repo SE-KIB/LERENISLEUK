@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Çalış Artık Da — Nederlands leren</title>
 <meta name="description" content="Leer Nederlands in je eigen tempo: interactieve modules, directe feedback en uitleg. Voor de basisschool en inburgering / NT2.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#12a06a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Çalış Artık Da">
 <style>
 :root{
   --ground:#f5faf7; --surface:#ffffff; --surface-2:#eaf5ef;
@@ -196,6 +203,17 @@ a{color:var(--brand-deep)}
 .qtag{display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--brand-deep); background:var(--brand-tint); padding:4px 9px; border-radius:6px}
 .qtext{font-size:19px; font-weight:700; margin:14px 0 4px; line-height:1.4; letter-spacing:-.01em}
 .qtext .m{font-family:var(--mono); background:var(--surface-2); padding:1px 6px; border-radius:5px; font-size:.92em; font-weight:600}
+.speakbtn{display:inline-grid; place-items:center; width:34px; height:34px; border-radius:9px; border:1px solid var(--line);
+  background:var(--surface-2); color:var(--brand-deep); font-size:16px; vertical-align:middle; flex:0 0 auto; transition:.13s}
+.speakbtn:hover{border-color:var(--brand); background:var(--brand-tint); transform:translateY(-1px)}
+.speakbtn:active{transform:none}
+.speakbtn.speaking{border-color:var(--brand); background:var(--brand-tint); animation:speakpulse .8s ease-in-out infinite}
+@keyframes speakpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand) 40%,transparent)}50%{box-shadow:0 0 0 5px transparent}}
+.qtext-row{display:flex; align-items:flex-start; gap:10px}
+.qtext-row .qtext{flex:1 1 auto; margin-top:0}
+.flash-speak{margin-top:12px}
+.q-img{display:block; max-width:100%; max-height:220px; width:auto; border-radius:11px; margin:14px 0 2px; border:1px solid var(--line); background:var(--surface-2)}
+.tip-box .q-img{max-height:170px; margin:10px 0 0}
 .opts{display:grid; gap:10px; margin-top:20px}
 .opt{display:flex; align-items:center; gap:13px; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px;
   background:var(--surface); text-align:left; font-size:15.5px; color:var(--ink); font-weight:600; transition:.13s; width:100%; font-family:inherit}
@@ -332,6 +350,43 @@ a{color:var(--brand-deep)}
 .q-item.q-no{background:var(--bad-tint); border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
 .q-item.q-no .q-res{color:var(--bad)}
 .q-item.q-na .q-res{color:var(--ink-faint)}
+/* laatste afgeronde lessen */
+.tv-recent{border:1px solid var(--line); background:var(--surface); border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; box-shadow:var(--shadow)}
+.tv-recent-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 0 10px}
+.tv-recent-head h2{margin:0; font-size:16px; color:var(--ink)}
+.tv-recent-live{font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--good); background:var(--good-tint); border-radius:999px; padding:2px 9px; white-space:nowrap}
+.tv-recent-live::before{content:"●"; margin-right:5px; font-size:9px; vertical-align:middle}
+.rc-controls{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0 0 12px}
+.rc-controls-label{font-size:12.5px; color:var(--ink-faint); margin-right:2px}
+.rc-limit{cursor:pointer; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--surface-2); border:1px solid var(--line-soft); transition:background .12s, border-color .12s, color .12s}
+.rc-limit:hover{border-color:var(--brand)}
+.rc-limit.on{color:#fff; background:var(--brand); border-color:var(--brand)}
+.rc-all-btn{margin-left:auto; padding:5px 13px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--brand-deep);
+  background:var(--brand-tint); border:1px solid color-mix(in srgb,var(--brand) 30%,transparent); transition:.13s}
+.rc-all-btn:hover{border-color:var(--brand); background:var(--surface); transform:translateY(-1px)}
+.rc-count{margin-top:6px; font-size:12px; color:var(--ink-faint); text-align:right}
+.rc-list{display:grid; gap:8px}
+.rc-item{display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; padding:10px 13px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2)}
+.rc-name{font-weight:800; color:var(--ink); font-size:14px}
+.rc-lesson{grid-column:1; color:var(--ink-soft); font-size:13px}
+.rc-score{grid-column:2; grid-row:1; font-weight:800; color:var(--brand-deep); font-size:13px; text-align:right}
+.rc-when{grid-column:2; grid-row:2; color:var(--ink-faint); font-size:12.5px; text-align:right; white-space:nowrap}
+.tv-recent-empty{color:var(--ink-faint); font-size:13.5px; font-style:italic; padding:6px 2px}
+/* Serkan: inklapbaar 'Laatste afgeronde lessen' + versleepbare blokken */
+details.tv-recent > summary{list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; user-select:none; margin:0}
+details.tv-recent > summary::-webkit-details-marker{display:none}
+details.tv-recent > summary::before{content:"▸"; color:var(--ink-faint); transition:transform .15s; flex:0 0 auto; font-size:13px}
+details.tv-recent[open] > summary::before{transform:rotate(90deg)}
+details.tv-recent > summary h2{flex:1 1 auto}
+.tv-reorder-tip{margin:0 2px 14px; padding:9px 13px; border-radius:10px; background:var(--surface-2); border:1px dashed var(--line); color:var(--ink-faint); font-size:12.5px}
+.tv-cards-title{margin:0 0 12px; font-size:16px}
+.tv-serkan .tv-block > summary, .tv-serkan .tv-block-title{cursor:grab; touch-action:none}
+.tv-serkan .tv-block{border-radius:var(--radius); transition:box-shadow .15s, transform .1s, opacity .15s}
+.tv-block.tv-armed{opacity:.96; box-shadow:var(--shadow-lg); outline:2px solid var(--brand); outline-offset:2px; transform:scale(1.01)}
+.tv-block.tv-armed summary, .tv-block.tv-armed .tv-block-title{cursor:grabbing}
+.tv-reordering .tv-block:not(.tv-armed){outline:2px dashed var(--line); outline-offset:2px}
+.tv-block > .rel-panel{margin-bottom:0}
+.tv-block{margin-bottom:18px}
 /* les-kaarten in het docenten-overzicht */
 .tv-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px}
 .tv-card{text-align:left; cursor:pointer; padding:16px 17px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); transition:transform .12s, border-color .12s}
@@ -558,8 +613,16 @@ document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#th
    hieronder. Dit is een inlog-drempel voor een statische site — voor volledig
    waterdichte beveiliging is een dienst als Cloudflare Access nodig. */
 const ACCOUNTS = [
-  {email:"s@e.nl", name:"Serkan", hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
-  {email:"o@k.nl", name:"Ozcan",  hash:"70b1e8e06785cae451496104850781f33faf6cc8e0777ecd3a9ccaaefb154b2d"},
+  // Beheerder-docent (joker): ziet álle klassen en mag ook als leerling oefenen.
+  {email:"s@e.nl", name:"Serkan",   hash:"53d2dd2504402eec1bc49ad74daf2e90c352f399842f3d5a3606892213c110fc", role:"teacher", joker:true},
+  // Tweede docent: pure docent, ziet alléén klas-2 (geen joker, geen leerlingscherm).
+  {email:"t@k.nl", name:"Docent 2", hash:"7496f3d3859c36d1bfd22156a42d0d533aab4425b80e381d0ab1835ae6b190e3", role:"teacher", class:"klas-2"},
+  // De 5 leerlingen van klas-2 (Docent 2).
+  {email:"o@k.nl",  name:"Ozcan",     hash:"b755c94833cb0a82838da57f0fd61c2240ba42827a50e8aa53ee27cc54cf68b4", class:"klas-2"},
+  {email:"s1@k.nl", name:"Student 1", hash:"509e87a6c45ee0a3c657bf946dd6dc43d7e5502143be195280f279002e70f7d9", class:"klas-2"},
+  {email:"s2@k.nl", name:"Student 2", hash:"eb4b3111401df980f14f28ad6804ae096df1e1c6963c51eab4140be226f8c94c", class:"klas-2"},
+  {email:"s3@k.nl", name:"Student 3", hash:"373b29d2837e83b9ca5cec712a5985843df271cc7c06e64629472f4d03c6f83c", class:"klas-2"},
+  {email:"s4@k.nl", name:"Student 4", hash:"ba94ccdc15adac7f65efce821dfa9605dfc42cf98da7ce002073604647d40ed2", class:"klas-2"},
 ];
 
 const $=id=>document.getElementById(id);
@@ -718,15 +781,24 @@ function sha256js(ascii){
 function emailName(email){const p=(email||'').split('@')[0].replace(/[._]/g,' ');
   return p.replace(/\b\w/g,m=>m.toUpperCase())||'Cursist';}
 
+/* lees rol/naam/joker/klas uit de profiles-tabel. In twee stappen zodat een
+   bestaande database (nog zonder de kolommen 'joker'/'class') blijft werken:
+   de rol/naam laden altijd; joker/klas alleen als die kolommen bestaan. */
+async function readProfile(id,email){
+  let role='student', name=emailName(email), joker=false, klas=null;
+  try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',id).maybeSingle();
+    if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
+  try{ const {data:extra}=await sb.from('profiles').select('joker,class').eq('id',id).maybeSingle();
+    if(extra){ joker=!!extra.joker; klas=extra.class||null; } }catch(e){}
+  return {name, role, joker, class:klas};
+}
 /* cloud-login via Supabase Auth; haalt rol/naam uit de profiles-tabel */
 async function cloudSignIn(email,pw){
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error||!data||!data.user)return null;
-    let role='student', name=emailName(email);
-    try{ const {data:prof}=await sb.from('profiles').select('full_name,role').eq('id',data.user.id).maybeSingle();
-      if(prof){ role=prof.role||role; name=prof.full_name||name; } }catch(e){}
-    return {id:data.user.id, email:data.user.email, name, role};
+    const p=await readProfile(data.user.id, email);
+    return {id:data.user.id, email:data.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class};
   }catch(e){ return null; }
 }
 
@@ -750,12 +822,42 @@ $('loginForm').addEventListener('submit',async e=>{
     if(acc){ try{ if((await sha256(pw))===acc.hash)
       user={email:acc.email, name:acc.name,
         role:acc.role||'student',
-        joker:!!acc.joker}; }catch(err){} }
+        joker:!!acc.joker, class:acc.class||null}; }catch(err){} }
   }
   $('submitBtn').disabled=false;
-  if(user){ await login(user); }
+  if(user){
+    const remember=$('remember')?$('remember').checked:true;
+    try{ localStorage.setItem('lil-remember',remember?'1':'0'); localStorage.setItem('lil-last-email',remember?email:''); }catch(err){}
+    await login(user);   // bij 'onthoud mij' uit wordt de sessie bij de volgende herlaad weer afgemeld (zie tryRestoreSession)
+  }
   else{ $('loginError').textContent='E-mailadres of wachtwoord klopt niet.'; $('loginError').classList.add('show'); $('pw').value=''; $('pw').focus(); }
 });
+/* vul het laatst gebruikte e-mailadres alvast in (handig op een gedeeld apparaat: alleen als 'onthoud mij' aan stond) */
+(function prefillEmail(){
+  try{
+    const em=localStorage.getItem('lil-last-email');
+    if(em && $('email') && !$('email').value){ $('email').value=em; }
+    const rem=localStorage.getItem('lil-remember');
+    if(rem!==null && $('remember')) $('remember').checked = rem!=='0';
+  }catch(e){}
+})();
+/* blijf ingelogd na herladen: herstel een bestaande Supabase-sessie (cloud-modus) */
+async function tryRestoreSession(){
+  if(!CLOUD)return false;
+  let remember=true; try{ remember=localStorage.getItem('lil-remember')!=='0'; }catch(e){}
+  if(!remember){ try{ await sb.auth.signOut(); }catch(e){} return false; }
+  try{
+    const {data}=await sb.auth.getSession();
+    const s=data&&data.session;
+    if(s&&s.user){
+      const p=await readProfile(s.user.id, s.user.email);
+      await login({id:s.user.id, email:s.user.email, name:p.name, role:p.role, joker:p.joker, class:p.class});
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+tryRestoreSession();
 $('forgot').addEventListener('click',async e=>{e.preventDefault();
   if(CLOUD){
     const email=($('email').value.trim()||prompt('Wat is je e-mailadres? Dan sturen we je een herstel-link.')||'').trim().toLowerCase();
@@ -770,7 +872,7 @@ $('forgot').addEventListener('click',async e=>{e.preventDefault();
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
 function updateSwitchBtn(){
   const b=$('switchBtn');
-  if(currentUser&&(currentUser.joker||currentUser.role==='teacher')){
+  if(currentUser&&currentUser.joker){          // alleen de joker wisselt tussen docent- en leerlingscherm; pure docenten niet
     b.style.display='';
     b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
   } else { b.style.display='none'; }
@@ -862,6 +964,7 @@ async function showTeacher(){
   $('teacherView').innerHTML='<p style="padding:24px 4px">Laden…</p>';
   const [students]=await Promise.all([gatherTeacherData(),loadReleases()]);
   renderTeacher(students);
+  startTeacherAutoRefresh();
   window.scrollTo(0,0);
 }
 /* haal leerlingen + antwoorden + pogingen op (cloud), of lees lokale voortgang (fallback) */
@@ -878,7 +981,9 @@ async function gatherTeacherData(){
       attempts:(att||[]).filter(a=>a.user_id===p.id)
     }));
   }
-  return ACCOUNTS.filter(a=>a.role!=='teacher').map(a=>{
+  // Lokale modus: een docent met een klas ziet alleen díe klas; een docent zonder klas (beheerder) ziet iedereen.
+  const myClass=currentUser&&currentUser.class;
+  return ACCOUNTS.filter(a=>a.role!=='teacher' && (!myClass || a.class===myClass)).map(a=>{
     let p={lessons:{},days:[]}; try{p=JSON.parse(localStorage.getItem('lil-prog-'+a.email))||p;}catch(e){}
     return {name:a.name, email:a.email, perQ:false, lessonsPct:p.lessons||{}, attempts:[]};
   });
@@ -929,20 +1034,166 @@ function renderTeacher(students){
       </div>
     </button>`;
   });
-  $('teacherView').innerHTML=`
+  const welcome=`
     <div class="welcome">
       <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
       <div class="stat-strip">
         <div class="stat"><div class="n tnum">${students.length}</div><div class="l">leerlingen</div></div>
         <div class="stat"><div class="n tnum">${playable.length}</div><div class="l">lessen</div></div>
       </div>
-    </div>
-    ${banner}
-    ${releasePanelHtml()}
-    <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
+    </div>`;
+  const recentControls=`
+      <div class="rc-controls" id="tvRecentControls">
+        <span class="rc-controls-label">Toon lijst:</span>
+        ${RECENT_LIMITS.map(n=>`<button class="rc-limit${n===recentLimit?' on':''}" data-n="${n}">${n}</button>`).join('')}
+        <button class="rc-all-btn" id="rcAll" type="button">Alle bekijken →</button>
+      </div>
+      <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>`;
+  const cardsInner=cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
+  const serkan=isSerkan();
+  if(serkan){
+    // Serkan mag blokken in-/uitklappen én van volgorde wisselen (3 sec. op de titel houden).
+    const blocks={
+      recent:`<details class="tv-recent tv-block" data-key="recent" ${recentOpenState()?'open':''}>
+          <summary class="tv-recent-head tv-block-title"><h2>Laatste afgeronde lessen</h2><span class="tv-recent-live">live</span></summary>
+          ${recentControls}
+        </details>`,
+      release:`<div class="tv-block" data-key="release">${releasePanelHtml()}</div>`,
+      cards:`<section class="tv-block" data-key="cards"><h2 class="tv-block-title tv-cards-title">Lessen</h2><div class="tv-cards">${cardsInner}</div></section>`
+    };
+    const order=loadTvOrder().filter(k=>blocks[k]);
+    ['recent','release','cards'].forEach(k=>{ if(!order.includes(k))order.push(k); });
+    $('teacherView').innerHTML=welcome+banner+
+      `<div class="tv-reorder-tip">✋ Houd een <b>titel 3 seconden</b> vast om een blok te verslepen · klik een titel om in/uit te klappen</div>
+       <div id="tvBlocks" class="tv-serkan">${order.map(k=>blocks[k]).join('')}</div>`;
+  } else {
+    $('teacherView').innerHTML=welcome+banner+
+      `<details class="tv-recent" ${recentOpenState()?'open':''}>
+        <summary class="tv-recent-head tv-block-title"><h2>Laatste afgeronde lessen</h2><span class="tv-recent-live" title="Werkt automatisch bij — nieuwste bovenaan">live</span></summary>
+        ${recentControls}
+      </details>
+      ${releasePanelHtml()}
+      <div class="tv-cards">${cardsInner}</div>`;
+  }
   $('teacherView').querySelectorAll('.tv-card').forEach(b=>
     b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
+  wireRecentControls();
   wireReleasePanel(students);
+  wireRecentCollapse();
+  const rcAll=$('rcAll'); if(rcAll)rcAll.addEventListener('click',()=>renderRecentAll(students));
+  if(serkan){ wireBlockDragging(); }
+}
+/* apart scherm: alléén de laatste afgeronde lessen (alle pogingen, nieuwste bovenaan) */
+function renderRecentAll(students){
+  $('teacherView').innerHTML=`
+    <button class="back" id="tvBack">← Terug naar dashboard</button>
+    <div class="welcome"><div><h1>Laatste afgeronde lessen</h1>
+      <p>Alle pogingen, nieuwste bovenaan${CLOUD?' — live uit de database':''}.</p></div></div>
+    <section class="tv-recent"><div class="rc-list" id="tvRecentAll">${recentCompletedHtml(students,100000)}</div></section>`;
+  $('tvBack').addEventListener('click',()=>renderTeacher(students));
+  window.scrollTo(0,0);
+}
+/* Alleen Serkan (de beheerder/joker) mag het dashboard aanpassen. */
+function isSerkan(){ return !!(currentUser && (currentUser.joker || String(currentUser.email||'').toLowerCase()==='s@e.nl')); }
+const TV_ORDER_KEY='lil-tv-order', TV_RECENT_OPEN_KEY='lil-tv-recent-open';
+function loadTvOrder(){ try{const a=JSON.parse(localStorage.getItem(TV_ORDER_KEY)); if(Array.isArray(a))return a;}catch(e){} return ['recent','release','cards']; }
+function saveTvOrder(a){ try{localStorage.setItem(TV_ORDER_KEY,JSON.stringify(a));}catch(e){} }
+function recentOpenState(){ try{return localStorage.getItem(TV_RECENT_OPEN_KEY)!=='0';}catch(e){return true;} }
+/* onthoud of 'Laatste afgeronde lessen' open of dicht staat */
+function wireRecentCollapse(){
+  const d=$('teacherView').querySelector('details.tv-recent'); if(!d)return;
+  d.addEventListener('toggle',()=>{ try{localStorage.setItem(TV_RECENT_OPEN_KEY, d.open?'1':'0');}catch(e){} });
+}
+/* sleep-om-te-herordenen: houd een bloktitel 3 sec. vast, sleep dan naar de nieuwe plek */
+function wireBlockDragging(){
+  const container=$('tvBlocks'); if(!container)return;
+  container.querySelectorAll(':scope > .tv-block').forEach(block=>{
+    const handle=block.querySelector('summary, .tv-block-title'); if(!handle)return;
+    let timer=null, armed=false, startY=0, moved=false, pid=null;
+    function cleanup(){ document.removeEventListener('pointermove',onMove,true); document.removeEventListener('pointerup',onUp,true); document.removeEventListener('pointercancel',onUp,true); }
+    function onDown(e){
+      if(e.pointerType==='mouse' && e.button!==0)return;
+      pid=e.pointerId; startY=e.clientY; moved=false; armed=false;
+      document.addEventListener('pointermove',onMove,true);
+      document.addEventListener('pointerup',onUp,true);
+      document.addEventListener('pointercancel',onUp,true);
+      timer=setTimeout(()=>{ armed=true; block.classList.add('tv-armed'); container.classList.add('tv-reordering'); }, 3000);
+    }
+    function onMove(e){
+      if(e.pointerId!==pid)return;
+      if(!armed){ if(Math.abs(e.clientY-startY)>10){ clearTimeout(timer); } return; }  // bewegen vóór 3 sec. = annuleren (scrollen)
+      e.preventDefault(); moved=true;
+      const y=e.clientY, sibs=[...container.querySelectorAll(':scope > .tv-block')].filter(b=>b!==block);
+      let ref=null; for(const s of sibs){ const r=s.getBoundingClientRect(); if(y<r.top+r.height/2){ ref=s; break; } }
+      if(ref)container.insertBefore(block,ref); else container.appendChild(block);
+    }
+    function onUp(e){
+      if(e.pointerId!==pid)return;
+      clearTimeout(timer); cleanup();
+      if(armed){
+        armed=false; block.classList.remove('tv-armed'); container.classList.remove('tv-reordering');
+        saveTvOrder([...container.querySelectorAll(':scope > .tv-block')].map(b=>b.dataset.key));
+        if(moved){ const kill=ev=>{ev.preventDefault();ev.stopPropagation();handle.removeEventListener('click',kill,true);}; handle.addEventListener('click',kill,true); }
+      }
+      pid=null;
+    }
+    handle.addEventListener('pointerdown',onDown);
+  });
+}
+/* hoeveel afgeronde lessen tonen — knopjes; standaard 5, uitklapbaar tot 200 */
+const RECENT_LIMITS=[3,50,100,200];
+let recentLimit=3, lastTeacherStudents=[];
+/* bouw de lijst 'laatste afgeronde lessen': alle pogingen van alle leerlingen
+   samengevoegd, nieuwste bovenaan (op afrondtijdstip). */
+function recentCompletedHtml(students, limitOverride){
+  lastTeacherStudents=students||[];
+  const lim=limitOverride||recentLimit;
+  const items=[];
+  (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
+    name:stu.name, lesson:a.lesson, created_at:a.created_at,
+    score:a.score, total:a.total, pct:a.pct
+  })));
+  items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
+  const top=items.slice(0,lim);
+  if(!top.length){
+    return `<div class="tv-recent-empty">Nog geen afgeronde lessen. Zodra een leerling een les afrondt, verschijnt die hier vanzelf — nieuwste bovenaan.</div>`;
+  }
+  const rows=top.map(it=>`<div class="rc-item">
+    <span class="rc-name">${esc(it.name)}</span>
+    <span class="rc-lesson">Les ${esc(it.lesson)} · ${esc(lessonTitle(it.lesson))}</span>
+    <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
+    <span class="rc-when tnum">${fmtDate(it.created_at)}</span>
+  </div>`).join('');
+  return rows+`<div class="rc-count">${top.length} van ${items.length} afgeronde lessen getoond</div>`;
+}
+/* knopjes 5/50/100/200: pas de weergave meteen aan zonder opnieuw te laden */
+function wireRecentControls(){
+  const box=$('tvRecentControls'); if(!box)return;
+  box.querySelectorAll('.rc-limit').forEach(b=>b.addEventListener('click',()=>{
+    recentLimit=parseInt(b.dataset.n,10)||5;
+    box.querySelectorAll('.rc-limit').forEach(x=>x.classList.toggle('on',x===b));
+    const list=$('tvRecent'); if(list)list.innerHTML=recentCompletedHtml(lastTeacherStudents);
+  }));
+}
+/* ververs de lijst automatisch (polling + realtime) zolang de docent op het
+   overzichtsscherm staat, zonder de rest van de pagina te hertekenen. */
+let teacherRefreshTimer=null, teacherRealtime=null;
+async function refreshRecentCompleted(){
+  if(!$('tvRecent')||$('teacherView').classList.contains('hidden'))return;
+  let students; try{ students=await gatherTeacherData(); }catch(e){ return; }
+  const box=$('tvRecent');
+  if(box&&!$('teacherView').classList.contains('hidden'))box.innerHTML=recentCompletedHtml(students);
+}
+function startTeacherAutoRefresh(){
+  if(teacherRefreshTimer)clearInterval(teacherRefreshTimer);
+  teacherRefreshTimer=setInterval(refreshRecentCompleted,15000);
+  if(CLOUD&&sb&&!teacherRealtime){
+    try{
+      teacherRealtime=sb.channel('rc-attempts')
+        .on('postgres_changes',{event:'INSERT',schema:'public',table:'attempts'},refreshRecentCompleted)
+        .subscribe();
+    }catch(e){}
+  }
 }
 /* paneel: per les een schakelaar 'vrijgeven / verbergen voor leerlingen' */
 function releasePanelHtml(){
@@ -1115,6 +1366,44 @@ function renderAttemptDetail(att,stu,lesId,students){
   $('tvBack').addEventListener('click',()=>renderTeacherStudentLesson(stu,lesId,students));
 }
 
+/* ---------------- uitspraak (tekst-naar-spraak, Nederlands) ----------------
+   Gebruikt de ingebouwde stemmen van de browser (Web Speech API). Geen
+   downloads nodig; werkt op de meeste telefoons en computers. Valt stil weg
+   als de browser het niet ondersteunt. */
+function canSpeak(){return typeof window!=='undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;}
+function dutchVoice(){
+  if(!canSpeak())return null;
+  const vs=speechSynthesis.getVoices()||[];
+  return vs.find(v=>/^nl[-_]?nl/i.test(v.lang))||vs.find(v=>/^nl/i.test(v.lang))||null;
+}
+if(canSpeak()){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>{}; }catch(e){} }
+function speak(text,btn){
+  if(!canSpeak())return;
+  const t=stripTags(String(text||'')).trim(); if(!t)return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang='nl-NL'; const v=dutchVoice(); if(v)u.voice=v; u.rate=.9; u.pitch=1;
+    if(btn){ u.onstart=()=>btn.classList.add('speaking'); u.onend=u.onerror=()=>btn.classList.remove('speaking'); }
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+/* knop-HTML om een Nederlands woord te laten uitspreken (leeg als niet ondersteund) */
+function speakerHtml(text,extraClass){
+  if(!canSpeak()||!text)return '';
+  return `<button type="button" class="speakbtn ${extraClass||''}" data-say="${esc(text)}" title="Woord uitspreken" aria-label="Woord uitspreken">🔊</button>`;
+}
+/* het Nederlandse woord dat al zichtbaar is in de vraag (of null als het het antwoord zou verraden) */
+function questionDutch(q){
+  if(q.tag==='Betekenis → woord')return null;      // vraag toont Turks; Nederlands is het antwoord
+  const m=mWord(q.t);
+  return (m && !/_/.test(m)) ? stripTags(m) : null;
+}
+/* het juiste Nederlandse antwoord (eerste variant vóór een schuine streep) */
+function answerDutch(q){ return stripTags((q.o[q.c]||'').split('/')[0]); }
+/* één gedelegeerde klik-listener voor alle uitspraakknoppen */
+document.addEventListener('click',e=>{const b=e.target.closest('.speakbtn'); if(b){e.preventDefault(); e.stopPropagation(); speak(b.dataset.say,b);}});
+
 /* ---------------- spel-hulpjes ---------------- */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function lessonTitle(id){const c=COURSES.find(x=>x.n===id);return c?c.t:(QUIZZES[id]?QUIZZES[id].title:('Les '+id));}
@@ -1198,7 +1487,7 @@ function seqHead(){
 }
 function renderItem(){
   const g=game,total=g.items.length;
-  if(g.i>=total){ cloudRecordAttempt(g.id,g.label,g.score,total,g.details); return showResult(g.id,g.label,g.score,total,g.onRetry); }
+  if(g.i>=total){ cloudRecordAttempt(g.id,g.label,g.score,total,g.details); return showResult(g.id,g.label,g.score,total,g.onRetry,g.details); }
   const it=g.items[g.i]; g.answered=false;
   it.kind==='fill'?renderFill(it):renderQuizItem(it);
   $('backBtn').addEventListener('click',()=>startLesson(g.id));
@@ -1210,7 +1499,8 @@ function renderQuizItem(it){
   $('quizView').innerHTML=seqHead()+`
     <div class="qcard">
       <span class="qtag">${q.tag}</span>
-      <div class="qtext">${q.t}</div>
+      <div class="qtext-row"><div class="qtext">${q.t}</div>${speakerHtml(questionDutch(q))}</div>
+      ${q.img?`<img class="q-img" src="${esc(q.img)}" alt="" loading="lazy">`:''}
       <div class="opts" id="opts">
         ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span>${q.o[k]}</span><span class="mark"></span></button>`).join('')}
       </div>
@@ -1224,7 +1514,9 @@ function renderQuizItem(it){
     </div>`;
   document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>answerQuiz(b,it,q)));
   $('tipBtn').addEventListener('click',()=>{
-    const box=$('tipBox'); box.innerHTML='<b>💡 Tip.</b> '+tipFor(q); box.classList.add('show');
+    const box=$('tipBox');
+    box.innerHTML='<b>💡 Tip.</b> '+tipFor(q)+(q.tipImg?`<img class="q-img" src="${esc(q.tipImg)}" alt="" loading="lazy">`:'');
+    box.classList.add('show');
     $('tipBtn').disabled=true;
   });
 }
@@ -1245,6 +1537,7 @@ function answerQuiz(btn,it,q){
     const mark=b.querySelector('.mark');
     if(bk===q.c){b.classList.add('correct');mark.textContent='✓';}
     else if(bk===k){b.classList.add('wrong');mark.textContent='✗';}});
+  $('explain').innerHTML=`<b>Uitleg.</b> ${q.e} ${speakerHtml(answerDutch(q))}`;
   $('explain').classList.add('show');
   $('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas, bekijk de uitleg.';
   $('fb').style.color=correct?'var(--good)':'var(--bad)';
@@ -1279,7 +1572,7 @@ function checkFill(it,p){
   const inp=$('fillInput'); inp.disabled=true; inp.classList.add(correct?'ok':'no');
   $('checkBtn').disabled=true;
   const ex=QUIZZES[game.id].q[it.qi];
-  $('explain').innerHTML=`<b>Antwoord:</b> ${p.nl}${ex&&ex.e?' — '+ex.e:''}`;
+  $('explain').innerHTML=`<b>Antwoord:</b> ${p.nl}${ex&&ex.e?' — '+ex.e:''} ${speakerHtml(p.nl.split('/')[0].trim())}`;
   $('explain').classList.add('show');
   $('fb').textContent=correct?'Goed gedaan! 🎉':'Helaas — juiste antwoord: '+p.nl;
   $('fb').style.color=correct?'var(--good)':'var(--bad)';
@@ -1298,7 +1591,7 @@ function renderSlepen(){
   if(!batch.length){
     const det=s.all.map(p=>({q_index:p.qi, question:p.nl+' ↔ '+p.tr, given:s.errored.has(p.qi)?'in één keer fout gekoppeld':p.nl, answer:p.tr, correct:!s.errored.has(p.qi)}));
     cloudRecordAttempt(s.id,'Slepen',s.correct,s.all.length,det);
-    return showResult(s.id,'Slepen',s.correct,s.all.length,()=>startSlepen(s.id));
+    return showResult(s.id,'Slepen',s.correct,s.all.length,()=>startSlepen(s.id),det);
   }
   const totalRounds=Math.ceil(s.all.length/s.size), roundNo=Math.floor(s.pos/s.size)+1, last=s.pos+s.size>=s.all.length;
   const left=shuffle(batch.slice()), right=shuffle(batch.slice());
@@ -1359,7 +1652,7 @@ function startFlashcards(id){
 }
 function renderFlash(){
   const f=fc,total=f.cards.length;
-  if(f.i>=total){ cloudRecordAttempt(f.id,'Flitskaarten',f.known,total,f.details); return showResult(f.id,'Flitskaarten',f.known,total,()=>startFlashcards(f.id)); }
+  if(f.i>=total){ cloudRecordAttempt(f.id,'Flitskaarten',f.known,total,f.details); return showResult(f.id,'Flitskaarten',f.known,total,()=>startFlashcards(f.id),f.details); }
   const c=f.cards[f.i],ex=QUIZZES[f.id].q[c.qi];
   $('quizView').innerHTML=`
     <button class="back" id="backBtn">← Andere spelvorm</button>
@@ -1371,7 +1664,7 @@ function renderFlash(){
     </div>
     <div class="flash" id="flashCard">
       <div class="flash-inner">
-        <div class="flash-face flash-front"><span class="flash-lbl">Nederlands 🇳🇱</span><div class="flash-word">${c.nl}</div><span class="flash-hint">Tik om te draaien</span></div>
+        <div class="flash-face flash-front"><span class="flash-lbl">Nederlands 🇳🇱</span><div class="flash-word">${c.nl}</div>${speakerHtml(c.nl.split('/')[0].trim(),'flash-speak')}<span class="flash-hint">Tik om te draaien</span></div>
         <div class="flash-face flash-back"><span class="flash-lbl">Türkçe 🇹🇷</span><div class="flash-word">${c.tr}</div>${ex&&ex.e?`<p class="flash-ex">${ex.e}</p>`:''}</div>
       </div>
     </div>
@@ -1418,10 +1711,22 @@ function playSuccessSound(){
   }catch(e){/* stil falen */}
 }
 
-function showResult(id,label,score,total,onRetry){
+/* start een korte herhaling met alléén de fout beantwoorde woorden van deze ronde */
+function wrongQIndexes(details){
+  const seen=new Set(), out=[];
+  (details||[]).forEach(d=>{ if(d&&d.correct===false&&d.q_index!=null&&!seen.has(d.q_index)){ seen.add(d.q_index); out.push(d.q_index); } });
+  return out;
+}
+function retryWrong(id,qis){
+  const items=(qis||[]).filter(qi=>QUIZZES[id]&&QUIZZES[id].q[qi]).map(qi=>({kind:'quiz',qi}));
+  if(!items.length)return;
+  runSeq(id,'Herhaling',shuffle(items),()=>startLesson(id));
+}
+function showResult(id,label,score,total,onRetry,details){
   const pct=total?Math.round(score/total*100):0;
   if(!CLOUD)recordResult(id,pct);
   if(pct>=90)playSuccessSound();          // les met succes afgerond → geluidje
+  const wrong=wrongQIndexes(details);
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
   const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
@@ -1439,15 +1744,17 @@ function showResult(id,label,score,total,onRetry){
       <h2>${lessonTitle(id)} · ${label}</h2>
       <p>Je had <b>${score} van de ${total}</b> goed. ${msg}</p>
       <div class="acts">
+        ${wrong.length?`<button class="btn-next" id="retryWrong">🔁 Herhaal de ${wrong.length} foute ${wrong.length===1?'woord':'woorden'}</button>`:''}
         <button class="btn-ghost" id="retry">Opnieuw proberen</button>
         <button class="btn-ghost" id="otherMode">Andere spelvorm</button>
-        <button class="btn-next" id="toDash">Naar lessen →</button>
+        <button class="btn-ghost" id="toDash">Naar lessen →</button>
       </div>
     </div>`;
   $('backBtn').addEventListener('click',showDash);
   $('retry').addEventListener('click',onRetry);
   $('otherMode').addEventListener('click',()=>startLesson(id));
   $('toDash').addEventListener('click',showDash);
+  if(wrong.length){const rw=$('retryWrong'); if(rw)rw.addEventListener('click',()=>retryWrong(id,wrong));}
 }
 
 /* contact form: friendly note until an endpoint is set up */
