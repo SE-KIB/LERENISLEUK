@@ -338,6 +338,12 @@ a{color:var(--brand-deep)}
 .tv-recent-head h2{margin:0; font-size:16px; color:var(--ink)}
 .tv-recent-live{font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--good); background:var(--good-tint); border-radius:999px; padding:2px 9px; white-space:nowrap}
 .tv-recent-live::before{content:"●"; margin-right:5px; font-size:9px; vertical-align:middle}
+.rc-controls{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0 0 12px}
+.rc-controls-label{font-size:12.5px; color:var(--ink-faint); margin-right:2px}
+.rc-limit{cursor:pointer; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--surface-2); border:1px solid var(--line-soft); transition:background .12s, border-color .12s, color .12s}
+.rc-limit:hover{border-color:var(--brand)}
+.rc-limit.on{color:#fff; background:var(--brand); border-color:var(--brand)}
+.rc-count{margin-top:6px; font-size:12px; color:var(--ink-faint); text-align:right}
 .rc-list{display:grid; gap:8px}
 .rc-item{display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; padding:10px 13px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-2)}
 .rc-name{font-weight:800; color:var(--ink); font-size:14px}
@@ -957,33 +963,52 @@ function renderTeacher(students){
         <h2>Laatste afgeronde lessen</h2>
         <span class="tv-recent-live" title="Werkt automatisch bij — nieuwste bovenaan">live</span>
       </div>
+      <div class="rc-controls" id="tvRecentControls">
+        <span class="rc-controls-label">Toon lijst:</span>
+        ${RECENT_LIMITS.map(n=>`<button class="rc-limit${n===recentLimit?' on':''}" data-n="${n}">${n}</button>`).join('')}
+      </div>
       <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>
     </section>
     ${releasePanelHtml()}
     <div class="tv-cards">${cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>'}</div>`;
   $('teacherView').querySelectorAll('.tv-card').forEach(b=>
     b.addEventListener('click',()=>renderTeacherLesson(b.dataset.les,students)));
+  wireRecentControls();
   wireReleasePanel(students);
 }
+/* hoeveel afgeronde lessen tonen — knopjes; standaard 5, uitklapbaar tot 200 */
+const RECENT_LIMITS=[5,50,100,200];
+let recentLimit=5, lastTeacherStudents=[];
 /* bouw de lijst 'laatste afgeronde lessen': alle pogingen van alle leerlingen
    samengevoegd, nieuwste bovenaan (op afrondtijdstip). */
 function recentCompletedHtml(students){
+  lastTeacherStudents=students||[];
   const items=[];
   (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
     name:stu.name, lesson:a.lesson, created_at:a.created_at,
     score:a.score, total:a.total, pct:a.pct
   })));
   items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
-  const top=items.slice(0,15);
+  const top=items.slice(0,recentLimit);
   if(!top.length){
     return `<div class="tv-recent-empty">Nog geen afgeronde lessen. Zodra een leerling een les afrondt, verschijnt die hier vanzelf — nieuwste bovenaan.</div>`;
   }
-  return top.map(it=>`<div class="rc-item">
+  const rows=top.map(it=>`<div class="rc-item">
     <span class="rc-name">${esc(it.name)}</span>
     <span class="rc-lesson">Les ${esc(it.lesson)} · ${esc(lessonTitle(it.lesson))}</span>
     <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
     <span class="rc-when tnum">${fmtDate(it.created_at)}</span>
   </div>`).join('');
+  return rows+`<div class="rc-count">${top.length} van ${items.length} afgeronde lessen getoond</div>`;
+}
+/* knopjes 5/50/100/200: pas de weergave meteen aan zonder opnieuw te laden */
+function wireRecentControls(){
+  const box=$('tvRecentControls'); if(!box)return;
+  box.querySelectorAll('.rc-limit').forEach(b=>b.addEventListener('click',()=>{
+    recentLimit=parseInt(b.dataset.n,10)||5;
+    box.querySelectorAll('.rc-limit').forEach(x=>x.classList.toggle('on',x===b));
+    const list=$('tvRecent'); if(list)list.innerHTML=recentCompletedHtml(lastTeacherStudents);
+  }));
 }
 /* ververs de lijst automatisch (polling + realtime) zolang de docent op het
    overzichtsscherm staat, zonder de rest van de pagina te hertekenen. */
