@@ -448,4 +448,48 @@ const ZINS = [
         e:"WANNEER vóór WAAR: <i>Ik ga morgen naar Delft.</i>"},
     ],
   },
+  {
+    n:"Z5", num:"Les 5", t:"Vragen stellen", label:"Vragen maken",
+    desc:"Maak een ja/nee-vraag: het werkwoord springt naar voren, naar plek 1.",
+    intro:`<h3>De vraag: werkwoord vooraan</h3>
+      <p>In een gewone zin staat het werkwoord op <b>plek 2</b>.
+         In een <b>ja/nee-vraag</b> springt het werkwoord naar <b>plek 1</b>, helemaal vooraan.</p>
+      <div class="zin-legend"><span class="zrole r-doet">DOET</span><span class="zrole r-wie">WIE</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span></div>
+      <p>✅ <i>Eet jij een appel?</i> &nbsp;(DOET → WIE → WAT)<br>
+         Vergelijk met de gewone zin: <i>Jij eet een appel.</i> (WIE → DOET → WAT)</p>`,
+    items:[
+      {kind:"herken", sentence:"Eet jij een appel?",
+        parts:[["DOET","Eet"],["WIE","jij"],["WAT","een appel"]], ask:"DOET",
+        e:"In een vraag staat het werkwoord vooraan: <b>Eet</b> op plek 1."},
+      {kind:"herken", sentence:"Eet jij een appel?",
+        parts:[["DOET","Eet"],["WIE","jij"],["WAT","een appel"]], ask:"WIE",
+        e:"Wie eet er? <b>jij</b>. In een vraag komt het onderwerp ná het werkwoord."},
+      {kind:"herken", sentence:"Fietst de man naar school?",
+        parts:[["DOET","Fietst"],["WIE","de man"],["WAAR","naar school"]], ask:"DOET",
+        e:"Het werkwoord staat vooraan: <b>Fietst</b>."},
+      {kind:"herken",
+        q:"Waar staat het werkwoord in een ja/nee-vraag?",
+        o:["Op plek 1 (vooraan)","Op plek 2","Helemaal achteraan","Dat wisselt steeds"], c:0,
+        e:"In een <b>ja/nee-vraag</b> staat het werkwoord op <b>plek 1</b>, vooraan."},
+      {kind:"herken",
+        q:"Welke zin is een goede vraag?",
+        o:["Ga jij morgen naar Delft?","Jij ga morgen naar Delft?"], c:0,
+        e:"Goed is: <b>Ga jij morgen naar Delft?</b> Het werkwoord (Ga) staat vooraan."},
+      {kind:"sleep",
+        parts:[["DOET","Fietst"],["WIE","de man"],["WAAR","naar school"]],
+        e:"Vraag-volgorde: DOET → WIE → WAAR. <i>Fietst de man naar school?</i>"},
+      {kind:"sleep",
+        parts:[["DOET","Ga"],["WIE","jij"],["WANNEER","morgen"],["WAAR","naar Delft"]],
+        e:"Werkwoord vooraan én WANNEER vóór WAAR. <i>Ga jij morgen naar Delft?</i>"},
+      {kind:"bouw", tr:"Bir elma yiyor musun?", model:"Eet jij een appel?",
+        answers:["eet jij een appel","eet je een appel"], words:["eet (eten)","jij","een appel"],
+        e:"Werkwoord vooraan: <i>Eet jij een appel?</i>"},
+      {kind:"bouw", tr:"Yarın Delft'e gidiyor musun?", model:"Ga jij morgen naar Delft?",
+        answers:["ga jij morgen naar delft","ga je morgen naar delft"], words:["ga (gaan)","jij","morgen","naar Delft"],
+        e:"DOET (Ga) vooraan, WANNEER (morgen) vóór WAAR (naar Delft)."},
+      {kind:"bouw", tr:"Bu akşam geliyor musun?", model:"Kom jij vanavond?",
+        answers:["kom jij vanavond","kom je vanavond"], words:["kom (komen)","jij","vanavond"],
+        e:"Korte vraag, werkwoord vooraan: <i>Kom jij vanavond?</i>"},
+    ],
+  },
 ];

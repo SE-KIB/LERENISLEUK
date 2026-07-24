@@ -367,6 +367,21 @@ a{color:var(--brand-deep)}
 /* groepstitel in het vrijgeef-paneel (Woordjes / Zinsopbouw) */
 .rel-group-title{margin:16px 0 6px; font-weight:800; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint)}
 .rel-group-title:first-of-type{margin-top:4px}
+/* zin + uitspraakknop op één rij (herken-opdracht) */
+.zin-sentence-row{display:flex; align-items:center; gap:8px}
+.zin-sentence-row .zin-sentence{flex:1; margin-bottom:4px}
+.zin-sentence-row .zin-say{flex:none}
+/* leerlijn-chip in 'laatste afgeronde lessen' (docentportaal) — één blik: welke leerlijn */
+.rc-track{display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+  padding:2px 7px; border-radius:999px; margin-right:8px; vertical-align:middle;
+  color:var(--rc); background:color-mix(in srgb,var(--rc) 15%,transparent); border:1px solid color-mix(in srgb,var(--rc) 40%,transparent)}
+.rc-track-woord{--rc:#3b7dea}
+.rc-track-zins{--rc:#e0812a}
+@media (prefers-color-scheme:dark){ .rc-track-woord{--rc:#7aa9f7} .rc-track-zins{--rc:#ffab5e} }
+:root[data-theme="dark"] .rc-track-woord{--rc:#7aa9f7}
+:root[data-theme="dark"] .rc-track-zins{--rc:#ffab5e}
+:root[data-theme="light"] .rc-track-woord{--rc:#3b7dea}
+:root[data-theme="light"] .rc-track-zins{--rc:#e0812a}
 
 /* ---------- flitskaarten ---------- */
 .flash{perspective:1200px; margin:6px auto 0; max-width:520px; cursor:pointer}
