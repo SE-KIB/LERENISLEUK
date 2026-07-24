@@ -1,11 +1,16 @@
 /* ============================================================
-   LESDATA — leerlijn en vragenbanken
+   LESDATA — leerlijnen en vragenbanken
    Dit bestand bevat alle inhoud van de cursus, los van de app-logica
-   in index.html. Wordt vóór het hoofdscript geladen, dus COURSES, SOON
-   en QUIZZES zijn daar gewoon beschikbaar.
+   in index.html. Wordt vóór het hoofdscript geladen, dus COURSES, SOON,
+   QUIZZES en ZINS zijn daar gewoon beschikbaar.
 
-   Een les toevoegen? Zet een regel in COURSES (tag "feat" optioneel) en
-   voeg een blok toe in QUIZZES met hetzelfde lesnummer. De structuur:
+   Er zijn twee leerlijnen:
+     • Woordjes   — COURSES + QUIZZES (woordenschat, zie hieronder).
+     • Zinsopbouw — ZINS (zinsstructuur: WIE → DOET → WAT → WAAR → WANNEER,
+                    zie het commentaar boven de ZINS-lijst onderaan dit bestand).
+
+   Een WOORDJES-les toevoegen? Zet een regel in COURSES (tag "feat" optioneel)
+   en voeg een blok toe in QUIZZES met hetzelfde lesnummer. De structuur:
      t = vraag, o = antwoorden, c = index van het juiste antwoord (0=eerste),
      e = uitleg, tag = vraagtype, tip = hint (optioneel, meestal een
      makkelijke voorbeeldzin met het woord).
@@ -280,3 +285,169 @@ const QUIZZES = {
       tip:"In een zin: <i>Met een <b>hamer</b> sla ik een spijker in de muur.</i> Gereedschap.", tipImg:"images/hamer.svg"},
   ]},
 };
+
+/* ============================================================
+   ZINSOPBOUW — leerlijn zinsstructuur (WIE → DOET → WAT → WAAR → WANNEER)
+   Deze lessen staan los van de Woordjes-vragenbank en spelen met een eigen,
+   simpele engine (zie app.js, blok "Zinsopbouw"). Ze verschijnen automatisch
+   onder het kopje "Zinsopbouw" op het dashboard.
+
+   Een Zinsopbouw-les is: { n, num, t, desc, label, intro, items:[…] }.
+     n     = uniek id (begin met "Z" zodat het niet botst met de Woordjes-lessen).
+     num   = korte badge op de kaart, bijv. "Stap 1".
+     t     = titel · desc = ondertitel · label = spelvorm-naam op het resultaat.
+     intro = korte uitleg (HTML) op het startscherm van de les.
+     items = de opdrachten. Elk item heeft een 'kind':
+
+   1) kind:"herken"  — kies het juiste zinsdeel (meerkeuze). Twee vormen:
+        a. Zinsdeel zoeken:
+           {kind:"herken", sentence:"De man fietst naar school.",
+            parts:[["WIE","De man"],["DOET","fietst"],["WAAR","naar school"]],
+            ask:"DOET", e:"uitleg (HTML)"}
+           De opties zijn automatisch de delen uit 'parts'; goed = het deel bij 'ask'.
+        b. Regelvraag (vrije meerkeuze):
+           {kind:"herken", q:"vraag (HTML)", o:["…","…"], c:0, e:"uitleg"}
+   2) kind:"sleep"   — sleep elk deel naar het juiste vak.
+        {kind:"sleep", parts:[["WIE","Ik"],["DOET","koop"],["WAT","brood"],
+                              ["WAAR","in de winkel"]], e:"uitleg"}
+        De vakken staan in de opgegeven (juiste) volgorde; de delen worden gehusseld.
+   3) kind:"bouw"    — vertaal zelf een zin (productief).
+        {kind:"bouw", tr:"Turkse zin", model:"Nederlandse voorbeeldzin.",
+         answers:["nederlandse voorbeeldzin", "…variant…"],   // goedgekeurde antwoorden
+         words:["ik","verhuis (verhuizen)","morgen"],          // Woordenhulp (uit Woordjes)
+         e:"uitleg over de woordvolgorde"}
+
+   Geldige rollen: WIE, DOET, WAT, WAAR, WANNEER.
+   Controleer met: node scripts/validate-lessons.js
+   ============================================================ */
+const ZINS = [
+  {
+    n:"Z1", num:"Stap 1", t:"Herken: WIE & DOET", label:"Herkennen",
+    desc:"Zoek in een simpele zin wie iets doet en welk werkwoord erbij hoort.",
+    intro:`<h3>De simpelste vorm</h3>
+      <p><b>WIE → DOET → WAT → WAAR → WANNEER</b></p>
+      <p>Eerst zeg je <b>wie</b> iets doet, en dan <b>meteen</b> wat die doet.
+         Het werkwoord (DOET) staat altijd op <b>plek 2</b>.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span></div>
+      <p>In deze les zoek je steeds de <b>WIE</b> of de <b>DOET</b> in een zin.</p>`,
+    items:[
+      {kind:"herken", sentence:"Ik eet een appel.",
+        parts:[["WIE","Ik"],["DOET","eet"],["WAT","een appel"]], ask:"WIE",
+        e:"De <b>WIE</b> is wie iets doet. Hier is dat <b>Ik</b>."},
+      {kind:"herken", sentence:"Ik eet een appel.",
+        parts:[["WIE","Ik"],["DOET","eet"],["WAT","een appel"]], ask:"DOET",
+        e:"De <b>DOET</b> is het werkwoord op plek 2: <b>eet</b>."},
+      {kind:"herken", sentence:"De man fietst naar school.",
+        parts:[["WIE","De man"],["DOET","fietst"],["WAAR","naar school"]], ask:"WIE",
+        e:"Wie fietst er? <b>De man</b>. Dat is de WIE."},
+      {kind:"herken", sentence:"De man fietst naar school.",
+        parts:[["WIE","De man"],["DOET","fietst"],["WAAR","naar school"]], ask:"DOET",
+        e:"Het werkwoord staat op plek 2: <b>fietst</b>."},
+      {kind:"herken", sentence:"De buurman is boos.",
+        parts:[["WIE","De buurman"],["DOET","is"],["WAT","boos"]], ask:"DOET",
+        e:"Ook een klein woord kan het werkwoord zijn: <b>is</b> staat op plek 2."},
+      {kind:"herken", sentence:"Wij vieren vanavond de verjaardag.",
+        parts:[["WIE","Wij"],["DOET","vieren"],["WANNEER","vanavond"],["WAT","de verjaardag"]], ask:"DOET",
+        e:"Het werkwoord blijft op plek 2: <b>vieren</b>. 'Vanavond' komt pas daarna."},
+      {kind:"herken",
+        q:"Op welke plek staat het werkwoord (DOET) in een gewone zin?",
+        o:["Op plek 2","Op plek 1","Helemaal achteraan","Dat wisselt steeds"], c:0,
+        e:"Het werkwoord staat <b>altijd op plek 2</b>. Niet eerder, niet later."},
+    ],
+  },
+  {
+    n:"Z2", num:"Stap 2", t:"Herken: WAT, WAAR & WANNEER", label:"Herkennen",
+    desc:"Zoek het lijdend voorwerp, de plek en de tijd — en leer: WANNEER vóór WAAR.",
+    intro:`<h3>Wat, waar en wanneer</h3>
+      <p>Na WIE en DOET komt de rest: <b>WAT</b> (of wie), <b>WAAR</b> (de plek) en <b>WANNEER</b> (de tijd).</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span></div>
+      <p><b>Belangrijk:</b> WANNEER komt vóór WAAR.<br>
+        ✅ Ik ga <i>morgen</i> <i>naar Delft</i>. &nbsp; ❌ Ik ga <i>naar Delft</i> <i>morgen</i>.</p>`,
+    items:[
+      {kind:"herken", sentence:"Ik eet een appel.",
+        parts:[["WIE","Ik"],["DOET","eet"],["WAT","een appel"]], ask:"WAT",
+        e:"Wat eet je? <b>een appel</b>. Dat is de WAT."},
+      {kind:"herken", sentence:"De man fietst naar school.",
+        parts:[["WIE","De man"],["DOET","fietst"],["WAAR","naar school"]], ask:"WAAR",
+        e:"Waar fietst hij heen? <b>naar school</b>. Dat is de WAAR (de plek)."},
+      {kind:"herken", sentence:"Ik ga morgen naar Delft.",
+        parts:[["WIE","Ik"],["DOET","ga"],["WANNEER","morgen"],["WAAR","naar Delft"]], ask:"WANNEER",
+        e:"Wanneer ga je? <b>morgen</b>. Dat is de WANNEER (de tijd)."},
+      {kind:"herken", sentence:"Ik ga morgen naar Delft.",
+        parts:[["WIE","Ik"],["DOET","ga"],["WANNEER","morgen"],["WAAR","naar Delft"]], ask:"WAAR",
+        e:"Waar ga je heen? <b>naar Delft</b>. De plek komt ná de tijd."},
+      {kind:"herken", sentence:"Wij vieren vanavond de verjaardag.",
+        parts:[["WIE","Wij"],["DOET","vieren"],["WANNEER","vanavond"],["WAT","de verjaardag"]], ask:"WAT",
+        e:"Wat vieren jullie? <b>de verjaardag</b>. Dat is de WAT."},
+      {kind:"herken",
+        q:"Wat komt eerst in de zin: de tijd (WANNEER) of de plek (WAAR)?",
+        o:["Eerst WANNEER, dan WAAR","Eerst WAAR, dan WANNEER","Dat maakt niet uit","Allebei helemaal achteraan"], c:0,
+        e:"<b>WANNEER komt vóór WAAR.</b> Voorbeeld: Ik ga <i>morgen</i> <i>naar Delft</i>."},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik ga morgen naar Delft.","Ik ga naar Delft morgen."], c:0,
+        e:"Goed is: <b>Ik ga morgen naar Delft.</b> De tijd (WANNEER) staat vóór de plek (WAAR)."},
+    ],
+  },
+  {
+    n:"Z3", num:"Stap 3", t:"Sleep & quiz: de hele zin", label:"Slepen & quiz",
+    desc:"Sleep elk zinsdeel naar het juiste vak en test jezelf met een paar vragen.",
+    intro:`<h3>Zet de hele zin in elkaar</h3>
+      <p>Sleep elk deel naar het juiste vak. Let op de volgorde:
+         het werkwoord op <b>plek 2</b>, en <b>WANNEER vóór WAAR</b>.</p>
+      <p>Op de telefoon: tik een deel en tik daarna het vak.</p>`,
+    items:[
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","eet"],["WAT","een appel"]],
+        e:"Volgorde: WIE → DOET → WAT. <i>Ik eet een appel.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","De man"],["DOET","fietst"],["WAAR","naar school"]],
+        e:"Volgorde: WIE → DOET → WAAR. <i>De man fietst naar school.</i>"},
+      {kind:"herken", sentence:"De trein heeft vandaag vertraging.",
+        parts:[["WIE","De trein"],["DOET","heeft"],["WANNEER","vandaag"],["WAT","vertraging"]], ask:"DOET",
+        e:"Het werkwoord op plek 2 is <b>heeft</b>."},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","ga"],["WANNEER","morgen"],["WAAR","naar Delft"]],
+        e:"WANNEER vóór WAAR: <i>Ik ga morgen naar Delft.</i>"},
+      {kind:"herken",
+        q:"Welke zin heeft de goede volgorde?",
+        o:["Wij vieren vanavond de verjaardag.","Wij vanavond vieren de verjaardag."], c:0,
+        e:"Het werkwoord (vieren) hoort op plek 2: <b>Wij vieren vanavond de verjaardag.</b>"},
+      {kind:"sleep",
+        parts:[["WIE","Wij"],["DOET","vieren"],["WANNEER","vanavond"],["WAT","de verjaardag"]],
+        e:"WIE → DOET → WANNEER → WAT. <i>Wij vieren vanavond de verjaardag.</i>"},
+    ],
+  },
+  {
+    n:"Z4", num:"Stap 4", t:"Bouw je eigen zin", label:"Vertalen",
+    desc:"Vertaal zelf een zin naar het Nederlands. Gebruik de woorden uit de Woordjes-lessen.",
+    intro:`<h3>Bouw je eigen zin</h3>
+      <p>Nu maak je de zin zelf. Je krijgt een zin in het Turks; typ hem in het Nederlands.
+         Gebruik de <b>Woordenhulp</b> — dat zijn woorden die je al leerde bij de Woordjes-lessen.</p>
+      <p>Denk aan: het werkwoord op <b>plek 2</b> en <b>WANNEER vóór WAAR</b>.
+         Meerdere goede zinnen kunnen kloppen; vergelijk daarna met de voorbeeldzin.</p>`,
+    items:[
+      {kind:"bouw", tr:"Ben bir elma yiyorum.", model:"Ik eet een appel.",
+        answers:["ik eet een appel"], words:["ik","eet (eten)","een appel"],
+        e:"WIE (Ik) → DOET (eet, plek 2) → WAT (een appel)."},
+      {kind:"bouw", tr:"Ben yarın taşınıyorum.", model:"Ik verhuis morgen.",
+        answers:["ik verhuis morgen","morgen verhuis ik"], words:["ik","verhuis (verhuizen)","morgen"],
+        e:"Je mag ook met de tijd beginnen: <i>Morgen verhuis ik.</i> Het werkwoord blijft op plek 2."},
+      {kind:"bouw", tr:"Adam okula bisikletle gidiyor.", model:"De man fietst naar school.",
+        answers:["de man fietst naar school"], words:["de man","fietst (fietsen)","naar school"],
+        e:"WIE (De man) → DOET (fietst) → WAAR (naar school)."},
+      {kind:"bouw", tr:"Biz bu akşam doğum gününü kutluyoruz.", model:"Wij vieren vanavond de verjaardag.",
+        answers:["wij vieren vanavond de verjaardag","we vieren vanavond de verjaardag","vanavond vieren wij de verjaardag","vanavond vieren we de verjaardag"],
+        words:["wij","vieren","vanavond","de verjaardag"],
+        e:"Werkwoord op plek 2: <i>Wij vieren vanavond de verjaardag.</i>"},
+      {kind:"bouw", tr:"Tren bugün gecikmeli.", model:"De trein heeft vandaag vertraging.",
+        answers:["de trein heeft vandaag vertraging","vandaag heeft de trein vertraging"],
+        words:["de trein","heeft (hebben)","vandaag","de vertraging"],
+        e:"WIE (De trein) → DOET (heeft) → WANNEER (vandaag) → WAT (vertraging)."},
+      {kind:"bouw", tr:"Ben yarın Delft'e gidiyorum.", model:"Ik ga morgen naar Delft.",
+        answers:["ik ga morgen naar delft","morgen ga ik naar delft"],
+        words:["ik","ga (gaan)","morgen","naar Delft"],
+        e:"WANNEER vóór WAAR: <i>Ik ga morgen naar Delft.</i>"},
+    ],
+  },
+];
