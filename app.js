@@ -433,6 +433,7 @@ function renderDash(){
   grid.innerHTML=html;
   const zStats=renderZins(prog);          // tweede leerlijn (Zinsopbouw) + resterende 'binnenkort'
   done+=zStats.done; busy+=zStats.busy;
+  if(!nextLesson) nextLesson=zStats.next||null;   // Woordjes op? wijs de leerling naar de eerstvolgende Zinsopbouw-les
   $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
   // dashboard-stats automatisch
   const streak=computeStreak(prog.days);
@@ -442,15 +443,15 @@ function renderDash(){
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startLesson(b.dataset.course)));
   const searchWrap=$('lessonSearchWrap'); if(searchWrap)searchWrap.classList.toggle('hidden',shown<6);
   filterCourses();   // pas een eventueel actieve zoekterm opnieuw toe na het hertekenen
-  renderContinueBar(nextLesson,prog,shown);
+  renderContinueBar(nextLesson,prog,shown||zStats.released);
   renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100),playable:PLAYABLE+zStats.released});
 }
 /* tweede leerlijn: Zinsopbouw-lessen (speelbaar) + de 'binnenkort'-onderwerpen.
    Rendert in #soonGrid en geeft de eigen voortgang terug voor de dashboard-tellers. */
 function renderZins(prog){
-  const grid=$('soonGrid'); if(!grid)return {done:0,busy:0,released:0};
+  const grid=$('soonGrid'); if(!grid)return {done:0,busy:0,released:0,next:null};
   const teacherView=isTeacherViewer();
-  let done=0,busy=0,released=0,html='';
+  let done=0,busy=0,released=0,html='',next=null;    // next = eerstvolgende onafgeronde, vrijgegeven Zinsopbouw-les
   (typeof ZINS!=='undefined'?ZINS:[]).forEach(z=>{
     const rel=isReleased(z.n);
     if(!rel && !teacherView) return;                 // niet vrijgegeven: leerling ziet hem niet, docent wél
@@ -458,9 +459,9 @@ function renderZins(prog){
     const pct=prog.lessons[z.n];
     let status='new';
     if(!rel) status='soon';
-    else if(pct===undefined) status='new';
+    else if(pct===undefined){ status='new'; if(!next)next=z; }
     else if(pct>=PASS){ status='done'; done++; }
-    else { status='busy'; busy++; }
+    else { status='busy'; busy++; if(!next)next=z; }
     const barPct=pct||0;
     html+=`<button class="card live" data-zins="${esc(z.n)}">
       ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">Zinsopbouw</div>'}
@@ -476,7 +477,7 @@ function renderZins(prog){
   grid.innerHTML=html;
   grid.querySelectorAll('[data-zins]').forEach(b=>b.addEventListener('click',()=>startZins(b.dataset.zins)));
   const zc=$('zinsCount'); if(zc)zc.textContent=released?(released+' speelbaar'):'binnenkort';
-  return {done,busy,released};
+  return {done,busy,released,next};
 }
 /* 'Ga verder waar je gebleven was': knop naar de eerstvolgende onafgeronde les */
 function renderContinueBar(next,prog,shown){
@@ -486,7 +487,7 @@ function renderContinueBar(next,prog,shown){
     cb.className='continue-bar';
     cb.innerHTML=`<div class="cb-text">
         <span class="cb-kick">${started?'Ga verder':'Begin hier'}</span>
-        <b>Les ${esc(next.n)} · ${esc(next.t)}</b>
+        <b>${esc(lessonNumLabel(next.n))} · ${esc(lessonTitle(next.n))}</b>
       </div>
       <button class="cb-btn" type="button">▶ ${started?'Verder oefenen':'Start les'}</button>`;
     cb.querySelector('.cb-btn').addEventListener('click',()=>startLesson(next.n));
@@ -766,12 +767,14 @@ function recentCompletedHtml(students, limitOverride){
   if(!top.length){
     return `<div class="tv-recent-empty">Nog geen afgeronde lessen. Zodra een leerling een les afrondt, verschijnt die hier vanzelf — nieuwste bovenaan.</div>`;
   }
-  const rows=top.map(it=>`<div class="rc-item">
+  const rows=top.map(it=>{
+    const zins=!!zinsById(it.lesson);
+    return `<div class="rc-item">
     <span class="rc-name">${esc(it.name)}</span>
-    <span class="rc-lesson">Les ${esc(it.lesson)} · ${esc(lessonTitle(it.lesson))}</span>
+    <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${zins?'Zinsopbouw':'Woordjes'}</span>${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
     <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
     <span class="rc-when tnum">${fmtDate(it.created_at)}</span>
-  </div>`).join('');
+  </div>`;}).join('');
   return rows+`<div class="rc-count">${top.length} van ${items.length} afgeronde lessen getoond</div>`;
 }
 /* knopjes 3/50/100/200: pas de weergave meteen aan zonder opnieuw te laden */
@@ -1422,7 +1425,7 @@ function zHerken(it){
   const qhtml=part
     ? `Lees de zin. Welk deel is de <span class="zrole ${role.kls}">${esc(role.label)}</span>
         <span class="zrole-hint">(${esc(role.hint)})</span>?
-        <div class="zin-sentence" id="zinSent">${esc(it.sentence)}</div>`
+        <div class="zin-sentence-row"><div class="zin-sentence" id="zinSent">${esc(it.sentence)}</div>${speakerHtml(it.sentence,'zin-say')}</div>`
     : `<div class="zin-q">${it.q}</div>`;
   $('quizView').innerHTML=zHead()+`
     <div class="qcard">
