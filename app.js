@@ -463,7 +463,7 @@ function renderZins(prog){
     else { status='busy'; busy++; }
     const barPct=pct||0;
     html+=`<button class="card live" data-zins="${esc(z.n)}">
-      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">✏️ Zinsopbouw</div>'}
+      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">Zinsopbouw</div>'}
       <div class="num">${esc(z.num||'Zin')}</div>
       <h3>${esc(z.t)}</h3>
       <div class="progress"><i style="width:${barPct}%"></i></div>
@@ -587,9 +587,25 @@ function fmtDate(iso){
            d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
   }catch(e){ return String(iso).slice(0,16).replace('T',' '); }
 }
+/* aantal opdrachten in een les — werkt voor Woordjes (QUIZZES) én Zinsopbouw (ZINS) */
+function lessonItemCount(lesId){
+  if(QUIZZES[lesId])return QUIZZES[lesId].q.length;
+  const z=zinsById(lesId); return z&&z.items?z.items.length:0;
+}
+/* korte tekst van één opdracht (voor de tabelkoppen en detailregels) */
+function lessonQText(lesId,i){
+  if(QUIZZES[lesId]&&QUIZZES[lesId].q[i])return stripTags(QUIZZES[lesId].q[i].t);
+  const z=zinsById(lesId); if(z&&z.items&&z.items[i])return zItemText(z.items[i]);
+  return 'Opdracht '+(i+1);
+}
+/* "Les 3" of "Les 1" (Zinsopbouw) — nummerlabel voor koppen */
+function lessonNumLabel(lesId){
+  if(QUIZZES[lesId])return 'Les '+lesId;
+  const z=zinsById(lesId); return z?z.num:('Les '+lesId);
+}
 /* voortgang van één leerling voor één les */
 function lessonStat(stu,lesId){
-  const total=QUIZZES[lesId].q.length;
+  const total=lessonItemCount(lesId);
   if(stu.perQ){
     const perQ=[]; let correct=0, answered=0;
     for(let i=0;i<total;i++){
@@ -606,26 +622,28 @@ function renderTeacher(students){
   const playable=COURSES.filter(c=>QUIZZES[c.n]);
   const banner = CLOUD ? '' :
     `<div class="tv-banner">⚠️ Centrale database nog niet gekoppeld — je ziet alleen leerlingen die op <b>dit apparaat</b> hebben geoefend, zonder detail per vraag. Vul je Supabase-sleutels in (zie <b>DOCENT-SETUP.md</b>) voor volledig inzicht vanaf alle apparaten.</div>`;
-  let cards='';
-  playable.forEach(c=>{
+  const zPlayable=(typeof ZINS!=='undefined'?ZINS:[]);
+  const lessonCard=(id,numLabel,title)=>{
     let done=0,sumPct=0,seen=0;
-    students.forEach(stu=>{const s=lessonStat(stu,c.n); if(s.answered){seen++;sumPct+=s.pct; if(s.pct>=PASS)done++;}});
+    students.forEach(stu=>{const s=lessonStat(stu,id); if(s.answered){seen++;sumPct+=s.pct; if(s.pct>=PASS)done++;}});
     const avg=seen?Math.round(sumPct/seen):0;
-    cards+=`<button class="tv-card" data-les="${c.n}">
-      <div class="num">Les ${c.n}</div>
-      <h3>${esc(c.t)}</h3>
+    return `<button class="tv-card" data-les="${esc(id)}">
+      <div class="num">${esc(numLabel)}</div>
+      <h3>${esc(title)}</h3>
       <div class="tv-card-meta">
         <span class="tv-chip">${seen}/${students.length} gemaakt</span>
         <span class="tnum tv-card-avg">${seen?avg+'% gem.':'—'}</span>
       </div>
     </button>`;
-  });
+  };
+  const cards=playable.map(c=>lessonCard(c.n,'Les '+c.n,c.t)).join('');
+  const zcards=zPlayable.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
   const welcome=`
     <div class="welcome">
       <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
       <div class="stat-strip">
         <div class="stat"><div class="n tnum">${students.length}</div><div class="l">leerlingen</div></div>
-        <div class="stat"><div class="n tnum">${playable.length}</div><div class="l">lessen</div></div>
+        <div class="stat"><div class="n tnum">${playable.length+zPlayable.length}</div><div class="l">lessen</div></div>
       </div>
     </div>`;
   const recentControls=`
@@ -635,7 +653,11 @@ function renderTeacher(students){
         <button class="rc-all-btn" id="rcAll" type="button">Alle bekijken →</button>
       </div>
       <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>`;
-  const cardsInner=cards||'<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
+  const cardsInner=(cards||zcards)
+    ? (zcards
+        ? `<div class="tv-cards-sub">Woordjes</div>${cards}<div class="tv-cards-sub">Zinsopbouw</div>${zcards}`
+        : cards)
+    : '<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
   const serkan=isSerkan();
   if(serkan){
     // Serkan mag blokken in-/uitklappen én van volgorde wisselen (3 sec. op de titel houden).
@@ -829,8 +851,8 @@ function wireReleasePanel(students){
 }
 /* NIVEAU 2 — één les: tabel met leerlingen × vragen (laatste resultaat per vraag) */
 function renderTeacherLesson(lesId,students){
-  const qz=QUIZZES[lesId]; const total=qz.q.length;
-  const heads=qz.q.map((q,i)=>`<th title="${esc(stripTags(q.t))}">V${i+1}</th>`).join('');
+  const total=lessonItemCount(lesId);
+  const heads=Array.from({length:total},(_,i)=>`<th title="${esc(lessonQText(lesId,i))}">V${i+1}</th>`).join('');
   let rows='';
   students.forEach((stu,idx)=>{
     const s=lessonStat(stu,lesId);
@@ -850,7 +872,7 @@ function renderTeacherLesson(lesId,students){
   });
   $('teacherView').innerHTML=`
     <button class="back" id="tvBack">← Terug naar lessen</button>
-    <div class="welcome"><div><h1>Les ${lesId} · ${esc(lessonTitle(lesId))}</h1><p>Laatste resultaat per vraag. Klik een leerling voor alle pogingen.</p></div></div>
+    <div class="welcome"><div><h1>${esc(lessonNumLabel(lesId))} · ${esc(lessonTitle(lesId))}</h1><p>Laatste resultaat per vraag. Klik een leerling voor alle pogingen.</p></div></div>
     <div class="tv-tablewrap">
       <table class="tv-table">
         <thead><tr><th>Leerling</th>${heads}<th>Totaal</th><th>Pogingen</th><th></th></tr></thead>
@@ -891,10 +913,10 @@ function renderTeacherStudentLesson(stu,lesId,students){
       </button>`).join('');
   } else {
     // Terugval: geen poging-geschiedenis (bv. oude gegevens) — toon laatste per-vraag status
-    const s=lessonStat(stu,lesId); const qz=QUIZZES[lesId]; let dots='';
+    const s=lessonStat(stu,lesId); let dots='';
     for(let i=0;i<s.total;i++){
       let cls='q-na'; if(s.perQ){ if(s.perQ[i]===true)cls='q-ok'; else if(s.perQ[i]===false)cls='q-no'; }
-      const qtxt=qz.q[i]?stripTags(qz.q[i].t):('Vraag '+(i+1));
+      const qtxt=lessonQText(lesId,i);
       dots+=`<div class="q-item ${cls}"><span class="q-txt">${i+1}. ${esc(qtxt)}</span><span class="q-res">${cls==='q-ok'?'✓':cls==='q-no'?'✗':'–'}</span></div>`;
     }
     recentHtml=`<div class="tv-lesson">
@@ -904,9 +926,9 @@ function renderTeacherStudentLesson(stu,lesId,students){
   }
   const hasData=atts.length||lessonStat(stu,lesId).answered;
   $('teacherView').innerHTML=`
-    <button class="back" id="tvBack">← Terug naar les ${lesId}</button>
+    <button class="back" id="tvBack">← Terug naar ${esc(lessonNumLabel(lesId).toLowerCase())}</button>
     <div class="welcome">
-      <div><h1>${esc(stu.name)}</h1><p>Les ${lesId} · ${esc(lessonTitle(lesId))} — ${esc(stu.email)}</p></div>
+      <div><h1>${esc(stu.name)}</h1><p>${esc(lessonNumLabel(lesId))} · ${esc(lessonTitle(lesId))} — ${esc(stu.email)}</p></div>
       ${hasData?`<button class="tv-wipe" id="tvWipe" title="Wis de voortgang van deze leerling voor deze les">🗑 Voortgang wissen</button>`:''}
     </div>
     ${recentHtml}
@@ -921,7 +943,7 @@ function renderTeacherStudentLesson(stu,lesId,students){
 }
 /* wis de voortgang van één leerling voor één les — hij begint dan opnieuw */
 async function teacherWipeLesson(stu,lesId,students){
-  if(!confirm('Voortgang van '+stu.name+' voor les '+lesId+' wissen?\n\n'+
+  if(!confirm('Voortgang van '+stu.name+' voor '+lessonNumLabel(lesId).toLowerCase()+' wissen?\n\n'+
     'Alle antwoorden én pogingen van deze les worden verwijderd. '+
     'De leerling begint deze les daarna weer helemaal opnieuw.\n\n'+
     'Dit kan niet ongedaan worden gemaakt.'))return;
@@ -951,7 +973,7 @@ function renderAttemptDetail(att,stu,lesId,students){
   $('teacherView').innerHTML=`
     <button class="back" id="tvBack">← Terug naar pogingen</button>
     <div class="welcome"><div><h1>${esc(stu.name)} — poging</h1>
-      <p>Les ${lesId} · ${esc(lessonTitle(lesId))} · ${esc(att.mode||'oefening')} · ${fmtDate(att.created_at)}</p></div>
+      <p>${esc(lessonNumLabel(lesId))} · ${esc(lessonTitle(lesId))} · ${esc(att.mode||'oefening')} · ${fmtDate(att.created_at)}</p></div>
       <div class="stat-strip"><div class="stat"><div class="n tnum">${att.pct}%</div><div class="l">${att.score}/${att.total} goed</div></div></div>
     </div>
     <div class="tv-lesson">

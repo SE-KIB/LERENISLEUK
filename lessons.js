@@ -32,10 +32,8 @@ const COURSES = [
   {n:"6", t:"Het huis beschrijven", desc:"Woorden over vorm, maat en materiaal."},
   {n:"7", t:"Grote mix: les 1 t/m 6", desc:"Alle thema's door elkaar. Herhaal en test wat je geleerd hebt.", feat:true},
 ];
-const SOON = [
-  {n:"9", t:"Voorzetsels (in, op, onder)"},{n:"10", t:"Bijvoeglijke naamwoorden"},
-  {n:"11", t:"Leestekens & hoofdletters"},
-];
+/* SOON = 'binnenkort'-onderwerpen zonder eigen les. Leeg = geen placeholderkaarten. */
+const SOON = [];
 
 /* ---------------- vragenbanken ---------------- */
 const QUIZZES = {
@@ -294,7 +292,7 @@ const QUIZZES = {
 
    Een Zinsopbouw-les is: { n, num, t, desc, label, intro, items:[…] }.
      n     = uniek id (begin met "Z" zodat het niet botst met de Woordjes-lessen).
-     num   = korte badge op de kaart, bijv. "Stap 1".
+     num   = korte badge op de kaart, bijv. "Les 1".
      t     = titel · desc = ondertitel · label = spelvorm-naam op het resultaat.
      intro = korte uitleg (HTML) op het startscherm van de les.
      items = de opdrachten. Elk item heeft een 'kind':
@@ -322,8 +320,8 @@ const QUIZZES = {
    ============================================================ */
 const ZINS = [
   {
-    n:"Z1", num:"Stap 1", t:"Herken: WIE & DOET", label:"Herkennen",
-    desc:"Zoek in een simpele zin wie iets doet en welk werkwoord erbij hoort.",
+    n:"Z1", num:"Les 1", t:"Onderwerp en werkwoord", label:"Herkennen",
+    desc:"Zoek in een simpele zin het onderwerp (WIE) en het werkwoord (DOET).",
     intro:`<h3>De simpelste vorm</h3>
       <p><b>WIE → DOET → WAT → WAAR → WANNEER</b></p>
       <p>Eerst zeg je <b>wie</b> iets doet, en dan <b>meteen</b> wat die doet.
@@ -356,8 +354,8 @@ const ZINS = [
     ],
   },
   {
-    n:"Z2", num:"Stap 2", t:"Herken: WAT, WAAR & WANNEER", label:"Herkennen",
-    desc:"Zoek het lijdend voorwerp, de plek en de tijd — en leer: WANNEER vóór WAAR.",
+    n:"Z2", num:"Les 2", t:"Voorwerp, tijd en plaats", label:"Herkennen",
+    desc:"Zoek het voorwerp (WAT), de tijd (WANNEER) en de plaats (WAAR) — en leer: tijd vóór plaats.",
     intro:`<h3>Wat, waar en wanneer</h3>
       <p>Na WIE en DOET komt de rest: <b>WAT</b> (of wie), <b>WAAR</b> (de plek) en <b>WANNEER</b> (de tijd).</p>
       <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span></div>
@@ -390,7 +388,7 @@ const ZINS = [
     ],
   },
   {
-    n:"Z3", num:"Stap 3", t:"Sleep & quiz: de hele zin", label:"Slepen & quiz",
+    n:"Z3", num:"Les 3", t:"De hele zin op volgorde", label:"Slepen & quiz",
     desc:"Sleep elk zinsdeel naar het juiste vak en test jezelf met een paar vragen.",
     intro:`<h3>Zet de hele zin in elkaar</h3>
       <p>Sleep elk deel naar het juiste vak. Let op de volgorde:
@@ -419,7 +417,7 @@ const ZINS = [
     ],
   },
   {
-    n:"Z4", num:"Stap 4", t:"Bouw je eigen zin", label:"Vertalen",
+    n:"Z4", num:"Les 4", t:"Zelf zinnen maken", label:"Vertalen",
     desc:"Vertaal zelf een zin naar het Nederlands. Gebruik de woorden uit de Woordjes-lessen.",
     intro:`<h3>Bouw je eigen zin</h3>
       <p>Nu maak je de zin zelf. Je krijgt een zin in het Turks; typ hem in het Nederlands.

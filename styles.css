@@ -461,6 +461,8 @@ details.tv-recent > summary h2{flex:1 1 auto}
 .tv-block{margin-bottom:18px}
 /* les-kaarten in het docenten-overzicht */
 .tv-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px}
+.tv-cards-sub{grid-column:1/-1; margin:8px 0 -2px; font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint)}
+.tv-cards-sub:first-child{margin-top:0}
 .tv-card{text-align:left; cursor:pointer; padding:16px 17px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); transition:transform .12s, border-color .12s}
 .tv-card:hover{transform:translateY(-2px); border-color:var(--brand)}
 .tv-card .num{font-size:12px; font-weight:800; color:var(--brand-deep); text-transform:uppercase; letter-spacing:.04em}
