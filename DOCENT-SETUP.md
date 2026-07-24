@@ -157,7 +157,7 @@ update public.profiles set full_name = 'Ozcan'  where email = 'o@k.nl';
 2. Kopieer twee dingen:
    - **Project URL** (bijv. `https://abcd1234.supabase.co`)
    - **anon public** sleutel (lange tekst — de *anon*, niet de *service_role*!)
-3. Open in dit project het bestand **`index.html`** en vul bovenaan in:
+3. Open in dit project het bestand **`app.js`** en vul bovenaan in:
 
 ```js
 const SUPABASE_URL = "https://abcd1234.supabase.co";

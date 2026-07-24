@@ -7,20 +7,31 @@ feedback en uitleg. Voor de basisschool en inburgering / NT2.
 Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**.
 
 ## Bestanden
-- `index.html` — de app (HTML, CSS en de app-logica in JavaScript)
+- `index.html` — de opbouw van de pagina (HTML); verwijst naar de bestanden hieronder
+- `styles.css` — alle stijlen/opmaak (het uiterlijk van de site)
+- `app.js` — de app-logica (login, quiz-engine, dashboard, docenten-dashboard)
 - `lessons.js` — alle lesinhoud (`COURSES`, `SOON`, `QUIZZES`), los van de app
+- `sw.js` — service worker: sneller laden + (deels) offline werken (PWA)
+- `manifest.webmanifest` — app-manifest voor "toevoegen aan startscherm"
 - `scripts/validate-lessons.js` — controleert de vragenbank (draait ook in CI)
 - `CNAME` — koppelt sekibar.nl aan GitHub Pages
 
+> Laadvolgorde: `index.html` laadt eerst de Supabase-bibliotheek, dan
+> `lessons.js` (de inhoud) en tenslotte `app.js` (de logica). Pas je de
+> Supabase-sleutels aan? Die staan bovenaan **`app.js`**.
+
 ## Functies
-- Inlog-/registratiescherm (demo: elk e-mailadres/wachtwoord werkt)
-- Dashboard met leerlijn, voortgangsbalken, stats en streak
-- Quiz-engine: meerkeuzevragen, directe feedback, uitleg en eindscore
-- Licht/donker thema (volgt systeem, met knop)
+- Inlogscherm met vaste accounts (wachtwoorden als SHA-256-hash; met Supabase gekoppeld gaat login via de database)
+- Dashboard met leerlijn, voortgangsbalken, stats, streak, badges en een
+  "ga verder waar je gebleven was"-knop
+- Vijf spelvormen per les: quiz, invullen, slepen, flitskaarten en mix
+- Quiz-engine: directe feedback, uitleg, tip-knop, uitspraak (🔊) en eindscore
+- Licht/donker thema (volgt systeem, met knop) en geluidseffecten met aan/uit-knop
+- Installeerbaar als app (PWA) met offline app-shell (`sw.js`)
 - Contactsectie met e-mail + formulier
 
 ## Lessen aanpassen of toevoegen
-Alle inhoud staat in **`lessons.js`** (los van de app-logica in `index.html`):
+Alle inhoud staat in **`lessons.js`** (los van de app-logica in `app.js`):
 - `COURSES` — de lessen op het dashboard (nummer, titel, omschrijving)
 - `QUIZZES` — de vragen per les: `t` = vraag, `o` = antwoorden, `c` = index
   van het juiste antwoord (0 = eerste), `e` = uitleg, `tag` = vraagtype.
@@ -39,7 +50,18 @@ De site houdt voortgang standaard lokaal bij (per apparaat). Voor een echt
 docenten-dashboard — waar de docent elke leerling vanaf elk apparaat ziet, tot
 op vraagniveau — koppel je een gratis Supabase-database. Zie **`DOCENT-SETUP.md`**
 voor de stap-voor-stap handleiding met kant-en-klare SQL. Zolang de sleutels
-bovenaan `index.html` leeg zijn, blijft de site gewoon in lokale modus werken.
+bovenaan `app.js` leeg zijn, blijft de site gewoon in lokale modus werken.
+
+## Beveiliging — belangrijk om te weten
+- **Lokale modus** (geen Supabase-sleutels): de accountlijst met SHA-256-hashes
+  bovenaan `app.js` is alléén een *zachte drempel*. Alles draait in de
+  browser, dus dit is **geen echte beveiliging** — houd er geen gevoelige
+  gegevens achter. Prima voor een oefensite, niet voor iets vertrouwelijks.
+- **Cloud-modus** (Supabase gekoppeld): dán zit de echte beveiliging in
+  Supabase Auth + de database-regels (RLS). De `anon`-sleutel mag publiek in de
+  code staan; gebruik **nooit** de `service_role`-sleutel in de website.
+- Wil je een statische site echt afschermen, gebruik dan een dienst als
+  Cloudflare Access vóór de pagina.
 
 ## Contactformulier activeren
 Het formulier staat klaar maar heeft nog een gratis verzend-endpoint nodig

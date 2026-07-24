@@ -19,7 +19,10 @@ jobs:
 
       - name: Set PR number in footer
         run: |
-          sed -i -E 's#(<span id="version">Serkan Yapiyor Bu Isi - Version \(PR\()[^)]*(\)\)</span>)#\1${{ github.event.pull_request.number }}\2#' index.html
+          # Werkt het PR-nummer bij in beide plekken ("Version PR<nummer>"): de
+          # footer (#version) én het loginscherm (#versionFront). Het tijd-deel
+          # (" - HH:MM") laten we staan; de app zet de definitieve tekst runtime.
+          sed -i -E 's#(Serkan Yapiyor Bu Isi - Version PR)[0-9]+#\1${{ github.event.pull_request.number }}#g' index.html
 
       - name: Commit if changed
         run: |
