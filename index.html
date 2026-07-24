@@ -154,6 +154,25 @@ a{color:var(--brand-deep)}
 .stat .l{font-size:12px; color:var(--ink-faint); font-weight:600; letter-spacing:.02em; margin-top:1px}
 .stat.accent .n{color:var(--accent-deep)}
 
+/* ---------- ga verder + badges ---------- */
+.continue-bar{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin:2px 2px 6px; padding:14px 18px; border-radius:var(--radius);
+  background:linear-gradient(150deg,var(--brand),var(--brand-deep)); color:#fff; box-shadow:var(--shadow)}
+.continue-bar.cb-done{background:linear-gradient(150deg,var(--good),var(--brand-deep))}
+.continue-bar .cb-text{display:flex; flex-direction:column; gap:2px; flex:1 1 auto; min-width:0}
+.continue-bar .cb-kick{font-size:11.5px; text-transform:uppercase; letter-spacing:.12em; font-weight:800; opacity:.9}
+.continue-bar .cb-text b{font-size:16px; font-weight:750; color:#fff}
+.continue-bar .cb-btn{flex:0 0 auto; padding:11px 20px; border:none; border-radius:10px; background:rgba(255,255,255,.96);
+  color:var(--brand-deep); font-weight:800; font-size:14.5px; box-shadow:0 6px 16px -8px rgba(0,0,0,.5); transition:transform .15s, background .15s}
+.continue-bar .cb-btn:hover{transform:translateY(-1px); background:#fff}
+.badges{display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:12px}
+.badge{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px; padding:16px 12px; border-radius:var(--radius);
+  border:1px solid var(--line); background:var(--surface-2); box-shadow:var(--shadow); opacity:.6; filter:grayscale(.5); transition:transform .15s}
+.badge.earned{opacity:1; filter:none; background:var(--surface); border-color:color-mix(in srgb,var(--brand) 40%,transparent)}
+.badge.earned:hover{transform:translateY(-2px)}
+.badge-ic{font-size:30px; line-height:1}
+.badge-t{font-weight:800; font-size:14px}
+.badge-d{font-size:11.5px; color:var(--ink-faint); line-height:1.3}
+
 .section-head{display:flex; align-items:center; gap:12px; margin:30px 2px 15px}
 .section-head h2{font-size:17px}
 .section-head .bar{width:26px; height:3px; border-radius:2px; background:var(--accent)}
@@ -518,6 +537,7 @@ details.tv-recent > summary h2{flex:1 1 auto}
       <div class="spacer"></div>
       <button class="linkbtn" id="switchBtn" style="display:none; color:var(--brand-deep)">↔ Wissel weergave</button>
       <button class="linkbtn" id="homeLink">Lessen</button>
+      <button class="iconbtn" id="soundToggle" title="Geluidseffecten uit zetten" aria-label="Geluidseffecten aan of uit" aria-pressed="false">🔊</button>
       <button class="iconbtn" id="themeToggle2" title="Wissel thema" aria-label="Wissel thema">🌙</button>
       <div class="userchip"><span class="avatar" id="avatar">S</span><span id="username">Cursist</span></div>
       <button class="iconbtn" id="logoutBtn" title="Uitloggen" aria-label="Uitloggen">⏻</button>
@@ -538,11 +558,18 @@ details.tv-recent > summary h2{flex:1 1 auto}
       </div>
     </div>
 
+    <!-- ga verder waar je gebleven was -->
+    <div id="continueBar" class="continue-bar hidden"></div>
+
     <div class="section-head"><span class="bar"></span><h2>Woordjes</h2><span class="count" id="courseCount"></span></div>
     <div class="grid" id="courseGrid"></div>
 
     <div class="section-head"><span class="bar"></span><h2>Zinsopbouw</h2><span class="count">binnenkort</span></div>
     <div class="grid" id="soonGrid"></div>
+
+    <!-- badges / beloningen -->
+    <div class="section-head"><span class="bar"></span><h2>Jouw badges</h2><span class="count" id="badgeCount"></span></div>
+    <div class="badges" id="badgeRow"></div>
 
     <!-- contact -->
     <div class="section-head"><span class="bar"></span><h2>Contact &amp; vragen</h2></div>
@@ -617,6 +644,21 @@ function setTheme(t){root.setAttribute('data-theme',t);
   if(!t)t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'; setTheme(t);})();
 document.addEventListener('click',e=>{const b=e.target.closest('#themeToggle,#themeToggle2');
   if(b)setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark');});
+
+/* ---------------- geluidseffecten aan/uit ----------------
+   Dempt alleen de feedback-/succesgeluiden. De uitspraak-knoppen (🔊 bij een
+   woord) blijven werken, want dat is een bewuste leeractie. */
+let soundMuted=false; try{ soundMuted=localStorage.getItem('lil-muted')==='1'; }catch(e){}
+function updateSoundBtn(){
+  document.querySelectorAll('#soundToggle').forEach(b=>{
+    b.textContent=soundMuted?'🔇':'🔊';
+    b.setAttribute('aria-pressed',soundMuted?'true':'false');
+    b.title=soundMuted?'Geluidseffecten aan zetten':'Geluidseffecten uit zetten';
+  });
+}
+function setMuted(m){ soundMuted=!!m; try{localStorage.setItem('lil-muted',soundMuted?'1':'0');}catch(e){} updateSoundBtn(); }
+updateSoundBtn();
+document.addEventListener('click',e=>{const b=e.target.closest('#soundToggle'); if(b)setMuted(!soundMuted);});
 
 /* ---------------- login canvas (letters) ---------------- */
 (function(){const c=document.getElementById('bgCanvas');if(!c)return;const ctx=c.getContext('2d');
@@ -973,7 +1015,7 @@ function renderDash(){
   let done=0, busy=0;
   let html='';
   const teacherView=isTeacherViewer();
-  let shown=0;
+  let shown=0, nextLesson=null;                   // eerstvolgende onafgeronde les (voor 'ga verder')
   COURSES.forEach(c=>{
     const live=!!QUIZZES[c.n];                    // speelbaar als er vragen zijn
     const released=isReleased(c.n);               // door de docent vrijgegeven?
@@ -984,9 +1026,9 @@ function renderDash(){
     let status='soon';
     if(live){
       if(!released) status='soon';                // docent-preview: markeer als 'in voorbereiding'
-      else if(pct===undefined) status='new';
+      else if(pct===undefined){ status='new'; if(!nextLesson)nextLesson=c; }
       else if(pct>=PASS){ status='done'; done++; }
-      else { status='busy'; busy++; }
+      else { status='busy'; busy++; if(!nextLesson)nextLesson=c; }
     }
     const barPct=pct||0;
     const cls='card '+(live?'live':'soon')+(c.feat&&live&&released?' featured':'');
@@ -1006,10 +1048,56 @@ function renderDash(){
       <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
   $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
   // dashboard-stats automatisch
+  const streak=computeStreak(prog.days);
   $('statDone').textContent=done;
   $('statBusy').textContent=busy;
-  $('statStreak').textContent=computeStreak(prog.days);
+  $('statStreak').textContent=streak;
   grid.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>startLesson(b.dataset.course)));
+  renderContinueBar(nextLesson,prog,shown);
+  renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100)});
+}
+/* 'Ga verder waar je gebleven was': knop naar de eerstvolgende onafgeronde les */
+function renderContinueBar(next,prog,shown){
+  const cb=$('continueBar'); if(!cb)return;
+  if(next){
+    const started=prog.lessons[next.n]!==undefined;
+    cb.className='continue-bar';
+    cb.innerHTML=`<div class="cb-text">
+        <span class="cb-kick">${started?'Ga verder':'Begin hier'}</span>
+        <b>Les ${esc(next.n)} · ${esc(next.t)}</b>
+      </div>
+      <button class="cb-btn" type="button">▶ ${started?'Verder oefenen':'Start les'}</button>`;
+    cb.querySelector('.cb-btn').addEventListener('click',()=>startLesson(next.n));
+  } else if(shown){
+    cb.className='continue-bar cb-done';
+    cb.innerHTML=`<div class="cb-text">
+        <span class="cb-kick">Knap gedaan! 🎉</span>
+        <b>Je hebt alle beschikbare lessen afgerond. Herhaal er gerust een.</b>
+      </div>`;
+  } else {
+    cb.className='continue-bar hidden'; cb.innerHTML='';
+  }
+}
+/* badges/beloningen — motiveren de leerling; berekend uit de eigen voortgang */
+const BADGES=[
+  {icon:'🌱', title:'Eerste stap',  desc:'Rond je eerste les af',      has:s=>s.done>=1},
+  {icon:'💯', title:'Foutloos',     desc:'Haal 100% in een les',        has:s=>s.perfect},
+  {icon:'🔥', title:'3 dagen',      desc:'Oefen 3 dagen op rij',        has:s=>s.streak>=3},
+  {icon:'⭐', title:'Vijf lessen',  desc:'Rond 5 lessen af',            has:s=>s.done>=5},
+  {icon:'🏆', title:'Alles af',     desc:'Rond alle speelbare lessen af', has:s=>PLAYABLE>0&&s.done>=PLAYABLE},
+];
+function renderBadges(stats){
+  const row=$('badgeRow'); if(!row)return;
+  let earned=0;
+  row.innerHTML=BADGES.map(b=>{
+    const has=b.has(stats); if(has)earned++;
+    return `<div class="badge${has?' earned':''}">
+      <span class="badge-ic">${has?b.icon:'🔒'}</span>
+      <span class="badge-t">${esc(b.title)}</span>
+      <span class="badge-d">${esc(b.desc)}</span>
+    </div>`;
+  }).join('');
+  const bc=$('badgeCount'); if(bc)bc.textContent=earned+' van '+BADGES.length+' behaald';
 }
 async function showDash(){if(currentUser){await Promise.all([refreshProgress(),loadReleases()]);renderDash();}
   $('teacherView').classList.add('hidden');$('quizView').classList.add('hidden');$('dashView').classList.remove('hidden');window.scrollTo(0,0);}
@@ -1727,7 +1815,7 @@ function renderFlash(){
       <div class="qbar"><i style="width:${(f.i/total)*100}%"></i></div>
       <div class="qmeta"><span>Kaart ${f.i+1} van ${total}</span><span class="tnum">Gewust: ${f.known}</span></div>
     </div>
-    <div class="flash" id="flashCard">
+    <div class="flash" id="flashCard" tabindex="0" role="button" aria-label="Flitskaart — druk op Enter om om te draaien">
       <div class="flash-inner">
         <div class="flash-face flash-front"><span class="flash-lbl">Nederlands 🇳🇱</span><div class="flash-word">${c.nl}</div>${speakerHtml(c.nl.split('/')[0].trim(),'flash-speak')}<span class="flash-hint">Tik om te draaien</span></div>
         <div class="flash-face flash-back"><span class="flash-lbl">Türkçe 🇹🇷</span><div class="flash-word">${c.tr}</div>${ex&&ex.e?`<p class="flash-ex">${ex.e}</p>`:''}</div>
@@ -1739,8 +1827,11 @@ function renderFlash(){
     </div>`;
   $('backBtn').addEventListener('click',()=>startLesson(f.id));
   const card=$('flashCard');
-  card.addEventListener('click',()=>{card.classList.toggle('flip');
-    if(card.classList.contains('flip'))$('flashActs').classList.remove('hidden');});
+  const flip=()=>{card.classList.toggle('flip');
+    if(card.classList.contains('flip'))$('flashActs').classList.remove('hidden');};
+  card.addEventListener('click',flip);
+  // toetsenbord: Enter/spatie draait de kaart (maar niet als je op de 🔊-knop staat)
+  card.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.speakbtn')){e.preventDefault();flip();}});
   const nextCard=known=>{if(known)fc.known++;cloudRecordAnswer(f.id,c.qi,known);
     if(fc.details)fc.details.push({q_index:c.qi, question:c.nl+' ↔ '+c.tr, given:known?'wist het':'nog oefenen', answer:c.tr, correct:!!known});
     fc.i++;renderFlash();};
@@ -1760,7 +1851,7 @@ const SUCCESS_SOUNDS=[
 
 let lastSoundIndex=-1;
 function playSuccessSound(){
-  if(!SUCCESS_SOUNDS.length)return;
+  if(soundMuted||!SUCCESS_SOUNDS.length)return;
   let idx=Math.floor(Math.random()*SUCCESS_SOUNDS.length);
   // Bij meerdere geluiden: nooit twee keer hetzelfde achter elkaar.
   if(SUCCESS_SOUNDS.length>1){
@@ -1870,6 +1961,12 @@ document.getElementById('year').textContent=new Date().getFullYear();
     })
     .catch(()=>{/* stille fallback: laat bestaande tekst staan */});
 })();
+
+/* Service worker registreren: sneller laden en (deels) offline werken.
+   Alleen op een echte host (https of localhost) — niet op file://. */
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+  addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{/* geen offline-modus, maar app werkt gewoon door */}); });
+}
 </script>
 </body>
 </html>

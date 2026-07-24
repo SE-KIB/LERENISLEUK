@@ -14,9 +14,12 @@ Statische site (één bestand), gratis gehost via GitHub Pages op **sekibar.nl**
 
 ## Functies
 - Inlogscherm met vaste accounts (wachtwoorden als SHA-256-hash; met Supabase gekoppeld gaat login via de database)
-- Dashboard met leerlijn, voortgangsbalken, stats en streak
-- Quiz-engine: meerkeuzevragen, directe feedback, uitleg en eindscore
-- Licht/donker thema (volgt systeem, met knop)
+- Dashboard met leerlijn, voortgangsbalken, stats, streak, badges en een
+  "ga verder waar je gebleven was"-knop
+- Vijf spelvormen per les: quiz, invullen, slepen, flitskaarten en mix
+- Quiz-engine: directe feedback, uitleg, tip-knop, uitspraak (🔊) en eindscore
+- Licht/donker thema (volgt systeem, met knop) en geluidseffecten met aan/uit-knop
+- Installeerbaar als app (PWA) met offline app-shell (`sw.js`)
 - Contactsectie met e-mail + formulier
 
 ## Lessen aanpassen of toevoegen
