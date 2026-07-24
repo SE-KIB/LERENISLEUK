@@ -1552,7 +1552,9 @@ function zBouw(it){
 function zCheckBouw(it){
   if(zg.answered)return;
   const val=$('zInput').value;
-  const accepted=(it.answers&&it.answers.length?it.answers:[it.model]).map(zclean);
+  // Accepteer altijd óók de voorbeeldzin (model), ook als 'answers' is opgegeven —
+  // anders zou precies wat als "Zo hoort het" getoond wordt, toch fout gerekend worden.
+  const accepted=[...(it.answers||[]), it.model].filter(Boolean).map(zclean);
   const exact=accepted.indexOf(zclean(val))>=0;
   const inp=$('zInput'); inp.disabled=true; $('zCheck').disabled=true;
   $('explain').innerHTML=`<b>Zo hoort het:</b> ${esc(it.model)} ${speakerHtml(it.model)}${it.e?'<br>'+it.e:''}`;
