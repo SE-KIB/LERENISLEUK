@@ -1583,6 +1583,12 @@ function answerDutch(q){ return stripTags((q.o[q.c]||'').split('/')[0]); }
 /* beschrijvende alt-tekst voor een afbeelding bij een vraag: het Nederlandse
    woord dat de vraag illustreert (voor schermlezers en als de afbeelding niet laadt) */
 function imgAlt(q){ const nl=questionDutch(q)||answerDutch(q); return nl?('Afbeelding: '+stripTags(nl)):'Illustratie bij de vraag'; }
+/* vraagtekst waarin het Turkse woord (span.m) als lang="tr" wordt gemarkeerd,
+   maar alleen bij 'Betekenis → woord' — daar is het woord in de vraag Turks.
+   Bij de andere vraagtypes is het m-woord Nederlands, dus die laten we ongemoeid. */
+function qText(q){ return q.tag==='Betekenis → woord'
+  ? q.t.replace(/<span class=(['"])m\1>/, '<span class=$1m$1 lang=$1tr$1>')
+  : q.t; }
 /* één gedelegeerde klik-listener voor alle uitspraakknoppen */
 document.addEventListener('click',e=>{const b=e.target.closest('.speakbtn'); if(b){e.preventDefault(); e.stopPropagation(); speak(b.dataset.say,b);}});
 
@@ -1681,7 +1687,7 @@ function renderQuizItem(it){
   $('quizView').innerHTML=seqHead()+`
     <div class="qcard">
       <span class="qtag">${q.tag}</span>
-      <div class="qtext-row"><div class="qtext">${q.t}</div>${speakerHtml(questionDutch(q))}</div>
+      <div class="qtext-row"><div class="qtext">${qText(q)}</div>${speakerHtml(questionDutch(q))}</div>
       ${q.img?`<img class="q-img" src="${esc(q.img)}" alt="${esc(imgAlt(q))}" loading="lazy">`:''}
       <div class="opts" id="opts">
         ${order.map((k,pos)=>`<button class="opt" data-k="${k}"><span class="key">${String.fromCharCode(65+pos)}</span><span${q.tag==='Woord → betekenis'?' lang="tr"':''}>${q.o[k]}</span><span class="mark"></span></button>`).join('')}

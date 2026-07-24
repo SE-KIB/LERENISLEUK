@@ -44,6 +44,17 @@ op vraagniveau — koppel je een gratis Supabase-database. Zie **`DOCENT-SETUP.m
 voor de stap-voor-stap handleiding met kant-en-klare SQL. Zolang de sleutels
 bovenaan `index.html` leeg zijn, blijft de site gewoon in lokale modus werken.
 
+## Beveiliging — belangrijk om te weten
+- **Lokale modus** (geen Supabase-sleutels): de accountlijst met SHA-256-hashes
+  bovenaan `index.html` is alléén een *zachte drempel*. Alles draait in de
+  browser, dus dit is **geen echte beveiliging** — houd er geen gevoelige
+  gegevens achter. Prima voor een oefensite, niet voor iets vertrouwelijks.
+- **Cloud-modus** (Supabase gekoppeld): dán zit de echte beveiliging in
+  Supabase Auth + de database-regels (RLS). De `anon`-sleutel mag publiek in de
+  code staan; gebruik **nooit** de `service_role`-sleutel in de website.
+- Wil je een statische site echt afschermen, gebruik dan een dienst als
+  Cloudflare Access vóór de pagina.
+
 ## Contactformulier activeren
 Het formulier staat klaar maar heeft nog een gratis verzend-endpoint nodig
 (bijv. [Formspree](https://formspree.io)). Vervang in `index.html` de waarde
