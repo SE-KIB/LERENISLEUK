@@ -314,6 +314,60 @@ a{color:var(--brand-deep)}
 .slot.bad{border-color:var(--bad); background:var(--bad-tint); animation:shake .4s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 
+/* ---------- Zinsopbouw (zinsstructuur) ---------- */
+/* elke rol heeft een eigen kleur (--rc); zo herkent de leerling de zinsdelen terug */
+.r-wie{--rc:#3b7dea}
+.r-doet{--rc:#e0812a}
+.r-wat{--rc:#8b5cf6}
+.r-waar{--rc:#0d9488}
+.r-wanneer{--rc:#d64592}
+@media (prefers-color-scheme:dark){
+  .r-wie{--rc:#7aa9f7} .r-doet{--rc:#ffab5e} .r-wat{--rc:#b79bff} .r-waar{--rc:#2fc6bb} .r-wanneer{--rc:#f47bb8}
+}
+:root[data-theme="light"]{ }
+:root[data-theme="dark"] .r-wie{--rc:#7aa9f7}
+:root[data-theme="dark"] .r-doet{--rc:#ffab5e}
+:root[data-theme="dark"] .r-wat{--rc:#b79bff}
+:root[data-theme="dark"] .r-waar{--rc:#2fc6bb}
+:root[data-theme="dark"] .r-wanneer{--rc:#f47bb8}
+.zrole{display:inline-block; padding:1px 9px; border-radius:8px; font-weight:800; font-size:.9em; line-height:1.5;
+  color:var(--rc); background:color-mix(in srgb,var(--rc) 16%,transparent); border:1px solid color-mix(in srgb,var(--rc) 45%,transparent)}
+.zrole-hint{color:var(--ink-faint); font-weight:600; font-size:.85em}
+.zin-sentence{margin:12px 0 4px; padding:14px 16px; border-radius:11px; background:var(--surface-2); border:1px solid var(--line);
+  font-size:19px; font-weight:750; color:var(--ink); line-height:1.5}
+.zin-q{font-size:16.5px; font-weight:700; color:var(--ink)}
+.zhit{border-radius:6px; padding:0 4px; font-weight:800; color:var(--rc);
+  background:color-mix(in srgb,var(--rc) 20%,transparent); box-decoration-break:clone; -webkit-box-decoration-break:clone;
+  border-bottom:2.5px solid var(--rc)}
+/* slepen: delen → rolvakken */
+.zin-drag{margin-top:18px; display:grid; gap:16px}
+.zin-chips{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
+.zin-slots{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px}
+.zin-slot{align-items:flex-start; gap:4px}
+.zin-slot .slot-role{font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--rc)}
+.zin-slot{border-color:color-mix(in srgb,var(--rc) 35%,transparent)}
+.zin-slot.done{border-style:solid; border-color:var(--rc); background:color-mix(in srgb,var(--rc) 12%,transparent)}
+.zin-slot.done .slot-drop{color:var(--rc); font-weight:750}
+.zin-slot.bad{border-color:var(--bad); background:var(--bad-tint); animation:shake .4s}
+/* bouw: woordenhulp + zelfbeoordeling */
+.zin-help{margin-top:16px; padding:12px 15px; border-radius:11px; background:var(--brand-tint);
+  border:1px solid color-mix(in srgb,var(--brand) 30%,transparent)}
+.zin-help-lbl{font-size:12px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--brand-deep)}
+.zin-help-words{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+.help-word{display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:9px; background:var(--surface);
+  border:1px solid var(--line); font-weight:700; font-size:14px; color:var(--ink)}
+.zin-self{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; font-size:14px; color:var(--ink-soft)}
+.zin-self .btn-ghost{padding:8px 14px; font-size:13.5px}
+/* introscherm van een Zinsopbouw-les */
+.zin-intro{font-size:15px; color:var(--ink)}
+.zin-intro h3{margin:0 0 6px; font-size:18px}
+.zin-intro p{margin:8px 0; color:var(--ink-soft)}
+.zin-intro .zin-legend{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0}
+.zin-intro i{color:var(--ink)}
+/* groepstitel in het vrijgeef-paneel (Woordjes / Zinsopbouw) */
+.rel-group-title{margin:16px 0 6px; font-weight:800; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint)}
+.rel-group-title:first-of-type{margin-top:4px}
+
 /* ---------- flitskaarten ---------- */
 .flash{perspective:1200px; margin:6px auto 0; max-width:520px; cursor:pointer}
 .flash-inner{position:relative; width:100%; min-height:230px; transform-style:preserve-3d; transition:transform .5s}

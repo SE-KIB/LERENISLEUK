@@ -100,13 +100,16 @@ function notify(msg,type){
 }
 
 /* ---------------- afgeleide aantallen (inhoud) ---------------- */
-const TOTAL_LESSONS = COURSES.length + SOON.length;                 // alle lessen
-const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // met vragen
-const TOTAL_EXERCISES = Object.values(QUIZZES).reduce((s,q)=>s+q.q.length,0);
+const ZINS_LESSONS = (typeof ZINS!=='undefined') ? ZINS.length : 0;                 // Zinsopbouw-lessen
+const ZINS_EXERCISES = (typeof ZINS!=='undefined')
+  ? ZINS.reduce((s,z)=>s+((z.items&&z.items.length)||0),0) : 0;
+const TOTAL_LESSONS = COURSES.length + ZINS_LESSONS + SOON.length;  // alle lessen (beide leerlijnen)
+const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // Woordjes met vragen
+const TOTAL_EXERCISES = Object.values(QUIZZES).reduce((s,q)=>s+q.q.length,0) + ZINS_EXERCISES;
 function fillAsideStats(){
   const set=(id,v)=>{const el=$(id); if(el) el.textContent=v;};
   set('asideLessen',TOTAL_LESSONS);
-  set('asideSpeelbaar',PLAYABLE);
+  set('asideSpeelbaar',PLAYABLE+ZINS_LESSONS);
   set('asideOefeningen',TOTAL_EXERCISES);
 }
 fillAsideStats();
@@ -428,9 +431,8 @@ function renderDash(){
   });
   if(!shown) html='<p style="color:var(--ink-faint);grid-column:1/-1">Er zijn nog geen lessen vrijgegeven. Kom snel terug!</p>';
   grid.innerHTML=html;
-  $('soonGrid').innerHTML=SOON.map(c=>`<button class="card soon" disabled>
-      <div class="num">Les ${c.n}</div><h3>${c.t}</h3>
-      <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
+  const zStats=renderZins(prog);          // tweede leerlijn (Zinsopbouw) + resterende 'binnenkort'
+  done+=zStats.done; busy+=zStats.busy;
   $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
   // dashboard-stats automatisch
   const streak=computeStreak(prog.days);
@@ -441,7 +443,40 @@ function renderDash(){
   const searchWrap=$('lessonSearchWrap'); if(searchWrap)searchWrap.classList.toggle('hidden',shown<6);
   filterCourses();   // pas een eventueel actieve zoekterm opnieuw toe na het hertekenen
   renderContinueBar(nextLesson,prog,shown);
-  renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100)});
+  renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100),playable:PLAYABLE+zStats.released});
+}
+/* tweede leerlijn: Zinsopbouw-lessen (speelbaar) + de 'binnenkort'-onderwerpen.
+   Rendert in #soonGrid en geeft de eigen voortgang terug voor de dashboard-tellers. */
+function renderZins(prog){
+  const grid=$('soonGrid'); if(!grid)return {done:0,busy:0,released:0};
+  const teacherView=isTeacherViewer();
+  let done=0,busy=0,released=0,html='';
+  (typeof ZINS!=='undefined'?ZINS:[]).forEach(z=>{
+    const rel=isReleased(z.n);
+    if(!rel && !teacherView) return;                 // niet vrijgegeven: leerling ziet hem niet, docent wél
+    if(rel)released++;
+    const pct=prog.lessons[z.n];
+    let status='new';
+    if(!rel) status='soon';
+    else if(pct===undefined) status='new';
+    else if(pct>=PASS){ status='done'; done++; }
+    else { status='busy'; busy++; }
+    const barPct=pct||0;
+    html+=`<button class="card live" data-zins="${esc(z.n)}">
+      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">✏️ Zinsopbouw</div>'}
+      <div class="num">${esc(z.num||'Zin')}</div>
+      <h3>${esc(z.t)}</h3>
+      <div class="progress"><i style="width:${barPct}%"></i></div>
+      <div class="meta">${!rel?'alleen voor jou zichtbaar':`${barPct}% voltooid`}${pill(!rel?'soon':status)}</div>
+    </button>`;
+  });
+  html+=SOON.map(c=>`<button class="card soon" disabled>
+      <div class="num">Les ${c.n}</div><h3>${esc(c.t)}</h3>
+      <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
+  grid.innerHTML=html;
+  grid.querySelectorAll('[data-zins]').forEach(b=>b.addEventListener('click',()=>startZins(b.dataset.zins)));
+  const zc=$('zinsCount'); if(zc)zc.textContent=released?(released+' speelbaar'):'binnenkort';
+  return {done,busy,released};
 }
 /* 'Ga verder waar je gebleven was': knop naar de eerstvolgende onafgeronde les */
 function renderContinueBar(next,prog,shown){
@@ -471,7 +506,7 @@ const BADGES=[
   {icon:'💯', title:'Foutloos',     desc:'Haal 100% in een les',        has:s=>s.perfect},
   {icon:'🔥', title:'3 dagen',      desc:'Oefen 3 dagen op rij',        has:s=>s.streak>=3},
   {icon:'⭐', title:'Vijf lessen',  desc:'Rond 5 lessen af',            has:s=>s.done>=5},
-  {icon:'🏆', title:'Alles af',     desc:'Rond alle speelbare lessen af', has:s=>PLAYABLE>0&&s.done>=PLAYABLE},
+  {icon:'🏆', title:'Alles af',     desc:'Rond alle speelbare lessen af', has:s=>{const p=s.playable||PLAYABLE; return p>0&&s.done>=p;}},
 ];
 function renderBadges(stats){
   const row=$('badgeRow'); if(!row)return;
@@ -752,23 +787,26 @@ function stopTeacherAutoRefresh(){
   if(teacherRealtime){ try{ sb.removeChannel(teacherRealtime); }catch(e){} teacherRealtime=null; }
 }
 /* paneel: per les een schakelaar 'vrijgeven / verbergen voor leerlingen' */
-function releasePanelHtml(){
-  const playable=COURSES.filter(c=>QUIZZES[c.n]);
-  const rows=playable.map(c=>{
-    const on=isReleased(c.n);
-    return `<label class="rel-row">
-      <span class="rel-info"><span class="rel-num">Les ${c.n}</span><span class="rel-title">${esc(c.t)}</span></span>
+function releaseRowHtml(id,numLabel,title){
+  const on=isReleased(id);
+  return `<label class="rel-row">
+      <span class="rel-info"><span class="rel-num">${esc(numLabel)}</span><span class="rel-title">${esc(title)}</span></span>
       <span class="rel-toggle">
         <span class="rel-state ${on?'on':''}">${on?'Vrijgegeven':'Verborgen'}</span>
-        <input type="checkbox" class="rel-check" data-les="${c.n}" ${on?'checked':''} aria-label="Les ${c.n} vrijgeven voor leerlingen">
+        <input type="checkbox" class="rel-check" data-les="${esc(id)}" ${on?'checked':''} aria-label="${esc(title)} vrijgeven voor leerlingen">
         <span class="rel-switch"></span>
       </span>
     </label>`;
-  }).join('');
+}
+function releasePanelHtml(){
+  const wRows=COURSES.filter(c=>QUIZZES[c.n]).map(c=>releaseRowHtml(c.n,'Les '+c.n,c.t)).join('');
+  const zRows=(typeof ZINS!=='undefined'?ZINS:[]).map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
   return `<details class="rel-panel" open>
     <summary><b>Lessen vrijgeven</b> <span class="rel-hint">— vink aan welke lessen je leerlingen mogen zien</span></summary>
     <p class="tv-note" style="margin:2px 0 12px">Een les die niet is vrijgegeven, is voor leerlingen onzichtbaar. Zo kun je rustig een nieuwe les ontwerpen. Jij ziet verborgen lessen zelf wél (met 🔒) om te testen.</p>
-    <div class="rel-list">${rows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
+    <div class="rel-group-title">Woordjes</div>
+    <div class="rel-list">${wRows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
+    ${zRows?`<div class="rel-group-title">Zinsopbouw</div><div class="rel-list">${zRows}</div>`:''}
   </details>`;
 }
 function wireReleasePanel(students){
@@ -971,7 +1009,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('.speakbtn'); if(
 
 /* ---------------- spel-hulpjes ---------------- */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function lessonTitle(id){const c=COURSES.find(x=>x.n===id);return c?c.t:(QUIZZES[id]?QUIZZES[id].title:('Les '+id));}
+function lessonTitle(id){
+  const c=COURSES.find(x=>x.n===id); if(c)return c.t;
+  const z=zinsById(id); if(z)return z.t;
+  return QUIZZES[id]?QUIZZES[id].title:('Les '+id);
+}
 function stripTags(s){return (s||'').replace(/<[^>]+>/g,'').trim();}
 function mWord(t){const m=/<span class=['"]m['"]>([\s\S]*?)<\/span>/.exec(t||'');return m?stripTags(m[1]):null;}
 function norm(s){return (s||'').toLowerCase().replace(/[.,!?¿¡]/g,'').replace(/\s+/g,' ').trim().replace(/^(de|het|een)\s+/,'');}
@@ -991,6 +1033,7 @@ function wordPairs(id){
 /* ---------------- keuzescherm: spelvorm per les ---------------- */
 function openLessonView(){ $('dashView').classList.add('hidden');$('teacherView').classList.add('hidden');$('quizView').classList.remove('hidden');window.scrollTo(0,0); }
 function startLesson(id){
+  if(zinsById(id))return startZins(id);          // Zinsopbouw-les: eigen engine
   const data=QUIZZES[id]; if(!data)return startQuiz(id);
   const pairs=wordPairs(id);
   openLessonView();
@@ -1251,6 +1294,267 @@ function renderFlash(){
   $('fcKnown').addEventListener('click',()=>nextCard(true));
 }
 
+/* ============================================================
+   ZINSOPBOUW — tweede leerlijn (zinsstructuur)
+   Eigen, lichte engine bovenop dezelfde bouwstenen als de Woordjes-lessen
+   (showResult, cloud-/lokale voortgang, uitspraak, husselen). De lesinhoud
+   staat in ZINS (lessons.js). Drie opdrachttypes: 'herken' (meerkeuze),
+   'sleep' (delen naar rolvakken) en 'bouw' (zelf een zin vertalen).
+   ============================================================ */
+const ZROLES={
+  WIE:    {label:"WIE",     hint:"wie of wat doet iets", kls:"r-wie"},
+  DOET:   {label:"DOET",    hint:"het werkwoord",         kls:"r-doet"},
+  WAT:    {label:"WAT",     hint:"wat of wie",            kls:"r-wat"},
+  WAAR:   {label:"WAAR",    hint:"de plek",               kls:"r-waar"},
+  WANNEER:{label:"WANNEER", hint:"de tijd",               kls:"r-wanneer"},
+};
+function zinsById(id){ return (typeof ZINS!=='undefined') ? (ZINS.find(z=>z.n===id)||null) : null; }
+function zclean(s){ return (s||'').toLowerCase().replace(/[.,!?;:"'’]/g,'').replace(/\s+/g,' ').trim(); }
+/* markeer één zinsdeel gekleurd binnen de zin (na het antwoord) */
+function zMark(sentence,chunk,kls){
+  const i=sentence.indexOf(chunk);
+  if(i<0)return esc(sentence);
+  return esc(sentence.slice(0,i))+`<mark class="zhit ${kls}">`+esc(chunk)+`</mark>`+esc(sentence.slice(i+chunk.length));
+}
+
+let zg=null;   // actieve Zinsopbouw-oefening
+/* start een Zinsopbouw-les. onlyIdx (optioneel) = alleen deze opdracht-indexen
+   herhalen (dan slaan we het introscherm over). */
+function startZins(id,onlyIdx){
+  const les=zinsById(id); if(!les)return;
+  const all=(les.items||[]).map((it,idx)=>Object.assign({},it,{idx}));
+  if(onlyIdx&&onlyIdx.length){
+    runZins(id,all.filter(it=>onlyIdx.indexOf(it.idx)>=0));
+  } else {
+    zinsIntro(id,()=>runZins(id,all));
+  }
+}
+/* introscherm met de korte uitleg van de les */
+function zinsIntro(id,onStart){
+  const les=zinsById(id); if(!les)return onStart();
+  openLessonView();
+  $('quizView').innerHTML=`
+    <button class="back" id="backBtn">← Terug naar lessen</button>
+    <div class="quiz-head">
+      <div class="num">Zinsopbouw · ${esc(les.num||'')}</div>
+      <h1>${esc(les.t)}</h1>
+      <p>${esc(les.desc||'')}</p>
+    </div>
+    <div class="qcard zin-intro">
+      ${les.intro||''}
+      <div class="qfoot">
+        <span class="score">${(les.items||[]).length} opdracht${(les.items||[]).length===1?'':'en'}</span>
+        <button class="btn-next" id="zStart">Start →</button>
+      </div>
+    </div>`;
+  $('backBtn').addEventListener('click',showDash);
+  $('zStart').addEventListener('click',onStart);
+}
+function runZins(id,items){
+  game=null;                       // schakel de A–D sneltoetsen van de woord-engine uit
+  const les=zinsById(id);
+  zg={id,label:(les&&les.label)||'Zinsopbouw',items,i:0,score:0,answered:false,details:[]};
+  openLessonView(); zRenderItem();
+}
+function zHead(){
+  const g=zg,total=g.items.length,les=zinsById(g.id);
+  return `<button class="back" id="backBtn">← Terug naar lessen</button>
+    <div class="quiz-head">
+      <div class="num">Zinsopbouw · ${esc(les?les.num:'')}</div>
+      <h1>${esc(les?les.t:'Zinsopbouw')}</h1>
+      <div class="qbar"><i style="width:${(g.i/total)*100}%"></i></div>
+      <div class="qmeta"><span>Opdracht ${g.i+1} van ${total}</span><span class="tnum">Score ${g.score}/${g.i}</span></div>
+    </div>`;
+}
+function zRenderItem(){
+  const g=zg,total=g.items.length;
+  if(g.i>=total){
+    cloudRecordAttempt(g.id,g.label,g.score,total,g.details);
+    return showResult(g.id,g.label,g.score,total,()=>startZins(g.id),g.details);
+  }
+  const it=g.items[g.i]; g.answered=false;
+  if(it.kind==='sleep') zSleep(it);
+  else if(it.kind==='bouw') zBouw(it);
+  else zHerken(it);
+  const bb=$('backBtn'); if(bb)bb.addEventListener('click',showDash);
+}
+/* leg één antwoord vast (voor cloud-detail + herhaal-de-foute) */
+function zRecord(it,ok,given,answer){
+  cloudRecordAnswer(zg.id,it.idx,ok);
+  if(zg.details)zg.details.push({q_index:it.idx, question:zItemText(it), given:given, answer:answer, correct:!!ok});
+}
+function zItemText(it){
+  if(it.kind==='bouw') return 'Vertaal: '+it.tr;
+  if(it.kind==='sleep') return 'Sleep: '+(it.parts||[]).map(p=>p[1]).join(' / ');
+  if(it.ask) return it.sentence+' — welk deel is de '+it.ask+'?';
+  return stripTags(it.q||'');
+}
+
+/* ---- 1) HERKEN: kies het juiste zinsdeel (meerkeuze) ---- */
+function zHerken(it){
+  const g=zg,last=g.i===g.items.length-1;
+  const part=!!it.ask;
+  const role=part?ZROLES[it.ask]:null;
+  const opts=part?shuffle((it.parts||[]).map(p=>p[1])):(it.o||[]).slice();
+  const correct=part?((it.parts||[]).find(p=>p[0]===it.ask)||[])[1]:(it.o||[])[it.c];
+  const qhtml=part
+    ? `Lees de zin. Welk deel is de <span class="zrole ${role.kls}">${esc(role.label)}</span>
+        <span class="zrole-hint">(${esc(role.hint)})</span>?
+        <div class="zin-sentence" id="zinSent">${esc(it.sentence)}</div>`
+    : `<div class="zin-q">${it.q}</div>`;
+  $('quizView').innerHTML=zHead()+`
+    <div class="qcard">
+      <span class="qtag">${part?'Herken het zinsdeel':'Woordvolgorde'}</span>
+      <div class="qtext">${qhtml}</div>
+      <div class="opts" id="opts">
+        ${opts.map((t,i)=>`<button class="opt" data-t="${esc(t)}"><span class="key">${String.fromCharCode(65+i)}</span><span>${esc(t)}</span><span class="mark"></span></button>`).join('')}
+      </div>
+      <div class="explain" id="explain"><b>Uitleg.</b> ${it.e||''}</div>
+      <div class="qfoot">
+        <span class="score" id="fb" role="status" aria-live="polite">Kies een antwoord.</span>
+        <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
+      </div>
+    </div>`;
+  $('nextBtn').addEventListener('click',()=>{zg.i++;zRenderItem();});
+  document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>{
+    if(zg.answered)return; zg.answered=true;
+    const chosen=b.dataset.t, ok=chosen===correct; if(ok)zg.score++;
+    zRecord(it,ok,chosen,correct);
+    document.querySelectorAll('#opts .opt').forEach(x=>{x.disabled=true; const mk=x.querySelector('.mark');
+      if(x.dataset.t===correct){x.classList.add('correct'); mk.textContent='✓';}
+      else if(x===b){x.classList.add('wrong'); mk.textContent='✗';}});
+    if(part){ const s=$('zinSent'); if(s)s.innerHTML=zMark(it.sentence,correct,role.kls); }
+    $('explain').classList.add('show');
+    $('fb').textContent=ok?'Goed gedaan! 🎉':'Helaas, bekijk de uitleg.';
+    $('fb').style.color=ok?'var(--good)':'var(--bad)';
+    $('nextBtn').disabled=false; $('nextBtn').focus();
+  }));
+}
+
+/* ---- 2) SLEEP: elk deel naar het juiste rolvak ---- */
+function zSleep(it){
+  const g=zg,last=g.i===g.items.length-1;
+  const parts=it.parts||[];                       // in de juiste (zins)volgorde
+  const chips=shuffle(parts.slice());             // knoppen gehusseld
+  $('quizView').innerHTML=zHead()+`
+    <div class="qcard">
+      <span class="qtag">Sleep de zinsdelen</span>
+      <div class="qtext">Sleep elk deel naar het juiste vak. <span class="zrole-hint">Op de telefoon: tik een deel en tik daarna het vak.</span></div>
+      <div class="zin-drag">
+        <div class="zin-chips" id="zChips">${chips.map(p=>`<button class="chip" draggable="true" data-i="${parts.indexOf(p)}">${esc(p[1])}</button>`).join('')}</div>
+        <div class="zin-slots" id="zSlots">${parts.map(p=>{const r=ZROLES[p[0]]||{label:p[0],kls:''};
+          return `<div class="slot zin-slot ${r.kls}" data-role="${esc(p[0])}" tabindex="0" role="button" aria-label="Vak ${esc(r.label)}"><span class="slot-role">${esc(r.label)}</span><span class="slot-drop">sleep hier</span></div>`;}).join('')}</div>
+      </div>
+      <div class="explain" id="explain"><b>Uitleg.</b> ${it.e||''}</div>
+      <div class="qfoot">
+        <span class="score" id="fb" role="status" aria-live="polite">Nog ${parts.length} te plaatsen.</span>
+        <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
+      </div>
+    </div>`;
+  $('nextBtn').addEventListener('click',()=>{zg.i++;zRenderItem();});
+  let left=parts.length, errored=false, tap=null;
+  const chipEls=$('quizView').querySelectorAll('.chip'), slotEls=$('quizView').querySelectorAll('.zin-slot');
+  function clearSel(){ chipEls.forEach(c=>c.classList.remove('sel')); tap=null; }
+  function finish(){
+    zg.answered=true;
+    const ok=!errored; if(ok)zg.score++;
+    zRecord(it,ok, errored?'in één keer fout':'in de goede vakken', parts.map(p=>p[0]+'='+p[1]).join(', '));
+    $('explain').classList.add('show');
+    $('fb').textContent=ok?'Helemaal goed! 🎉':'Klaar — maar niet in één keer foutloos.';
+    $('fb').style.color=ok?'var(--good)':'var(--accent-deep)';
+    $('nextBtn').disabled=false; $('nextBtn').focus();
+  }
+  function match(i,slot){
+    if(slot.classList.contains('done')||zg.answered)return;
+    const chip=$('quizView').querySelector('.chip[data-i="'+i+'"]:not(.used)');
+    const role=parts[i]&&parts[i][0];
+    if(chip && role===slot.dataset.role){
+      slot.classList.add('done'); slot.querySelector('.slot-drop').textContent=chip.textContent;
+      chip.classList.add('used'); chip.setAttribute('disabled',''); chip.draggable=false;
+      left--; $('fb').textContent=left?('Nog '+left+' te plaatsen.'):'Alles geplaatst!';
+      $('fb').style.color='var(--good)';
+      if(left===0)finish();
+    } else {
+      errored=true; slot.classList.add('bad'); setTimeout(()=>slot.classList.remove('bad'),450);
+      $('fb').textContent='Bijna — dat deel hoort in een ander vak.'; $('fb').style.color='var(--bad)';
+    }
+    clearSel();
+  }
+  chipEls.forEach(c=>{
+    c.addEventListener('dragstart',e=>{ if(c.classList.contains('used')){e.preventDefault();return;} e.dataTransfer.setData('text/plain',c.dataset.i); });
+    c.addEventListener('click',()=>{ if(c.classList.contains('used'))return;
+      const on=c.classList.contains('sel'); clearSel(); if(!on){c.classList.add('sel'); tap=+c.dataset.i;} });
+  });
+  slotEls.forEach(s=>{
+    s.addEventListener('dragover',e=>e.preventDefault());
+    s.addEventListener('drop',e=>{e.preventDefault(); const i=+e.dataTransfer.getData('text/plain'); if(!isNaN(i))match(i,s);});
+    s.addEventListener('click',()=>{ if(tap!=null)match(tap,s); });
+    s.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault(); if(tap!=null)match(tap,s);} });
+  });
+}
+
+/* ---- 3) BOUW: vertaal zelf een zin ---- */
+function zBouw(it){
+  const g=zg,last=g.i===g.items.length-1;
+  const help=(it.words&&it.words.length)
+    ? `<div class="zin-help"><span class="zin-help-lbl">Woordenhulp</span><div class="zin-help-words">${
+        it.words.map(w=>`<span class="help-word">${esc(w)}${speakerHtml(w.split('(')[0].trim())}</span>`).join('')}</div></div>`
+    : '';
+  $('quizView').innerHTML=zHead()+`
+    <div class="qcard">
+      <span class="qtag">Vertaal de zin</span>
+      <div class="qtext">Vertaal naar het Nederlands:<div class="zin-sentence" lang="tr">${esc(it.tr)}</div></div>
+      ${help}
+      <form id="zForm" class="fill-form" autocomplete="off">
+        <input type="text" id="zInput" class="fill-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Typ de Nederlandse zin…">
+        <button type="submit" class="btn-next" id="zCheck">Controleer</button>
+      </form>
+      <div class="explain" id="explain"></div>
+      <div class="zin-self hidden" id="zSelf">
+        <span>Vertalen kan op meer manieren. Vergelijk met de voorbeeldzin — vind je je zin toch goed?</span>
+        <button class="btn-ghost" id="zGood" type="button">Ja, toch goed ✓</button>
+        <button class="btn-ghost" id="zBad" type="button">Nee, nog oefenen</button>
+      </div>
+      <div class="qfoot">
+        <span class="score" id="fb" role="status" aria-live="polite">Typ je antwoord en druk op Enter.</span>
+        <button class="btn-next" id="nextBtn" disabled>${last?'Resultaat →':'Volgende →'}</button>
+      </div>
+    </div>`;
+  const inp=$('zInput'); setTimeout(()=>{try{inp.focus();}catch(e){}},30);
+  $('zForm').addEventListener('submit',e=>{e.preventDefault(); zCheckBouw(it);});
+  $('nextBtn').addEventListener('click',()=>{zg.i++;zRenderItem();});
+}
+function zCheckBouw(it){
+  if(zg.answered)return;
+  const val=$('zInput').value;
+  const accepted=(it.answers&&it.answers.length?it.answers:[it.model]).map(zclean);
+  const exact=accepted.indexOf(zclean(val))>=0;
+  const inp=$('zInput'); inp.disabled=true; $('zCheck').disabled=true;
+  $('explain').innerHTML=`<b>Zo hoort het:</b> ${esc(it.model)} ${speakerHtml(it.model)}${it.e?'<br>'+it.e:''}`;
+  $('explain').classList.add('show');
+  if(exact){
+    zg.answered=true; zg.score++; inp.classList.add('ok');
+    zRecord(it,true,val||'(leeg)',it.model);
+    $('fb').textContent='Goed gedaan! 🎉'; $('fb').style.color='var(--good)';
+    $('nextBtn').disabled=false; $('nextBtn').focus();
+  } else {
+    inp.classList.add('no');
+    $('fb').textContent='Vergelijk je zin met de voorbeeldzin hieronder.'; $('fb').style.color='var(--bad)';
+    $('zSelf').classList.remove('hidden');
+    $('zGood').addEventListener('click',()=>zSelfMark(it,true,val));
+    $('zBad').addEventListener('click',()=>zSelfMark(it,false,val));
+  }
+}
+function zSelfMark(it,ok,val){
+  if(zg.answered)return; zg.answered=true;
+  if(ok)zg.score++;
+  zRecord(it,ok,val||'(leeg)',it.model);
+  $('zSelf').classList.add('hidden');
+  $('fb').textContent=ok?'Mooi, je had het goed! 🎉':'Oké — oefen deze zin nog een keer.';
+  $('fb').style.color=ok?'var(--good)':'var(--bad)';
+  $('nextBtn').disabled=false; $('nextBtn').focus();
+}
+
 /* ---------------- resultaat (gedeeld) ---------------- */
 /* Geluid bij een hoge score. Er wordt willekeurig één bestand uit /sounds/
    gekozen — nu nog één; voeg extra bestandsnamen toe voor meer variatie. */
@@ -1286,6 +1590,7 @@ function wrongQIndexes(details){
   return out;
 }
 function retryWrong(id,qis){
+  if(zinsById(id))return startZins(id,qis);        // Zinsopbouw: herhaal alleen de foute opdrachten
   const items=(qis||[]).filter(qi=>QUIZZES[id]&&QUIZZES[id].q[qi]).map(qi=>({kind:'quiz',qi}));
   if(!items.length)return;
   runSeq(id,'Herhaling',shuffle(items),()=>startLesson(id));
@@ -1294,10 +1599,14 @@ function showResult(id,label,score,total,onRetry,details){
   const pct=total?Math.round(score/total*100):0;
   if(!CLOUD)recordResult(id,pct);
   if(pct>=90)playSuccessSound();          // les met succes afgerond → geluidje
+  const isZins=!!zinsById(id);
   const wrong=wrongQIndexes(details);
+  const wrongNoun=wrong.length===1?(isZins?'opdracht':'woord'):(isZins?'opdrachten':'woorden');
   const r=63,circ=2*Math.PI*r,off=circ*(1-pct/100);
   const col=pct>=80?'var(--good)':pct>=50?'var(--brand)':'var(--accent)';
-  const msg=pct>=80?'Uitstekend! Deze woorden beheers je goed.':pct>=50?'Goed op weg — herhaal de gemiste woorden.':'Nog even oefenen. Probeer het opnieuw.';
+  const msg=pct>=80?(isZins?'Uitstekend! De zinsbouw beheers je goed.':'Uitstekend! Deze woorden beheers je goed.')
+    :pct>=50?(isZins?'Goed op weg — herhaal de gemiste zinnen.':'Goed op weg — herhaal de gemiste woorden.')
+    :'Nog even oefenen. Probeer het opnieuw.';
   $('quizView').innerHTML=`
     <button class="back" id="backBtn">← Terug naar lessen</button>
     <div class="result" id="resultCard" tabindex="-1" role="status" aria-label="Resultaat: ${score} van de ${total} goed, ${pct} procent. ${msg}">
@@ -1312,15 +1621,15 @@ function showResult(id,label,score,total,onRetry,details){
       <h2>${lessonTitle(id)} · ${label}</h2>
       <p>Je had <b>${score} van de ${total}</b> goed. ${msg}</p>
       <div class="acts">
-        ${wrong.length?`<button class="btn-next" id="retryWrong">🔁 Herhaal de ${wrong.length} foute ${wrong.length===1?'woord':'woorden'}</button>`:''}
+        ${wrong.length?`<button class="btn-next" id="retryWrong">🔁 Herhaal de ${wrong.length} foute ${wrongNoun}</button>`:''}
         <button class="btn-ghost" id="retry">Opnieuw proberen</button>
-        <button class="btn-ghost" id="otherMode">Andere spelvorm</button>
+        ${isZins?'':'<button class="btn-ghost" id="otherMode">Andere spelvorm</button>'}
         <button class="btn-ghost" id="toDash">Naar lessen →</button>
       </div>
     </div>`;
   $('backBtn').addEventListener('click',showDash);
   $('retry').addEventListener('click',onRetry);
-  $('otherMode').addEventListener('click',()=>startLesson(id));
+  const om=$('otherMode'); if(om)om.addEventListener('click',()=>startLesson(id));
   $('toDash').addEventListener('click',showDash);
   if(wrong.length){const rw=$('retryWrong'); if(rw)rw.addEventListener('click',()=>retryWrong(id,wrong));}
   // zet de focus op de uitslag zodat een schermlezer de score voorleest
