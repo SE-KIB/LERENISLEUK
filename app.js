@@ -463,7 +463,7 @@ function renderZins(prog){
     else { status='busy'; busy++; }
     const barPct=pct||0;
     html+=`<button class="card live" data-zins="${esc(z.n)}">
-      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">✏️ Zinsopbouw</div>'}
+      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">Zinsopbouw</div>'}
       <div class="num">${esc(z.num||'Zin')}</div>
       <h3>${esc(z.t)}</h3>
       <div class="progress"><i style="width:${barPct}%"></i></div>
