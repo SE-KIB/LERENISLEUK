@@ -434,7 +434,7 @@ function renderDash(){
   const zStats=renderZins(prog);          // tweede leerlijn (Zinsopbouw) + resterende 'binnenkort'
   done+=zStats.done; busy+=zStats.busy;
   if(!nextLesson) nextLesson=zStats.next||null;   // Woordjes op? wijs de leerling naar de eerstvolgende Zinsopbouw-les
-  $('courseCount').textContent=PLAYABLE+' speelbaar · '+TOTAL_LESSONS+' lessen';
+  $('courseCount').textContent=PLAYABLE+' speelbaar · '+COURSES.length+' lessen';   // telt alleen Woordjes (Zinsopbouw heeft z'n eigen teller)
   // dashboard-stats automatisch
   const streak=computeStreak(prog.days);
   $('statDone').textContent=done;
@@ -1681,7 +1681,10 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){ if(typing)return; const n=document.getElementById('nextBtn');if(n&&!n.disabled){e.preventDefault();n.click();}return;}
   if(typing)return;
   const it=game&&game.items&&game.items[game.i];
-  if(game&&!game.answered&&it&&it.kind==='quiz'){
+  // Zinsopbouw draait op een eigen state (zg); die 'herken'-opdrachten gebruiken dezelfde #opts-knoppen.
+  const zit=zg&&zg.items&&zg.items[zg.i];
+  const zHerkenActive=!game&&zg&&!zg.answered&&zit&&zit.kind!=='sleep'&&zit.kind!=='bouw';
+  if((game&&!game.answered&&it&&it.kind==='quiz')||zHerkenActive){
     const pos=e.key.toUpperCase().charCodeAt(0)-65;
     const opts=document.querySelectorAll('#opts .opt');
     if(pos>=0&&pos<opts.length){opts[pos].click();}
