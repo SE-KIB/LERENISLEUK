@@ -8,12 +8,12 @@
 
    Nieuwe uitrol? Verhoog VERSION zodat oude caches worden opgeruimd.
    ============================================================ */
-const VERSION = 'v1-2026-07-24';
+const VERSION = 'v2-2026-07-24';
 const CACHE = 'lil-cache-' + VERSION;
 
 // De 'app-shell' die we bij installatie alvast opslaan (offline startpunt).
 const CORE = [
-  './', './index.html', './lessons.js', './manifest.webmanifest',
+  './', './index.html', './styles.css', './app.js', './lessons.js', './manifest.webmanifest',
   './icons/favicon-32.png', './icons/icon-192.png', './icons/icon-512.png',
   './icons/apple-touch-icon.png', './icons/maskable-512.png',
 ];
