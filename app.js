@@ -1335,9 +1335,17 @@ const ZROLES={
 };
 function zinsById(id){ return (typeof ZINS!=='undefined') ? (ZINS.find(z=>z.n===id)||null) : null; }
 function zclean(s){ return (s||'').toLowerCase().replace(/[.,!?;:"'’]/g,'').replace(/\s+/g,' ').trim(); }
-/* markeer één zinsdeel gekleurd binnen de zin (na het antwoord) */
+/* markeer één zinsdeel gekleurd binnen de zin (na het antwoord).
+   Zoekt bij voorkeur op woordgrenzen, zodat een kort deel (bv. "is") niet
+   per ongeluk binnen een langer woord wordt gemarkeerd. */
 function zMark(sentence,chunk,kls){
-  const i=sentence.indexOf(chunk);
+  const isWord=c=>/[A-Za-zÀ-ÿ0-9]/.test(c||'');
+  let i=-1, from=0, p;
+  while((p=sentence.indexOf(chunk,from))>=0){
+    if(!isWord(sentence[p-1])&&!isWord(sentence[p+chunk.length])){ i=p; break; }
+    from=p+1;
+  }
+  if(i<0)i=sentence.indexOf(chunk);          // geen woordgrens-match: val terug op de eerste plek
   if(i<0)return esc(sentence);
   return esc(sentence.slice(0,i))+`<mark class="zhit ${kls}">`+esc(chunk)+`</mark>`+esc(sentence.slice(i+chunk.length));
 }
