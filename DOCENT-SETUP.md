@@ -417,9 +417,10 @@ supabase functions deploy notify-completion --no-verify-jwt
 supabase functions deploy daily-reminder    --no-verify-jwt
 ```
 
-> Beide functies delen de code in `supabase/functions/_shared/webpush.ts`; de
-> CLI neemt die automatisch mee. Geen CLI? Plak dan per functie de inhoud van
-> `index.ts` (en die van `_shared/webpush.ts`) in het dashboard.
+> Beide functies zijn **zelfstandig** (geen gedeelde bestanden), dus je kunt ze
+> ook via het dashboard aanmaken: **Edge Functions** → **Create a new function**
+> → geef hem exact de naam `notify-completion` of `daily-reminder`, plak de
+> inhoud van de bijbehorende `index.ts`, en **Deploy**.
 
 ### 4 — Zet de secrets
 
