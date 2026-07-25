@@ -45,7 +45,7 @@ for (const [id, data] of Object.entries(QUIZZES)) {
 }
 
 /* ---- ZINS (leerlijn Zinsopbouw) valideren ---- */
-const ROLES = new Set(['WIE', 'DOET', 'WAT', 'WAAR', 'WANNEER']);
+const ROLES = new Set(['WIE', 'DOET', 'WAT', 'WAAR', 'WANNEER', 'EIND']);
 let zLessons = 0, zItems = 0;
 const zStart = s.indexOf('const ZINS = [');
 if (zStart >= 0) {

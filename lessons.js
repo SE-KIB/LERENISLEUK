@@ -315,7 +315,9 @@ const QUIZZES = {
          words:["ik","verhuis (verhuizen)","morgen"],          // Woordenhulp (uit Woordjes)
          e:"uitleg over de woordvolgorde"}
 
-   Geldige rollen: WIE, DOET, WAT, WAAR, WANNEER.
+   Geldige rollen: WIE, DOET, WAT, WAAR, WANNEER, EIND.
+     (EIND = het tweede werkwoord dat achteraan staat, bijv. 'kopen' in
+      "Ik wil een appel kopen." — zie Zinsopbouw les 9.)
    Controleer met: node scripts/validate-lessons.js
    ============================================================ */
 const ZINS = [
@@ -573,7 +575,7 @@ const ZINS = [
         e:"WIE → DOET → WAT → WAAR: <i>Ik koop een kleed op de markt.</i>"},
       {kind:"herken",
         q:"Welke zin is een goede vraag?",
-        o:["Koop jij een spiegel?","Jij koopt een spiegel?"], c:0,
+        o:["Koop jij een spiegel?","Jij koop een spiegel?"], c:0,
         e:"In een ja/nee-vraag staat het werkwoord vooraan: <b>Koop jij een spiegel?</b>"},
       {kind:"herken",
         q:"Vul in: Ik heb ___ tijd. (geen of niet?)",
@@ -645,6 +647,61 @@ const ZINS = [
         answers:["waar woon jij","waar woon je"],
         words:["waar","woon (wonen)","jij"],
         e:"Een open vraag met een vraagwoord: <b>Waar</b> + werkwoord op plek 2 + WIE (jij)."},
+    ],
+  },
+  {
+    n:"Z9", num:"Les 9", t:"Twee werkwoorden: de rest gaat naar het eind", label:"Uitdaging+",
+    desc:"Zinnen met willen, kunnen, moeten of gaan: het eerste werkwoord op plek 2, het tweede werkwoord (EIND) helemaal achteraan.",
+    intro:`<h3>Twee werkwoorden in één zin</h3>
+      <p>Soms staan er <b>twee werkwoorden</b> in een zin, bijvoorbeeld met <i>willen, kunnen, moeten</i> of <i>gaan</i>.
+         Dan blijft het eerste werkwoord (DOET) op <b>plek 2</b>, en het <b>tweede werkwoord</b> springt helemaal naar het <b>eind</b>.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>Ik wil een appel <b>kopen</b>.</i> &nbsp; ❌ <i>Ik wil kopen een appel.</i></p>
+      <p>Het tweede werkwoord (kopen) staat dus <b>achteraan</b>. Alles wat erbij hoort — WAT, WAAR, WANNEER — komt ertussen.</p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik wil een appel kopen.","Ik wil kopen een appel."], c:0,
+        e:"Het tweede werkwoord (kopen) staat achteraan: <b>Ik wil een appel kopen.</b>"},
+      {kind:"herken", sentence:"Ik wil een appel kopen.",
+        parts:[["WIE","Ik"],["DOET","wil"],["WAT","een appel"],["EIND","kopen"]], ask:"EIND",
+        e:"Het tweede werkwoord staat helemaal achteraan: <b>kopen</b>. Dat is de EIND."},
+      {kind:"herken", sentence:"Ik wil een appel kopen.",
+        parts:[["WIE","Ik"],["DOET","wil"],["WAT","een appel"],["EIND","kopen"]], ask:"DOET",
+        e:"Het eerste werkwoord blijft op plek 2: <b>wil</b>."},
+      {kind:"herken",
+        q:"Waar staat het tweede werkwoord in een zin met twee werkwoorden?",
+        o:["Achteraan (op het eind)","Op plek 2","Op plek 1 (vooraan)","Vlak na het onderwerp"], c:0,
+        e:"Het tweede werkwoord springt naar het <b>eind</b> van de zin. Het eerste werkwoord blijft op plek 2."},
+      {kind:"herken", sentence:"De kinderen moeten naar school gaan.",
+        parts:[["WIE","De kinderen"],["DOET","moeten"],["WAAR","naar school"],["EIND","gaan"]], ask:"EIND",
+        e:"Het tweede werkwoord staat achteraan: <b>gaan</b>."},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","wil"],["WAT","een spiegel"],["EIND","kopen"]],
+        e:"Eerste werkwoord op plek 2, tweede werkwoord achteraan: <i>Ik wil een spiegel kopen.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","Wij"],["DOET","gaan"],["WANNEER","vanavond"],["WAT","de verjaardag"],["EIND","vieren"]],
+        e:"Alles komt ertussen, 'vieren' achteraan: <i>Wij gaan vanavond de verjaardag vieren.</i>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik moet morgen de huur betalen.","Ik moet betalen morgen de huur."], c:0,
+        e:"Het tweede werkwoord (betalen) staat achteraan: <b>Ik moet morgen de huur betalen.</b>"},
+      {kind:"bouw", tr:"Bir elma almak istiyorum.", model:"Ik wil een appel kopen.",
+        answers:["ik wil een appel kopen"],
+        words:["ik","wil (willen)","een appel","kopen"],
+        e:"DOET (wil) op plek 2 → WAT (een appel) → EIND (kopen) achteraan."},
+      {kind:"bouw", tr:"Yarın Delft'e gitmek istiyorum.", model:"Ik wil morgen naar Delft gaan.",
+        answers:["ik wil morgen naar delft gaan","morgen wil ik naar delft gaan"],
+        words:["ik","wil (willen)","morgen","naar Delft","gaan"],
+        e:"'wil' op plek 2, WANNEER vóór WAAR, en 'gaan' helemaal achteraan."},
+      {kind:"bouw", tr:"Kirayı ödemem gerekiyor.", model:"Ik moet de huur betalen.",
+        answers:["ik moet de huur betalen"],
+        words:["ik","moet (moeten)","de huur","betalen"],
+        e:"DOET (moet) op plek 2 → WAT (de huur) → EIND (betalen) achteraan."},
+      {kind:"bouw", tr:"Bu akşam doğum gününü kutlamak istiyoruz.", model:"Wij willen vanavond de verjaardag vieren.",
+        answers:["wij willen vanavond de verjaardag vieren","we willen vanavond de verjaardag vieren"],
+        words:["wij","willen","vanavond","de verjaardag","vieren"],
+        e:"'willen' op plek 2 → WANNEER (vanavond) → WAT (de verjaardag) → EIND (vieren) achteraan."},
     ],
   },
 ];

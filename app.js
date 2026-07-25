@@ -1341,6 +1341,7 @@ const ZROLES={
   WAT:    {label:"WAT",     hint:"wat of wie",            kls:"r-wat"},
   WAAR:   {label:"WAAR",    hint:"de plek",               kls:"r-waar"},
   WANNEER:{label:"WANNEER", hint:"de tijd",               kls:"r-wanneer"},
+  EIND:   {label:"EIND",    hint:"het tweede werkwoord",  kls:"r-eind"},
 };
 function zinsById(id){ return (typeof ZINS!=='undefined') ? (ZINS.find(z=>z.n===id)||null) : null; }
 function zclean(s){ return (s||'').toLowerCase().replace(/[.,!?;:"'’]/g,'').replace(/\s+/g,' ').trim(); }
