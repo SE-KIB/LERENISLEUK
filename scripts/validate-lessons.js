@@ -44,27 +44,33 @@ for (const [id, data] of Object.entries(QUIZZES)) {
   });
 }
 
-/* ---- ZINS (leerlijn Zinsopbouw) valideren ---- */
+/* ---- ZINS-leerlijnen (Zinsopbouw 1 = ZINS, Zinsopbouw 2 = ZINS2) valideren ---- */
 const ROLES = new Set(['WIE', 'DOET', 'WAT', 'WAAR', 'WANNEER', 'EIND']);
 let zLessons = 0, zItems = 0;
-const zStart = s.indexOf('const ZINS = [');
-if (zStart >= 0) {
-  const zFrom = s.indexOf('[', zStart);
-  let d = 0, zEnd = -1;
-  for (let i = zFrom; i < s.length; i++) {
+const zIds = new Set();   // id's moeten over beide leerlijnen heen uniek zijn
+
+// Knip een array-literal `const <name> = [ … ]` uit met haakjes-balans.
+function extractArray(name) {
+  const marker = `const ${name} = [`;
+  const at = s.indexOf(marker);
+  if (at < 0) return null;
+  const from = s.indexOf('[', at);
+  let d = 0, end = -1;
+  for (let i = from; i < s.length; i++) {
     const ch = s[i];
     if (ch === '[') d++;
-    else if (ch === ']') { d--; if (d === 0) { zEnd = i; break; } }
+    else if (ch === ']') { d--; if (d === 0) { end = i; break; } }
   }
-  let ZINS;
-  try { ZINS = eval('(' + s.slice(zFrom, zEnd + 1) + ')'); }
-  catch (e) { console.error('Kon ZINS niet parsen:', e.message); process.exit(1); }
-  const ids = new Set();
-  ZINS.forEach(les => {
+  try { return eval('(' + s.slice(from, end + 1) + ')'); }
+  catch (e) { console.error(`Kon ${name} niet parsen:`, e.message); process.exit(1); }
+}
+
+function validateZinsLine(label, arr) {
+  (arr || []).forEach(les => {
     zLessons++;
-    const L = `Zinsopbouw ${les.n || '?'}`;
+    const L = `${label} ${les.n || '?'}`;
     if (!les.n) fail(L, 'geen id (n)');
-    else if (ids.has(les.n)) fail(L, `dubbel id ${les.n}`); else ids.add(les.n);
+    else if (zIds.has(les.n)) fail(L, `dubbel id ${les.n}`); else zIds.add(les.n);
     if (!les.t || !les.t.trim()) fail(L, 'geen titel (t)');
     if (!Array.isArray(les.items) || !les.items.length) { fail(L, 'geen items-array'); return; }
     les.items.forEach((it, i) => {
@@ -92,6 +98,9 @@ if (zStart >= 0) {
     });
   });
 }
+
+validateZinsLine('Zinsopbouw 1', extractArray('ZINS'));
+validateZinsLine('Zinsopbouw 2', extractArray('ZINS2'));
 
 console.log(`Woordjes: ${lessons} lessen / ${total} vragen | Zinsopbouw: ${zLessons} lessen / ${zItems} opdrachten | Fouten: ${errors}`);
 if (errors) { console.error('\nVALIDATIE MISLUKT — herstel bovenstaande fouten.'); process.exit(1); }

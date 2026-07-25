@@ -108,10 +108,14 @@ function notify(msg,type){
 }
 
 /* ---------------- afgeleide aantallen (inhoud) ---------------- */
-const ZINS_LESSONS = (typeof ZINS!=='undefined') ? ZINS.length : 0;                 // Zinsopbouw-lessen
-const ZINS_EXERCISES = (typeof ZINS!=='undefined')
-  ? ZINS.reduce((s,z)=>s+((z.items&&z.items.length)||0),0) : 0;
-const TOTAL_LESSONS = COURSES.length + ZINS_LESSONS + SOON.length;  // alle lessen (beide leerlijnen)
+/* Twee zinsopbouw-leerlijnen: ZINS (leerlijn 1) en ZINS2 (leerlijn 2, zelfde
+   theorie, andere zinnen). ALL_ZINS bundelt ze voor opzoeken en tellen. */
+const ZINS_L1 = (typeof ZINS!=='undefined') ? ZINS : [];
+const ZINS_L2 = (typeof ZINS2!=='undefined') ? ZINS2 : [];
+const ALL_ZINS = ZINS_L1.concat(ZINS_L2);
+const ZINS_LESSONS = ALL_ZINS.length;                 // Zinsopbouw-lessen (beide leerlijnen)
+const ZINS_EXERCISES = ALL_ZINS.reduce((s,z)=>s+((z.items&&z.items.length)||0),0);
+const TOTAL_LESSONS = COURSES.length + ZINS_LESSONS + SOON.length;  // alle lessen (alle leerlijnen)
 const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // Woordjes met vragen
 const TOTAL_EXERCISES = Object.values(QUIZZES).reduce((s,q)=>s+q.q.length,0) + ZINS_EXERCISES;
 function fillAsideStats(){
@@ -455,13 +459,14 @@ function renderDash(){
   renderContinueBar(nextLesson,prog,shown||zStats.released);
   renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100),playable:PLAYABLE+zStats.released});
 }
-/* tweede leerlijn: Zinsopbouw-lessen (speelbaar) + de 'binnenkort'-onderwerpen.
-   Rendert in #soonGrid en geeft de eigen voortgang terug voor de dashboard-tellers. */
-function renderZins(prog){
-  const grid=$('soonGrid'); if(!grid)return {done:0,busy:0,released:0,next:null};
+/* Zinsopbouw-leerlijnen: leerlijn 1 (ZINS) in #soonGrid, leerlijn 2 (ZINS2) in
+   #soon2Grid. Beide gebruiken dezelfde kaart-opbouw; renderZinsList doet één
+   leerlijn en geeft z'n eigen voortgang terug. renderZins bundelt de tellers. */
+function renderZinsList(list, gridId, countId, kicker, prog, includeSoon){
+  const grid=$(gridId); if(!grid)return {done:0,busy:0,released:0,next:null};
   const teacherView=isTeacherViewer();
-  let done=0,busy=0,released=0,html='',next=null;    // next = eerstvolgende onafgeronde, vrijgegeven Zinsopbouw-les
-  (typeof ZINS!=='undefined'?ZINS:[]).forEach(z=>{
+  let done=0,busy=0,released=0,html='',next=null;    // next = eerstvolgende onafgeronde, vrijgegeven les
+  (list||[]).forEach(z=>{
     const rel=isReleased(z.n);
     if(!rel && !teacherView) return;                 // niet vrijgegeven: leerling ziet hem niet, docent wél
     if(rel)released++;
@@ -473,20 +478,25 @@ function renderZins(prog){
     else { status='busy'; busy++; if(!next)next=z; }
     const barPct=pct||0;
     html+=`<button class="card live" data-zins="${esc(z.n)}">
-      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':'<div class="kick">Zinsopbouw</div>'}
+      ${!rel?'<div class="kick" style="color:var(--accent-deep)">🔒 Nog niet vrijgegeven</div>':`<div class="kick">${esc(kicker)}</div>`}
       <div class="num">${esc(z.num||'Zin')}</div>
       <h3>${esc(z.t)}</h3>
       <div class="progress"><i style="width:${barPct}%"></i></div>
       <div class="meta">${!rel?'alleen voor jou zichtbaar':`${barPct}% voltooid`}${pill(!rel?'soon':status)}</div>
     </button>`;
   });
-  html+=SOON.map(c=>`<button class="card soon" disabled>
+  if(includeSoon)html+=SOON.map(c=>`<button class="card soon" disabled>
       <div class="num">Les ${c.n}</div><h3>${esc(c.t)}</h3>
       <div class="meta">Lesstof volgt ${pill('soon')}</div></button>`).join('');
   grid.innerHTML=html;
   grid.querySelectorAll('[data-zins]').forEach(b=>b.addEventListener('click',()=>startZins(b.dataset.zins)));
-  const zc=$('zinsCount'); if(zc)zc.textContent=released?(released+' speelbaar'):'binnenkort';
+  const zc=$(countId); if(zc)zc.textContent=released?(released+' speelbaar'):'binnenkort';
   return {done,busy,released,next};
+}
+function renderZins(prog){
+  const a=renderZinsList(ZINS_L1,'soonGrid','zinsCount','Zinsopbouw 1',prog,true);
+  const b=renderZinsList(ZINS_L2,'soon2Grid','zins2Count','Zinsopbouw 2',prog,false);
+  return {done:a.done+b.done, busy:a.busy+b.busy, released:a.released+b.released, next:a.next||b.next};
 }
 /* 'Ga verder waar je gebleven was': knop naar de eerstvolgende onafgeronde les */
 function renderContinueBar(next,prog,shown){
@@ -632,7 +642,7 @@ function renderTeacher(students){
   const playable=COURSES.filter(c=>QUIZZES[c.n]);
   const banner = CLOUD ? '' :
     `<div class="tv-banner">⚠️ Centrale database nog niet gekoppeld — je ziet alleen leerlingen die op <b>dit apparaat</b> hebben geoefend, zonder detail per vraag. Vul je Supabase-sleutels in (zie <b>DOCENT-SETUP.md</b>) voor volledig inzicht vanaf alle apparaten.</div>`;
-  const zPlayable=(typeof ZINS!=='undefined'?ZINS:[]);
+  const zPlayable=ALL_ZINS;
   const lessonCard=(id,numLabel,title)=>{
     let done=0,sumPct=0,seen=0;
     students.forEach(stu=>{const s=lessonStat(stu,id); if(s.answered){seen++;sumPct+=s.pct; if(s.pct>=PASS)done++;}});
@@ -647,7 +657,9 @@ function renderTeacher(students){
     </button>`;
   };
   const cards=playable.map(c=>lessonCard(c.n,'Les '+c.n,c.t)).join('');
-  const zcards=zPlayable.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
+  const zcards1=ZINS_L1.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
+  const zcards2=ZINS_L2.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
+  const zcards=zcards1+zcards2;
   const welcome=`
     <div class="welcome">
       <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
@@ -664,9 +676,9 @@ function renderTeacher(students){
       </div>
       <div class="rc-list" id="tvRecent">${recentCompletedHtml(students)}</div>`;
   const cardsInner=(cards||zcards)
-    ? (zcards
-        ? `<div class="tv-cards-sub">Woordjes</div>${cards}<div class="tv-cards-sub">Zinsopbouw</div>${zcards}`
-        : cards)
+    ? (cards?`<div class="tv-cards-sub">Woordjes</div>${cards}`:'')
+      +(zcards1?`<div class="tv-cards-sub">Zinsopbouw 1</div>${zcards1}`:'')
+      +(zcards2?`<div class="tv-cards-sub">Zinsopbouw 2</div>${zcards2}`:'')
     : '<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
   const serkan=isSerkan();
   if(serkan){
@@ -795,9 +807,10 @@ function recentCompletedHtml(students, limitOverride){
   }
   const rows=top.map(it=>{
     const zins=!!zinsById(it.lesson);
+    const trackLabel=zins?(ZINS_L2.some(z=>z.n===it.lesson)?'Zinsopbouw 2':'Zinsopbouw 1'):'Woordjes';
     return `<div class="rc-item">
     <span class="rc-name">${esc(it.name)}</span>
-    <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${zins?'Zinsopbouw':'Woordjes'}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
+    <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${trackLabel}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
     <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
     <span class="rc-when tnum">${fmtDate(it.created_at)}</span>
   </div>`;}).join('');
@@ -851,13 +864,15 @@ function releaseRowHtml(id,numLabel,title){
 }
 function releasePanelHtml(){
   const wRows=COURSES.filter(c=>QUIZZES[c.n]).map(c=>releaseRowHtml(c.n,'Les '+c.n,c.t)).join('');
-  const zRows=(typeof ZINS!=='undefined'?ZINS:[]).map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
+  const zRows1=ZINS_L1.map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
+  const zRows2=ZINS_L2.map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
   return `<details class="rel-panel" open>
     <summary><b>Lessen vrijgeven</b> <span class="rel-hint">— vink aan welke lessen je leerlingen mogen zien</span></summary>
     <p class="tv-note" style="margin:2px 0 12px">Een les die niet is vrijgegeven, is voor leerlingen onzichtbaar. Zo kun je rustig een nieuwe les ontwerpen. Jij ziet verborgen lessen zelf wél (met 🔒) om te testen.</p>
     <div class="rel-group-title">Woordjes</div>
     <div class="rel-list">${wRows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
-    ${zRows?`<div class="rel-group-title">Zinsopbouw</div><div class="rel-list">${zRows}</div>`:''}
+    ${zRows1?`<div class="rel-group-title">Zinsopbouw 1</div><div class="rel-list">${zRows1}</div>`:''}
+    ${zRows2?`<div class="rel-group-title">Zinsopbouw 2</div><div class="rel-list">${zRows2}</div>`:''}
   </details>`;
 }
 function wireReleasePanel(students){
@@ -1360,7 +1375,7 @@ const ZROLES={
   WANNEER:{label:"WANNEER", hint:"de tijd",               kls:"r-wanneer"},
   EIND:   {label:"EIND",    hint:"het tweede werkwoord",  kls:"r-eind"},
 };
-function zinsById(id){ return (typeof ZINS!=='undefined') ? (ZINS.find(z=>z.n===id)||null) : null; }
+function zinsById(id){ return (typeof ALL_ZINS!=='undefined') ? (ALL_ZINS.find(z=>z.n===id)||null) : null; }
 function zclean(s){ return (s||'').toLowerCase().replace(/[.,!?;:"'’]/g,'').replace(/\s+/g,' ').trim(); }
 /* markeer één zinsdeel gekleurd binnen de zin (na het antwoord).
    Zoekt bij voorkeur op woordgrenzen, zodat een kort deel (bv. "is") niet
