@@ -384,6 +384,37 @@ a{color:var(--brand-deep)}
 :root[data-theme="dark"] .rc-track-zins{--rc:#ffab5e}
 :root[data-theme="light"] .rc-track-woord{--rc:#3b7dea}
 :root[data-theme="light"] .rc-track-zins{--rc:#e0812a}
+/* spelvorm-chip in 'laatste afgeronde lessen' — één blik: hóé de leerling de les maakte */
+.rc-mode{display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+  padding:2px 8px 2px 6px; border-radius:999px; margin-right:8px; vertical-align:middle;
+  color:var(--rcm); background:color-mix(in srgb,var(--rcm) 15%,transparent); border:1px solid color-mix(in srgb,var(--rcm) 40%,transparent)}
+.rc-mode-icon{font-size:11px; line-height:1; text-transform:none; letter-spacing:0}
+.rc-mode-slepen{--rcm:#7c3aed}
+.rc-mode-quiz{--rcm:#0d9488}
+.rc-mode-mix{--rcm:#d6459b}
+.rc-mode-invullen{--rcm:#4f46e5}
+.rc-mode-flits{--rcm:#0891b2}
+.rc-mode-herhaling{--rcm:#64748b}
+.rc-mode-anders{--rcm:#64748b}
+@media (prefers-color-scheme:dark){
+  .rc-mode-slepen{--rcm:#b79dff} .rc-mode-quiz{--rcm:#4fd1c5} .rc-mode-mix{--rcm:#ff8fc4}
+  .rc-mode-invullen{--rcm:#a5b4fc} .rc-mode-flits{--rcm:#4dd0e1}
+  .rc-mode-herhaling{--rcm:#a3b1c6} .rc-mode-anders{--rcm:#a3b1c6}
+}
+:root[data-theme="dark"] .rc-mode-slepen{--rcm:#b79dff}
+:root[data-theme="dark"] .rc-mode-quiz{--rcm:#4fd1c5}
+:root[data-theme="dark"] .rc-mode-mix{--rcm:#ff8fc4}
+:root[data-theme="dark"] .rc-mode-invullen{--rcm:#a5b4fc}
+:root[data-theme="dark"] .rc-mode-flits{--rcm:#4dd0e1}
+:root[data-theme="dark"] .rc-mode-herhaling{--rcm:#a3b1c6}
+:root[data-theme="dark"] .rc-mode-anders{--rcm:#a3b1c6}
+:root[data-theme="light"] .rc-mode-slepen{--rcm:#7c3aed}
+:root[data-theme="light"] .rc-mode-quiz{--rcm:#0d9488}
+:root[data-theme="light"] .rc-mode-mix{--rcm:#d6459b}
+:root[data-theme="light"] .rc-mode-invullen{--rcm:#4f46e5}
+:root[data-theme="light"] .rc-mode-flits{--rcm:#0891b2}
+:root[data-theme="light"] .rc-mode-herhaling{--rcm:#64748b}
+:root[data-theme="light"] .rc-mode-anders{--rcm:#64748b}
 
 /* ---------- flitskaarten ---------- */
 .flash{perspective:1200px; margin:6px auto 0; max-width:520px; cursor:pointer}

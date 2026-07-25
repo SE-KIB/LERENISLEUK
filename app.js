@@ -761,6 +761,23 @@ function wireBlockDragging(){
 /* hoeveel afgeronde lessen tonen — knopjes; standaard 3, uitklapbaar tot 200 */
 const RECENT_LIMITS=[3,50,100,200];
 let recentLimit=3, lastTeacherStudents=[];
+/* spelvorm-chip in 'laatste afgeronde lessen' — laat in één blik zien in welke
+   vorm de leerling de les maakte (Slepen / Quiz / Mix / …), net als de leerlijn-chip */
+function recentModeChip(mode){
+  const raw=String(mode||'').trim();
+  const label=raw||'Oefening';
+  const l=raw.toLowerCase();
+  let cls='rc-mode-anders', icon='🎯';
+  if(/mix/.test(l)){ cls='rc-mode-mix'; icon='🎲'; }
+  else if(/sleep|slep/.test(l)){ cls='rc-mode-slepen'; icon='🔀'; }
+  else if(/quiz/.test(l)){ cls='rc-mode-quiz'; icon='📝'; }
+  else if(/invul/.test(l)){ cls='rc-mode-invullen'; icon='⌨️'; }
+  else if(/flits/.test(l)){ cls='rc-mode-flits'; icon='🃏'; }
+  else if(/herhaling/.test(l)){ cls='rc-mode-herhaling'; icon='🔁'; }
+  else if(/herken/.test(l)){ cls='rc-mode-quiz'; icon='🔎'; }
+  else if(/vertaal|vertalen/.test(l)){ cls='rc-mode-invullen'; icon='✍️'; }
+  return `<span class="rc-mode ${cls}"><span class="rc-mode-icon" aria-hidden="true">${icon}</span>${esc(label)}</span>`;
+}
 /* bouw de lijst 'laatste afgeronde lessen': alle pogingen van alle leerlingen
    samengevoegd, nieuwste bovenaan (op afrondtijdstip). */
 function recentCompletedHtml(students, limitOverride){
@@ -769,7 +786,7 @@ function recentCompletedHtml(students, limitOverride){
   const items=[];
   (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
     name:stu.name, lesson:a.lesson, created_at:a.created_at,
-    score:a.score, total:a.total, pct:a.pct
+    score:a.score, total:a.total, pct:a.pct, mode:a.mode
   })));
   items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
   const top=items.slice(0,lim);
@@ -780,7 +797,7 @@ function recentCompletedHtml(students, limitOverride){
     const zins=!!zinsById(it.lesson);
     return `<div class="rc-item">
     <span class="rc-name">${esc(it.name)}</span>
-    <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${zins?'Zinsopbouw':'Woordjes'}</span>${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
+    <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${zins?'Zinsopbouw':'Woordjes'}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
     <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
     <span class="rc-when tnum">${fmtDate(it.created_at)}</span>
   </div>`;}).join('');
