@@ -74,6 +74,8 @@
       <div class="spacer"></div>
       <button class="linkbtn" id="switchBtn" style="display:none; color:var(--brand-deep)">↔ Wissel weergave</button>
       <button class="linkbtn" id="homeLink">Lessen</button>
+      <button class="iconbtn" id="installBtn" title="Installeer app" aria-label="Installeer de app op je beginscherm" style="display:none">📲</button>
+      <button class="iconbtn" id="notifyBtn" title="Zet meldingen aan" aria-label="Meldingen aan of uit" aria-pressed="false" style="display:none">🔕</button>
       <button class="iconbtn" id="soundToggle" title="Geluidseffecten uit zetten" aria-label="Geluidseffecten aan of uit" aria-pressed="false">🔊</button>
       <button class="iconbtn" id="themeToggle2" title="Wissel thema" aria-label="Wissel thema">🌙</button>
       <div class="userchip"><span class="avatar" id="avatar">S</span><span id="username">Cursist</span></div>
@@ -148,6 +150,15 @@
 
 <!-- korte, niet-blokkerende meldingen (bv. 'opslaan mislukt') -->
 <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="false"></div>
+
+<!-- uitleg voor iPhone/iPad: 'Zet op beginscherm' (Safari heeft geen install-knop) -->
+<div id="installHint" class="install-hint hidden" role="dialog" aria-modal="false" aria-label="App op beginscherm zetten">
+  <div class="install-hint-card">
+    <button type="button" id="installHintClose" class="install-hint-x" aria-label="Sluiten">×</button>
+    <div class="install-hint-title">📲 Zet de app op je beginscherm</div>
+    <p class="install-hint-text"></p>
+  </div>
+</div>
 
 <!-- Supabase JS — vaste versie + SRI-hash (integriteitscontrole tegen CDN-manipulatie).
      Alleen actief zodra je de sleutels hieronder invult. -->
