@@ -17,6 +17,14 @@ const CLOUD_CONFIGURED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);   // sleutels in
 const CLOUD = !!(CLOUD_CONFIGURED && window.supabase);            // écht actief: sleutels + script geladen
 const sb = CLOUD ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+/* ============================================================
+   PUSHMELDINGEN — publieke VAPID-sleutel
+   Deze sleutel mág publiek zijn (staat in elke bezoeker z'n browser). De
+   bijbehorende privésleutel staat NIET hier, maar als Supabase-secret
+   (VAPID_PRIVATE_KEY) — zie DOCENT-SETUP.md. Leeg laten schakelt meldingen uit.
+   ============================================================ */
+const VAPID_PUBLIC_KEY = "BKa9HO01mThZQuFVtYZUxgZNBu7vBNk-COc4drqK8Rjgazl4DN3fvW28rZHMT2ks1YYrc1E3tf6ehDoYZGjGg2A";
+
 /* ---------------- lesdata ----------------
    COURSES, SOON en QUIZZES staan in lessons.js (hierboven geladen).
    Zo blijft dit bestand de app-logica en lessons.js de inhoud. */
@@ -378,6 +386,7 @@ async function login(u){
   updateSwitchBtn();
   await goHome();
   window.scrollTo(0,0);
+  syncPwaForUser();   // installeren-/meldingen-knoppen bijwerken voor deze gebruiker
 }
 $('switchBtn').addEventListener('click',async ()=>{
   activeMode = activeMode==='teacher' ? 'student' : 'teacher';
@@ -1728,3 +1737,174 @@ document.getElementById('year').textContent=new Date().getFullYear();
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
   addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{/* geen offline-modus, maar app werkt gewoon door */}); });
 }
+
+/* ============================================================
+   INSTALLEREN ALS APP + PUSHMELDINGEN
+   ------------------------------------------------------------
+   - "📲 Installeer app": maakt van de website een echte app op je
+     beginscherm (geen browserbalk meer). Op Android/Chrome via de
+     ingebouwde install-prompt; op iPhone via een korte uitleg (Safari
+     heeft geen prompt).
+   - "🔔 Meldingen": vraagt toestemming en meldt je aan voor pushmeldingen.
+     Op iPhone kan dit pas nadat de app op het beginscherm staat (iOS 16.4+).
+   ============================================================ */
+
+function isStandalone(){
+  return matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+         // iPad met iPadOS meldt zich soms als 'Mac' mét touch:
+         (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+/* --- installeren --- */
+let deferredInstall = null;   // bewaart de Chrome-install-prompt tot de gebruiker klikt
+window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredInstall = e; updateInstallBtn(); });
+window.addEventListener('appinstalled', ()=>{ deferredInstall=null; updateInstallBtn(); notify('App geïnstalleerd 🎉'); });
+
+function updateInstallBtn(){
+  const b=$('installBtn'); if(!b) return;
+  // Al als app geopend? Dan is installeren niet nodig.
+  if(isStandalone()){ b.style.display='none'; return; }
+  // Toon de knop als Chrome een prompt heeft, óf op iPhone (daar tonen we uitleg).
+  b.style.display = (deferredInstall || isIOS()) ? '' : 'none';
+}
+
+async function onInstallClick(){
+  if(deferredInstall){
+    deferredInstall.prompt();
+    try{ await deferredInstall.userChoice; }catch(e){}
+    deferredInstall=null; updateInstallBtn();
+  } else if(isIOS()){
+    showInstallHint();
+  } else {
+    notify('Gebruik het menu van je browser → "App installeren" / "Toevoegen aan beginscherm".');
+  }
+}
+
+// Korte uitleg voor iPhone/iPad (Safari heeft geen install-knop).
+function showInstallHint(forNotify){
+  const el=$('installHint'); if(!el) return;
+  el.querySelector('.install-hint-text').innerHTML = forNotify
+    ? 'Meldingen kunnen op de iPhone pas <b>nadat de app op je beginscherm staat</b>.<br>Tik onderin op het deel-icoon <b>&#x2b06;</b> → <b>Zet op beginscherm</b>. Open daarna de app vanaf je beginscherm en zet de meldingen aan.'
+    : 'Tik onderin op het deel-icoon <b>&#x2b06;</b> → kies <b>Zet op beginscherm</b>. Dan staat de app als echte app op je telefoon.';
+  el.classList.remove('hidden');
+}
+
+/* --- pushmeldingen --- */
+// base64url (VAPID-sleutel) → Uint8Array, nodig voor pushManager.subscribe.
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4 - base64String.length % 4) % 4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+async function currentPushSubscription(){
+  if(!pushSupported()) return null;
+  try{ const reg=await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }
+  catch(e){ return null; }
+}
+
+async function updateNotifyBtn(){
+  const b=$('notifyBtn'); if(!b) return;
+  if(!VAPID_PUBLIC_KEY){ b.style.display='none'; return; }
+  // iPhone/iPad zonder geïnstalleerde app: bel tóch tonen, zodat een tik de
+  // gebruiker uitlegt dat installeren nodig is (Safari heeft geen PushManager).
+  const iosNeedsInstall = isIOS() && !isStandalone();
+  if(!pushSupported() && !iosNeedsInstall){ b.style.display='none'; return; }
+  b.style.display='';
+  const sub = iosNeedsInstall ? null : await currentPushSubscription();
+  const on=!!sub && (typeof Notification!=='undefined' && Notification.permission==='granted');
+  b.textContent = on ? '🔔' : '🔕';
+  b.title = on ? 'Meldingen staan aan — klik om uit te zetten' : 'Zet meldingen aan';
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+async function savePushSubscription(sub){
+  if(!CLOUD || !currentUser || !currentUser.id) return;
+  const json=sub.toJSON();
+  if(!json.keys || !json.keys.p256dh || !json.keys.auth) return;
+  const row={
+    user_id: currentUser.id,
+    role: currentUser.role || 'student',
+    endpoint: sub.endpoint,
+    p256dh: json.keys.p256dh,
+    auth: json.keys.auth,
+    user_agent: String(navigator.userAgent||'').slice(0,300),
+  };
+  try{ await sb.from('push_subscriptions').upsert(row,{onConflict:'endpoint'}); }catch(e){}
+}
+
+async function removePushSubscription(sub){
+  if(!CLOUD || !sub) return;
+  try{ await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); }catch(e){}
+}
+
+async function enablePush(){
+  if(!pushSupported()){ notify('Meldingen worden op dit apparaat niet ondersteund.','warn'); return; }
+  if(!VAPID_PUBLIC_KEY){ notify('Meldingen zijn nog niet ingesteld.','warn'); return; }
+  // iPhone/iPad: alleen mogelijk als de app op het beginscherm staat.
+  if(isIOS() && !isStandalone()){ showInstallHint(true); return; }
+  if(!currentUser || !currentUser.id){ notify('Log eerst in om meldingen aan te zetten.','warn'); return; }
+  let perm = (typeof Notification!=='undefined') ? Notification.permission : 'denied';
+  if(perm!=='granted'){ try{ perm=await Notification.requestPermission(); }catch(e){ perm='denied'; } }
+  if(perm!=='granted'){ notify('Meldingen zijn geblokkeerd. Zet ze aan in je browserinstellingen.','warn'); return; }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    }
+    await savePushSubscription(sub);
+    await updateNotifyBtn();
+    notify('Meldingen staan aan 🔔');
+  }catch(e){ notify('Aanmelden voor meldingen lukte niet.','bad'); }
+}
+
+async function disablePush(){
+  const sub=await currentPushSubscription();
+  if(sub){
+    await removePushSubscription(sub);
+    try{ await sub.unsubscribe(); }catch(e){}
+  }
+  await updateNotifyBtn();
+  notify('Meldingen uitgezet.');
+}
+
+async function onNotifyClick(){
+  const sub=await currentPushSubscription();
+  if(sub && typeof Notification!=='undefined' && Notification.permission==='granted') await disablePush();
+  else await enablePush();
+}
+
+// Na inloggen: knoppen bijwerken en een bestaande aanmelding aan dit account koppelen.
+async function syncPwaForUser(){
+  updateInstallBtn();
+  await updateNotifyBtn();
+  try{
+    const sub=await currentPushSubscription();
+    if(sub && typeof Notification!=='undefined' && Notification.permission==='granted'){
+      await savePushSubscription(sub);   // koppel de bestaande push-aanmelding aan de ingelogde gebruiker
+    }
+  }catch(e){}
+}
+
+// Knoppen koppelen (staan in de topbalk van de app).
+(function wirePwaButtons(){
+  const wire=()=>{
+    const ib=$('installBtn'); if(ib && !ib.__wired){ ib.__wired=1; ib.addEventListener('click', onInstallClick); }
+    const nb=$('notifyBtn');  if(nb && !nb.__wired){ nb.__wired=1; nb.addEventListener('click', onNotifyClick); }
+    const hx=$('installHintClose'); if(hx && !hx.__wired){ hx.__wired=1; hx.addEventListener('click',()=>$('installHint').classList.add('hidden')); }
+    updateInstallBtn();
+    updateNotifyBtn();
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();

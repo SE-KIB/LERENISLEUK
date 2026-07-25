@@ -539,4 +539,14 @@ details.tv-recent > summary h2{flex:1 1 auto}
 .toast .toast-x{margin-left:4px; background:none; border:none; color:var(--ink-faint); font-size:18px; line-height:1; padding:0 2px; flex:0 0 auto}
 .toast .toast-x:hover{color:var(--ink)}
 
+/* Uitleg 'zet op beginscherm' (iPhone/iPad) — kaartje onderaan het scherm. */
+.install-hint{position:fixed; left:0; right:0; bottom:16px; z-index:1001; display:flex; justify-content:center; padding:0 12px}
+.install-hint.hidden{display:none}
+.install-hint-card{position:relative; max-width:460px; background:var(--surface); color:var(--ink); border:1px solid var(--line);
+  border-left:4px solid var(--brand); border-radius:11px; box-shadow:var(--shadow-lg); padding:14px 40px 14px 16px}
+.install-hint-title{font-weight:800; font-size:15px; margin-bottom:6px}
+.install-hint-text{font-size:13.5px; line-height:1.5; color:var(--ink-soft); margin:0}
+.install-hint-x{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--ink-faint); font-size:20px; line-height:1; padding:2px 4px; cursor:pointer}
+.install-hint-x:hover{color:var(--ink)}
+
 @media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}

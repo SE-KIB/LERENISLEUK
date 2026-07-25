@@ -334,3 +334,144 @@ Vanaf nu krijg je op `serkan07eren@gmail.com` een mail zodra een leerling een
 les op 100% afrondt. De drempel staat als `PASS_PCT` bovenin
 `supabase/functions/notify-completion/index.ts` — pas die aan en deploy opnieuw
 als je een andere grens wilt.
+
+---
+
+## Pushmeldingen op de telefoon (de app installeren) 🔔
+
+De site is een **PWA**: je kunt hem als echte app op je beginscherm zetten
+(geen browserbalk meer) en daarna **pushmeldingen** op je telefoon ontvangen —
+ook als de app dicht is. Er zijn twee soorten meldingen:
+
+- **Docent** → een melding zodra een leerling een les foutloos afrondt
+  (de push-versie van de e-mail hierboven).
+- **Leerlingen** → een dagelijkse **oefen-herinnering** (via een Cron-taak).
+
+> **App installeren (elke gebruiker zelf):** open de site en tik op **📲** in de
+> balk bovenin. Op Android/Chrome verschijnt een install-knop; op iPhone/iPad
+> volg je de korte uitleg (deel-icoon → **Zet op beginscherm**). Zet daarna
+> meldingen aan met de bel-knop **🔔**.
+>
+> **Let op (iPhone/iPad):** meldingen werken op iOS pas **nadat de app op het
+> beginscherm staat** en je hem vanaf daar opent (iOS 16.4 of nieuwer). In
+> gewone Safari kan het niet.
+
+Volg de stappen hieronder één keer om pushmeldingen aan te zetten. Dit vereist
+de cloudmodus (Supabase gekoppeld) uit de stappen bovenaan.
+
+### 1 — Maak de tabel voor aanmeldingen (SQL Editor → Run)
+
+```sql
+-- Push-aanmeldingen: één rij per apparaat/browser dat meldingen wil.
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'student',
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_role_idx on public.push_subscriptions (role);
+
+alter table public.push_subscriptions enable row level security;
+
+-- Iedereen beheert alléén zijn eigen aanmeldingen (de Edge Functions gebruiken
+-- de service_role-sleutel en mogen daardoor alles lezen om te kunnen versturen).
+drop policy if exists ps_sel on public.push_subscriptions;
+create policy ps_sel on public.push_subscriptions for select using (user_id = auth.uid());
+drop policy if exists ps_ins on public.push_subscriptions;
+create policy ps_ins on public.push_subscriptions for insert with check (user_id = auth.uid());
+drop policy if exists ps_upd on public.push_subscriptions;
+create policy ps_upd on public.push_subscriptions for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists ps_del on public.push_subscriptions;
+create policy ps_del on public.push_subscriptions for delete using (user_id = auth.uid());
+```
+
+### 2 — VAPID-sleutels (voor web-push)
+
+Web-push werkt met een sleutelpaar: een **publieke** sleutel (mag in de website)
+en een **privé** sleutel (alléén als secret op de server).
+
+- De **publieke** sleutel staat al ingevuld in `app.js` (`VAPID_PUBLIC_KEY`).
+- De bijbehorende **privé** sleutel krijg je **apart aangeleverd** (staat
+  bewust niet in deze repo). Zet die als secret in stap 4.
+
+Wil je liever een **eigen** paar maken? Draai eenmalig:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Zet dan de **Public Key** in `app.js` bij `VAPID_PUBLIC_KEY` én als secret
+`VAPID_PUBLIC_KEY`, en de **Private Key** als secret `VAPID_PRIVATE_KEY`.
+Belangrijk: de publieke sleutel in `app.js` en de secrets moeten **bij elkaar
+horen** (één en hetzelfde paar).
+
+### 3 — Zet de functions neer
+
+```bash
+supabase functions deploy notify-completion --no-verify-jwt
+supabase functions deploy daily-reminder    --no-verify-jwt
+```
+
+> Beide functies delen de code in `supabase/functions/_shared/webpush.ts`; de
+> CLI neemt die automatisch mee. Geen CLI? Plak dan per functie de inhoud van
+> `index.ts` (en die van `_shared/webpush.ts`) in het dashboard.
+
+### 4 — Zet de secrets
+
+```bash
+supabase secrets set VAPID_PUBLIC_KEY="BKa9HO0...(zelfde als in app.js)"
+supabase secrets set VAPID_PRIVATE_KEY="...jouw-privésleutel..."
+supabase secrets set VAPID_SUBJECT="mailto:serkan07eren@gmail.com"
+```
+
+### 5 — Docentmelding bij een afronding
+
+De **Database Webhook** op `attempts` uit de e-mailsectie hierboven roept
+dezelfde functie `notify-completion` aan. Die stuurt nu **naast de e-mail ook
+een pushmelding** naar iedereen met rol `teacher` die meldingen heeft
+aangezet. Heb je die webhook al? Dan hoef je hier niets te doen. Zo niet, maak
+hem zoals beschreven in "E-mail bij een afgeronde les" → stap 4.
+
+> Log als docent in, zet meldingen aan met **🔔**, en je krijgt voortaan een
+> pushmelding zodra een leerling een les afrondt.
+
+### 6 — Dagelijkse oefen-herinnering voor leerlingen (Cron)
+
+Plan de functie `daily-reminder` met **pg_cron**. Draai in de SQL Editor
+(vervang `<PROJECT-REF>` en `<SERVICE_ROLE_KEY>`):
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- pg_cron draait in UTC. 16:00 NL (zomertijd) = 14:00 UTC — pas de tijd aan.
+select cron.schedule(
+  'oefen-herinnering',
+  '0 14 * * *',
+  $$
+  select net.http_post(
+    url := 'https://<PROJECT-REF>.supabase.co/functions/v1/daily-reminder',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+> De `<SERVICE_ROLE_KEY>` vind je in **Project Settings → API** (de
+> *service_role*-sleutel). Deze staat alléén in de database (server-side), nooit
+> in de website. Wil je later stoppen? `select cron.unschedule('oefen-herinnering');`
+>
+> Een eigen tekst? Zet in `body` bijvoorbeeld
+> `'{"title":"Nog even oefenen 📚","body":"Doe vandaag les 3 af!"}'::jsonb`.
+
+Klaar! Vanaf nu is de site installeerbaar als app en krijgen docent en
+leerlingen pushmeldingen op de telefoon.

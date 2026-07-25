@@ -1,26 +1,31 @@
 // Edge Function: notify-completion
 // -------------------------------------------------------------------------
-// Stuurt een e-mail naar de docent zodra een leerling een les AFRONDT.
-// "Afgerond" betekent hier: een poging met 100% (foutloos) — zie PASS_PCT.
+// Meldt de docent zodra een leerling een les AFRONDT — via e-mail én via een
+// pushmelding op de telefoon. "Afgerond" betekent hier: een poging met 100%
+// (foutloos) — zie PASS_PCT.
 //
 // Deze functie wordt aangeroepen door een Supabase *Database Webhook* die
 // afgaat bij elke INSERT in de tabel `public.attempts`. De webhook stuurt de
 // nieuwe rij mee als `record`. We controleren hier of het echt een afronding
 // is en of de leerling deze les niet eerder al had afgerond (zo voorkomen we
-// dubbele mails bij oefenen/herhalen).
+// dubbele meldingen bij oefenen/herhalen).
 //
 // Benodigde secrets (Project → Edge Functions → Secrets, of `supabase secrets set`):
-//   RESEND_API_KEY   -> API-sleutel van https://resend.com (gratis tier volstaat)
-//   NOTIFY_TO        -> ontvanger, bijv. serkan07eren@gmail.com
-//   NOTIFY_FROM      -> geverifieerd afzender-adres bij Resend
-//                       (bijv. "Calis Artik Da <meldingen@sekibar.nl>";
-//                        zonder eigen domein werkt "onboarding@resend.dev")
+//   E-mail (optioneel):
+//     RESEND_API_KEY   -> API-sleutel van https://resend.com (gratis tier volstaat)
+//     NOTIFY_TO        -> ontvanger, bijv. serkan07eren@gmail.com
+//     NOTIFY_FROM      -> geverifieerd afzender-adres bij Resend
+//                         (bijv. "Calis Artik Da <meldingen@sekibar.nl>";
+//                          zonder eigen domein werkt "onboarding@resend.dev")
+//   Pushmelding (optioneel):
+//     VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT  (zie _shared/webpush.ts)
 //
 // SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY worden automatisch als env
 // beschikbaar gesteld binnen een edge function.
 // -------------------------------------------------------------------------
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPush } from "../_shared/webpush.ts";
 
 const PASS_PCT = 100; // e-mail alleen bij een volledig foutloze afronding (100%)
 
@@ -75,14 +80,39 @@ Deno.serve(async (req) => {
       { timeZone: "Europe/Amsterdam" },
     );
 
+    // ---- 1) Pushmelding naar de docent(en) op de telefoon ----
+    // Alle aanmeldingen met rol 'teacher'. Best-effort: mislukt dit, dan gaat
+    // de e-mail hieronder gewoon door.
+    let pushResult: unknown = { skipped: "geen pushconfig" };
+    try {
+      const { data: teacherSubs } = await supabase
+        .from("push_subscriptions")
+        .select("endpoint,p256dh,auth")
+        .eq("role", "teacher");
+      if (teacherSubs && teacherSubs.length) {
+        pushResult = await sendPush(supabase, teacherSubs, {
+          title: `✅ Les ${les} afgerond`,
+          body: `${naam} heeft les ${les} foutloos afgerond (${pct}%).`,
+          url: "./index.html",
+          tag: `afronding-${record.user_id}-${les}`,
+        });
+      } else {
+        pushResult = { sent: 0, note: "geen docent-aanmeldingen" };
+      }
+    } catch (e) {
+      pushResult = { error: String(e) };
+    }
+
+    // ---- 2) E-mail naar de docent (optioneel) ----
     const to = Deno.env.get("NOTIFY_TO");
     const from = Deno.env.get("NOTIFY_FROM") || "onboarding@resend.dev";
     const resendKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendKey || !to) {
+      // Geen mailconfig? Prima — de pushmelding is dan het enige kanaal.
       return new Response(
-        JSON.stringify({ error: "RESEND_API_KEY of NOTIFY_TO ontbreekt" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({ push: pushResult, email: "niet ingesteld" }),
+        { headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -110,13 +140,14 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const detail = await res.text();
-      return new Response(JSON.stringify({ error: "mail mislukt", detail }), {
+      // E-mail mislukt, maar de push kan wél gelukt zijn — meld beide.
+      return new Response(JSON.stringify({ push: pushResult, email: "mislukt", detail }), {
         status: 502,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ sent: true }), {
+    return new Response(JSON.stringify({ push: pushResult, email: "verstuurd" }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
