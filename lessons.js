@@ -4,12 +4,15 @@
    in index.html. Wordt vóór het hoofdscript geladen, dus COURSES, SOON,
    QUIZZES en ZINS zijn daar gewoon beschikbaar.
 
-   Er zijn twee leerlijnen:
+   Er zijn meerdere leerlijnen:
      • Woordjes   — COURSES + QUIZZES (woordenschat, zie hieronder).
      • Zinsopbouw 1 — ZINS (zinsstructuur: WIE → DOET → WAT → WAAR → WANNEER,
                     zie het commentaar boven de ZINS-lijst onderaan dit bestand).
      • Zinsopbouw 2 — ZINS2 (zelfde theorie als leerlijn 1, maar andere zinnen;
                     zie het commentaar boven de ZINS2-lijst onderaan dit bestand).
+     • Zinsopbouw 3 — ZINS3 (aanzienlijk moeilijker: scheidbare werkwoorden,
+                    voltooid tijd, langere zinnen en bijzinnen; zie het
+                    commentaar boven de ZINS3-lijst onderaan dit bestand).
 
    Een WOORDJES-les toevoegen? Zet een regel in COURSES (tag "feat" optioneel)
    en voeg een blok toe in QUIZZES met hetzelfde lesnummer. De structuur:
@@ -1102,6 +1105,450 @@ const ZINS2 = [
         answers:["wij willen vanavond televisie kijken","we willen vanavond televisie kijken"],
         words:["wij","willen","vanavond","televisie","kijken"],
         e:"'willen' op plek 2 → WANNEER (vanavond) → WAT (televisie) → EIND (kijken) achteraan."},
+    ],
+  },
+];
+
+/* ============================================================
+   ZINSOPBOUW 3 — derde leerlijn zinsstructuur (AANZIENLIJK MOEILIJKER)
+   Zelfde engine en dezelfde rollen (WIE → DOET → WAT → WAAR → WANNEER + EIND)
+   als leerlijn 1 en 2, maar een flink niveau hoger. Hier komen erbij:
+     • scheidbare werkwoorden (het 'rugzakje' gaat naar het eind): opbellen,
+       meenemen, aankomen → DOET op plek 2, het losse deel als EIND achteraan.
+     • voltooid tijd (perfect): hebben/zijn op plek 2, het voltooid deelwoord
+       (gekocht, gewerkt, gegaan) als EIND achteraan.
+     • langere zinnen met alle delen door elkaar.
+     • gevorderde ontkenning (niet/geen op de juiste plek) en open vragen.
+     • BIJZINNEN met omdat, dat, als, of — daar gaat het werkwoord naar het eind.
+
+   De EIND-rol wordt hier dus breder gebruikt dan in leerlijn 1/2: niet alleen
+   voor een tweede werkwoord, maar ook voor een voltooid deelwoord of het losse
+   deel van een scheidbaar werkwoord — telkens het stukje dat achteraan hoort.
+
+   De id's beginnen met "X" zodat ze niet botsen met leerlijn 1 ("Z") of 2 ("Y").
+   Controleer met: node scripts/validate-lessons.js
+   ============================================================ */
+const ZINS3 = [
+  {
+    n:"X1", num:"Les 1", t:"Scheidbare werkwoorden: het rugzakje achteraan", label:"Uitdaging",
+    desc:"Sommige werkwoorden vallen in twee stukken: het werkwoord op plek 2, het losse deel (op, mee, aan) helemaal achteraan.",
+    intro:`<h3>Werkwoorden die in tweeën vallen</h3>
+      <p>Bij een <b>scheidbaar werkwoord</b> (zoals <i>opbellen</i>, <i>meenemen</i>, <i>aankomen</i>)
+         blijft het werkwoord op <b>plek 2</b>, maar het kleine deel — <i>op</i>, <i>mee</i>, <i>aan</i> —
+         springt helemaal naar het <b>eind</b> van de zin.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>Ik bel je morgen <b>op</b>.</i> &nbsp; ❌ <i>Ik opbel je morgen.</i></p>
+      <p>Het losse deel (EIND) staat dus achteraan. Alles wat erbij hoort komt ertussen.</p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik bel je morgen op.","Ik opbel je morgen."], c:0,
+        e:"Het losse deel (op) springt naar het eind: <b>Ik bel je morgen op.</b>"},
+      {kind:"herken", sentence:"Ik bel je morgen op.",
+        parts:[["WIE","Ik"],["DOET","bel"],["WAT","je"],["WANNEER","morgen"],["EIND","op"]], ask:"EIND",
+        e:"Het losse deel van 'opbellen' staat achteraan: <b>op</b>. Dat is de EIND."},
+      {kind:"herken", sentence:"Ik bel je morgen op.",
+        parts:[["WIE","Ik"],["DOET","bel"],["WAT","je"],["WANNEER","morgen"],["EIND","op"]], ask:"DOET",
+        e:"Het werkwoord blijft gewoon op plek 2: <b>bel</b>."},
+      {kind:"herken",
+        q:"Bij een scheidbaar werkwoord — waar staat het losse deel (op, mee, aan)?",
+        o:["Helemaal achteraan (EIND)","Op plek 2","Vlak vóór het werkwoord","Vooraan"], c:0,
+        e:"Het losse deel gaat naar het <b>eind</b> van de zin. Het werkwoord zelf blijft op plek 2."},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","neem"],["WAT","mijn zoon"],["EIND","mee"]],
+        e:"'meenemen' valt uiteen: <i>Ik neem mijn zoon mee.</i> Het losse deel 'mee' staat achteraan."},
+      {kind:"sleep",
+        parts:[["WIE","De trein"],["DOET","komt"],["WANNEER","om tien uur"],["WAAR","in Utrecht"],["EIND","aan"]],
+        e:"'aankomen' valt uiteen: <i>De trein komt om tien uur in Utrecht aan.</i> WANNEER vóór WAAR, en 'aan' achteraan."},
+      {kind:"herken", sentence:"De buurman ruimt vandaag de tuin op.",
+        parts:[["WIE","De buurman"],["DOET","ruimt"],["WANNEER","vandaag"],["WAT","de tuin"],["EIND","op"]], ask:"EIND",
+        e:"'opruimen' → het losse deel 'op' staat achteraan. Dat is de EIND."},
+      {kind:"bouw", tr:"Seni bu akşam arayacağım.", model:"Ik bel je vanavond op.",
+        answers:["ik bel je vanavond op"],
+        words:["ik","bel (opbellen)","je","vanavond","op"],
+        e:"DOET (bel) op plek 2 → WAT (je) → WANNEER (vanavond) → EIND (op) achteraan."},
+      {kind:"bouw", tr:"Çocuklarımı da götürüyorum.", model:"Ik neem mijn kinderen mee.",
+        answers:["ik neem mijn kinderen mee"],
+        words:["ik","neem (meenemen)","mijn kinderen","mee"],
+        e:"'meenemen' → 'mee' achteraan: WIE (Ik) → DOET (neem) → WAT (mijn kinderen) → EIND (mee)."},
+      {kind:"bouw", tr:"Tren saat onda geliyor.", model:"De trein komt om tien uur aan.",
+        answers:["de trein komt om tien uur aan"],
+        words:["de trein","komt (aankomen)","om tien uur","aan"],
+        e:"'aankomen' → 'aan' achteraan: <i>De trein komt om tien uur aan.</i>"},
+    ],
+  },
+  {
+    n:"X2", num:"Les 2", t:"Voltooid tijd: wat je gisteren deed", label:"Uitdaging",
+    desc:"Praten over vroeger met hebben/zijn + een voltooid deelwoord (gekocht, gewerkt, gegaan) dat achteraan staat.",
+    intro:`<h3>De voltooide tijd</h3>
+      <p>Wil je zeggen wat er <b>al gebeurd</b> is, dan gebruik je twee werkwoorden:
+         <b>hebben</b> of <b>zijn</b> op <b>plek 2</b>, en een <b>voltooid deelwoord</b>
+         (<i>gekocht</i>, <i>gewerkt</i>, <i>gegaan</i>) helemaal <b>achteraan</b> (EIND).</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>Ik heb gisteren een fiets <b>gekocht</b>.</i> &nbsp; ❌ <i>Ik heb gekocht een fiets.</i></p>
+      <p>Let op: bij beweging (gaan, komen, reizen, verhuizen) gebruik je meestal <b>zijn</b> in plaats van <b>hebben</b>.</p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik heb gisteren een fiets gekocht.","Ik heb gekocht gisteren een fiets."], c:0,
+        e:"Het voltooid deelwoord (gekocht) staat achteraan: <b>Ik heb gisteren een fiets gekocht.</b>"},
+      {kind:"herken", sentence:"Ik heb een fiets gekocht.",
+        parts:[["WIE","Ik"],["DOET","heb"],["WAT","een fiets"],["EIND","gekocht"]], ask:"EIND",
+        e:"Het voltooid deelwoord staat achteraan: <b>gekocht</b>. Dat is de EIND."},
+      {kind:"herken", sentence:"Ik heb een fiets gekocht.",
+        parts:[["WIE","Ik"],["DOET","heb"],["WAT","een fiets"],["EIND","gekocht"]], ask:"DOET",
+        e:"Het hulpwerkwoord 'heb' staat op plek 2: <b>heb</b>."},
+      {kind:"herken",
+        q:"Waar staat het voltooid deelwoord (gewerkt, gekocht, gegaan)?",
+        o:["Helemaal achteraan (EIND)","Op plek 2","Vlak na het onderwerp","Vooraan"], c:0,
+        e:"Het voltooid deelwoord springt naar het <b>eind</b>. Op plek 2 staat hebben of zijn."},
+      {kind:"herken", sentence:"Wij zijn naar Delft gereisd.",
+        parts:[["WIE","Wij"],["DOET","zijn"],["WAAR","naar Delft"],["EIND","gereisd"]], ask:"DOET",
+        e:"Bij 'reizen' (beweging) gebruik je <b>zijn</b> op plek 2, niet 'hebben'."},
+      {kind:"herken",
+        q:"Vul in: Wij ___ gisteren naar de markt gegaan. (hebben of zijn?)",
+        o:["zijn","hebben"], c:0,
+        e:"Bij 'gaan' gebruik je <b>zijn</b>: <i>Wij zijn gisteren naar de markt gegaan.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","heb"],["WANNEER","gisteren"],["WAT","de huur"],["EIND","betaald"]],
+        e:"hebben op plek 2, deelwoord achteraan: <i>Ik heb gisteren de huur betaald.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","De buurman"],["DOET","is"],["WANNEER","vorige week"],["EIND","verhuisd"]],
+        e:"Bij 'verhuizen' (beweging) gebruik je 'zijn': <i>De buurman is vorige week verhuisd.</i>"},
+      {kind:"bouw", tr:"Dün bir bisiklet aldım.", model:"Ik heb gisteren een fiets gekocht.",
+        answers:["ik heb gisteren een fiets gekocht"],
+        words:["ik","heb (hebben)","gisteren","een fiets","gekocht"],
+        e:"DOET (heb) op plek 2 → WANNEER (gisteren) → WAT (een fiets) → EIND (gekocht) achteraan."},
+      {kind:"bouw", tr:"Komşu geçen hafta taşındı.", model:"De buurman is vorige week verhuisd.",
+        answers:["de buurman is vorige week verhuisd"],
+        words:["de buurman","is (zijn)","vorige week","verhuisd"],
+        e:"Beweging → 'is' op plek 2, 'verhuisd' (deelwoord) achteraan."},
+      {kind:"bouw", tr:"Dün kirayı ödedim.", model:"Ik heb gisteren de huur betaald.",
+        answers:["ik heb gisteren de huur betaald"],
+        words:["ik","heb (hebben)","gisteren","de huur","betaald"],
+        e:"DOET (heb) op plek 2 → WANNEER (gisteren) → WAT (de huur) → EIND (betaald) achteraan."},
+    ],
+  },
+  {
+    n:"X3", num:"Les 3", t:"De hele voltooide zin op volgorde", label:"Slepen & bouwen",
+    desc:"Langere zinnen in de voltooide tijd: alle delen op de goede plek en het deelwoord helemaal achteraan.",
+    intro:`<h3>Zet de hele voltooide zin in elkaar</h3>
+      <p>Nu combineer je alles: <b>hebben/zijn</b> op plek 2, <b>WANNEER vóór WAAR</b>,
+         en het <b>voltooid deelwoord</b> helemaal achteraan (EIND).</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>Ik heb gisteren een kleed op de markt <b>gekocht</b>.</i></p>`,
+    items:[
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","heb"],["WANNEER","gisteren"],["WAT","een kleed"],["WAAR","op de markt"],["EIND","gekocht"]],
+        e:"WANNEER vóór WAAR, deelwoord achteraan: <i>Ik heb gisteren een kleed op de markt gekocht.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","Wij"],["DOET","hebben"],["WANNEER","gisteravond"],["WAT","de verjaardag"],["EIND","gevierd"]],
+        e:"<i>Wij hebben gisteravond de verjaardag gevierd.</i> Het deelwoord 'gevierd' staat achteraan."},
+      {kind:"herken",
+        q:"Welke zin heeft de goede volgorde?",
+        o:["Ik heb mijn moeder een brief gestuurd.","Ik heb gestuurd een brief mijn moeder."], c:0,
+        e:"Het deelwoord (gestuurd) hoort achteraan: <b>Ik heb mijn moeder een brief gestuurd.</b>"},
+      {kind:"herken", sentence:"Wij zijn naar Utrecht gereisd.",
+        parts:[["WIE","Wij"],["DOET","zijn"],["WAAR","naar Utrecht"],["EIND","gereisd"]], ask:"WAAR",
+        e:"Waar zijn jullie heen gereisd? <b>naar Utrecht</b>. Dat is de WAAR."},
+      {kind:"herken",
+        q:"Waar zet je 'gisteren' (WANNEER) en 'op de markt' (WAAR) in de zin?",
+        o:["Eerst gisteren, dan op de markt","Eerst op de markt, dan gisteren","Allebei achteraan","Dat maakt niet uit"], c:0,
+        e:"<b>WANNEER vóór WAAR</b>, ook in de voltooide tijd: <i>… gisteren … op de markt …</i>"},
+      {kind:"bouw", tr:"Dün pazarda bir halı aldım.", model:"Ik heb gisteren een kleed op de markt gekocht.",
+        answers:["ik heb gisteren een kleed op de markt gekocht","ik heb gisteren op de markt een kleed gekocht"],
+        words:["ik","heb (hebben)","gisteren","een kleed","op de markt","gekocht"],
+        e:"WANNEER (gisteren) vóór WAAR (op de markt), en 'gekocht' helemaal achteraan."},
+      {kind:"bouw", tr:"Anneme bir mektup gönderdim.", model:"Ik heb mijn moeder een brief gestuurd.",
+        answers:["ik heb mijn moeder een brief gestuurd"],
+        words:["ik","heb (hebben)","mijn moeder","een brief","gestuurd"],
+        e:"DOET (heb) op plek 2 → de rest ertussen → EIND (gestuurd) achteraan."},
+      {kind:"bouw", tr:"Dün akşam doğum gününü kutladık.", model:"Wij hebben gisteravond de verjaardag gevierd.",
+        answers:["wij hebben gisteravond de verjaardag gevierd","we hebben gisteravond de verjaardag gevierd"],
+        words:["wij","hebben","gisteravond","de verjaardag","gevierd"],
+        e:"'hebben' op plek 2 → WANNEER → WAT → EIND (gevierd) achteraan."},
+    ],
+  },
+  {
+    n:"X4", num:"Les 4", t:"Twee werkwoorden in langere zinnen", label:"Uitdaging",
+    desc:"Met willen, moeten, kunnen en mogen: het eerste werkwoord op plek 2, het tweede werkwoord achteraan — nu in langere zinnen met tijd én plaats.",
+    intro:`<h3>Modale werkwoorden, langere zinnen</h3>
+      <p>Bij <i>willen, moeten, kunnen, mogen</i> blijft het eerste werkwoord (DOET) op <b>plek 2</b>
+         en gaat het tweede werkwoord (EIND) naar het <b>eind</b>. Nu met méér delen ertussen.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>De kinderen moeten om acht uur naar school <b>gaan</b>.</i></p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Je moet vandaag de rekening betalen.","Je moet betalen vandaag de rekening."], c:0,
+        e:"Het tweede werkwoord (betalen) staat achteraan: <b>Je moet vandaag de rekening betalen.</b>"},
+      {kind:"herken", sentence:"Ik kan morgen naar het feest komen.",
+        parts:[["WIE","Ik"],["DOET","kan"],["WANNEER","morgen"],["WAAR","naar het feest"],["EIND","komen"]], ask:"EIND",
+        e:"Het tweede werkwoord staat achteraan: <b>komen</b>. Dat is de EIND."},
+      {kind:"herken", sentence:"Ik kan morgen naar het feest komen.",
+        parts:[["WIE","Ik"],["DOET","kan"],["WANNEER","morgen"],["WAAR","naar het feest"],["EIND","komen"]], ask:"DOET",
+        e:"Het eerste werkwoord blijft op plek 2: <b>kan</b>."},
+      {kind:"sleep",
+        parts:[["WIE","De kinderen"],["DOET","moeten"],["WANNEER","om acht uur"],["WAAR","naar school"],["EIND","gaan"]],
+        e:"WANNEER vóór WAAR, tweede werkwoord achteraan: <i>De kinderen moeten om acht uur naar school gaan.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","Jij"],["DOET","mag"],["WANNEER","morgen"],["WAT","mijn fiets"],["EIND","gebruiken"]],
+        e:"'mag' op plek 2, 'gebruiken' achteraan: <i>Jij mag morgen mijn fiets gebruiken.</i>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Wij willen graag een nieuw huis kopen.","Wij willen kopen graag een nieuw huis."], c:0,
+        e:"Het tweede werkwoord (kopen) staat achteraan: <b>Wij willen graag een nieuw huis kopen.</b>"},
+      {kind:"bouw", tr:"Bugün faturayı ödemem gerekiyor.", model:"Ik moet vandaag de rekening betalen.",
+        answers:["ik moet vandaag de rekening betalen"],
+        words:["ik","moet (moeten)","vandaag","de rekening","betalen"],
+        e:"DOET (moet) op plek 2 → WANNEER → WAT → EIND (betalen) achteraan."},
+      {kind:"bouw", tr:"Yarın senin bisikletini kullanabilirim.", model:"Ik mag morgen jouw fiets gebruiken.",
+        answers:["ik mag morgen jouw fiets gebruiken"],
+        words:["ik","mag (mogen)","morgen","jouw fiets","gebruiken"],
+        e:"'mag' op plek 2 → WANNEER → WAT → EIND (gebruiken) achteraan."},
+      {kind:"bouw", tr:"Çocukların okula gitmesi gerekiyor.", model:"De kinderen moeten naar school gaan.",
+        answers:["de kinderen moeten naar school gaan"],
+        words:["de kinderen","moeten","naar school","gaan"],
+        e:"'moeten' op plek 2 → WAAR → EIND (gaan) achteraan."},
+      {kind:"bouw", tr:"Yeni bir ev almak istiyoruz.", model:"Wij willen een nieuw huis kopen.",
+        answers:["wij willen een nieuw huis kopen","we willen een nieuw huis kopen"],
+        words:["wij","willen","een nieuw huis","kopen"],
+        e:"'willen' op plek 2 → WAT → EIND (kopen) achteraan."},
+    ],
+  },
+  {
+    n:"X5", num:"Les 5", t:"Open vragen met een vraagwoord", label:"Uitdaging",
+    desc:"Vragen met waarom, hoe laat, wanneer en met wie — het werkwoord komt meteen na het vraagwoord, op plek 2.",
+    intro:`<h3>Open vragen (gevorderd)</h3>
+      <p>Bij een <b>open vraag</b> begin je met een vraagwoord (<i>waarom, hoe laat, wanneer, met wie</i>).
+         Daarna komt <b>meteen het werkwoord</b> (plek 2) en pas dán het onderwerp.</p>
+      <div class="zin-legend"><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-doet">DOET</span><span class="zrole r-wie">WIE</span><span class="zrole r-eind">EIND</span></div>
+      <p>✅ <i>Waarom werk je vandaag niet?</i> &nbsp; ❌ <i>Waarom je werkt vandaag niet?</i></p>
+      <p>Ook bij een scheidbaar of tweede werkwoord: dat deel blijft achteraan. <i>Hoe laat komt de trein <b>aan</b>?</i></p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke vraag is goed?",
+        o:["Waarom kom je vandaag niet?","Waarom je komt vandaag niet?"], c:0,
+        e:"Na het vraagwoord staat het werkwoord op plek 2: <b>Waarom kom je…?</b>"},
+      {kind:"herken",
+        q:"Welke vraag is goed?",
+        o:["Hoe laat komt de trein aan?","Hoe laat de trein aankomt?"], c:0,
+        e:"Werkwoord op plek 2, en het losse deel 'aan' achteraan: <b>Hoe laat komt de trein aan?</b>"},
+      {kind:"herken", sentence:"Wanneer ga je naar de dokter?",
+        parts:[["WANNEER","Wanneer"],["DOET","ga"],["WIE","je"],["WAAR","naar de dokter"]], ask:"DOET",
+        e:"Na het vraagwoord komt het werkwoord op plek 2: <b>ga</b>."},
+      {kind:"herken",
+        q:"Vul aan: ___ ga jij naar huis? (je vraagt naar de tijd)",
+        o:["Wanneer","Wie","Wat"], c:0,
+        e:"Je vraagt naar de tijd, dus gebruik je <b>Wanneer</b>: <i>Wanneer ga jij naar huis?</i>"},
+      {kind:"herken",
+        q:"Welke vraag is goed?",
+        o:["Wil je vanavond met ons eten?","Wil je eten vanavond met ons?"], c:0,
+        e:"Het tweede werkwoord (eten) blijft achteraan: <b>Wil je vanavond met ons eten?</b>"},
+      {kind:"bouw", tr:"Neden bugün çalışmıyorsun?", model:"Waarom werk je vandaag niet?",
+        answers:["waarom werk je vandaag niet"],
+        words:["waarom","werk (werken)","je","vandaag","niet"],
+        e:"Vraagwoord → werkwoord op plek 2 → WIE → rest. 'niet' staat achteraan."},
+      {kind:"bouw", tr:"Tren saat kaçta varıyor?", model:"Hoe laat komt de trein aan?",
+        answers:["hoe laat komt de trein aan"],
+        words:["hoe laat","komt (aankomen)","de trein","aan"],
+        e:"'aankomen' → 'aan' achteraan, ook in een vraag: <i>Hoe laat komt de trein aan?</i>"},
+      {kind:"bouw", tr:"Bu akşam bizimle yemek yer misin?", model:"Wil je vanavond met ons eten?",
+        answers:["wil je vanavond met ons eten"],
+        words:["wil (willen)","je","vanavond","met ons","eten"],
+        e:"'wil' op plek 2 → WIE → rest → EIND (eten) achteraan."},
+      {kind:"bouw", tr:"Yarın nereye gidiyorsun?", model:"Waar ga je morgen naartoe?",
+        answers:["waar ga je morgen naartoe","waar ga je morgen heen"],
+        words:["waar","ga (gaan)","je","morgen","naartoe"],
+        e:"Open vraag naar de plaats: vraagwoord → werkwoord op plek 2 → WIE → WANNEER."},
+    ],
+  },
+  {
+    n:"X6", num:"Les 6", t:"Nee zeggen: niet en geen op de juiste plek", label:"Uitdaging",
+    desc:"Wanneer gebruik je 'geen' en wanneer 'niet' — en waar staat 'niet' precies in de zin?",
+    intro:`<h3>Ontkenning (gevorderd)</h3>
+      <p><b>geen</b> gebruik je vóór een zelfstandig naamwoord zonder lidwoord of met 'een'
+         (<i>geen tijd, geen auto, geen brood</i>).<br>
+         <b>niet</b> gebruik je in de rest van de gevallen. 'niet' staat vaak <b>achteraan</b>,
+         maar <b>vóór</b> een plaats, een bijvoeglijk naamwoord of een deelwoord.</p>
+      <p>✅ <i>Ik heb <b>geen</b> tijd.</i> &nbsp; ✅ <i>Ik ga vandaag <b>niet</b> naar mijn werk.</i></p>
+      <p>✅ <i>Hij heeft de brief <b>niet</b> gelezen.</i> — 'niet' komt vóór het deelwoord.</p>`,
+    items:[
+      {kind:"herken",
+        q:"Vul in: Ik heb ___ auto. (geen of niet?)",
+        o:["geen","niet"], c:0,
+        e:"Vóór een zelfstandig naamwoord (auto) gebruik je <b>geen</b>: <i>Ik heb geen auto.</i>"},
+      {kind:"herken",
+        q:"Vul in: Ik ken die man ___ . (niet of geen?)",
+        o:["niet","geen"], c:0,
+        e:"Hier hoort <b>niet</b>: <i>Ik ken die man niet.</i> ('geen' kan niet vóór 'die man')."},
+      {kind:"herken",
+        q:"Welke zin is normaal en goed?",
+        o:["Ik ga vandaag niet naar mijn werk.","Ik ga niet vandaag naar mijn werk."], c:0,
+        e:"'niet' komt na de tijd en vóór de plaats: <b>Ik ga vandaag niet naar mijn werk.</b>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Hij heeft de brief niet gelezen.","Hij heeft niet de brief gelezen."], c:0,
+        e:"'niet' staat vóór het deelwoord: <b>Hij heeft de brief niet gelezen.</b>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik heb vandaag geen brood gekocht.","Ik heb vandaag niet brood gekocht."], c:0,
+        e:"Vóór 'brood' (zelfstandig naamwoord) hoort <b>geen</b>: <i>Ik heb vandaag geen brood gekocht.</i>"},
+      {kind:"herken", sentence:"Ik heb geen tijd.",
+        parts:[["WIE","Ik"],["DOET","heb"],["WAT","geen tijd"]], ask:"WAT",
+        e:"Wat heb je niet? <b>geen tijd</b>. 'geen' hoort bij het zelfstandig naamwoord."},
+      {kind:"bouw", tr:"Bugün işe gitmiyorum.", model:"Ik ga vandaag niet naar mijn werk.",
+        answers:["ik ga vandaag niet naar mijn werk"],
+        words:["ik","ga (gaan)","vandaag","niet","naar mijn werk"],
+        e:"'niet' komt na de tijd (vandaag) en vóór de plaats (naar mijn werk)."},
+      {kind:"bouw", tr:"Hiç vaktim yok.", model:"Ik heb geen tijd.",
+        answers:["ik heb geen tijd"],
+        words:["ik","heb (hebben)","geen tijd"],
+        e:"Vóór een zelfstandig naamwoord gebruik je <b>geen</b>: <i>Ik heb geen tijd.</i>"},
+      {kind:"bouw", tr:"O mektubu okumadım.", model:"Ik heb die brief niet gelezen.",
+        answers:["ik heb die brief niet gelezen"],
+        words:["ik","heb (hebben)","die brief","niet","gelezen"],
+        e:"'niet' staat vóór het deelwoord 'gelezen', dat helemaal achteraan hoort."},
+    ],
+  },
+  {
+    n:"X7", num:"Les 7", t:"Bijzinnen: het werkwoord gaat naar het eind", label:"Uitdaging+",
+    desc:"Met omdat, dat, als en of maak je een bijzin — en daarin springt het werkwoord helemaal naar het eind.",
+    intro:`<h3>Bijzinnen</h3>
+      <p>Woorden als <b>omdat</b>, <b>dat</b>, <b>als</b> en <b>of</b> beginnen een <b>bijzin</b>.
+         In een bijzin verandert de volgorde: het <b>werkwoord gaat naar het eind</b>.</p>
+      <p>✅ <i>Ik blijf thuis omdat ik ziek <b>ben</b>.</i> &nbsp; ❌ <i>Ik blijf thuis omdat ik ben ziek.</i></p>
+      <p>✅ <i>Ik weet dat hij morgen <b>komt</b>.</i> &nbsp; ✅ <i>Als het morgen <b>regent</b>, blijf ik thuis.</i></p>
+      <p>Begin je met de bijzin (Als …), dan draait de hoofdzin om: eerst het werkwoord, dan het onderwerp.</p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik blijf thuis omdat ik ziek ben.","Ik blijf thuis omdat ik ben ziek."], c:0,
+        e:"In een bijzin met 'omdat' gaat het werkwoord naar het eind: <b>…omdat ik ziek ben.</b>"},
+      {kind:"herken",
+        q:"In een bijzin met 'omdat' of 'dat' — waar staat het werkwoord?",
+        o:["Helemaal achteraan","Op plek 2","Vooraan","Vlak na 'omdat'"], c:0,
+        e:"In een bijzin springt het werkwoord naar het <b>eind</b>."},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik weet dat hij morgen komt.","Ik weet dat hij komt morgen."], c:0,
+        e:"Het werkwoord 'komt' gaat naar het eind van de bijzin: <b>…dat hij morgen komt.</b>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Als het morgen regent, blijf ik thuis.","Als het regent morgen, ik blijf thuis."], c:0,
+        e:"In de bijzin gaat 'regent' naar het eind; daarna draait de hoofdzin om: <b>…, blijf ik thuis.</b>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Hij zegt dat hij geen tijd heeft.","Hij zegt dat hij heeft geen tijd."], c:0,
+        e:"In de bijzin gaat 'heeft' naar het eind: <b>…dat hij geen tijd heeft.</b>"},
+      {kind:"bouw", tr:"Hasta olduğum için evde kalıyorum.", model:"Ik blijf thuis omdat ik ziek ben.",
+        answers:["ik blijf thuis omdat ik ziek ben"],
+        words:["ik","blijf (blijven)","thuis","omdat","ik","ziek","ben"],
+        e:"Hoofdzin normaal, daarna de bijzin met 'ben' helemaal achteraan."},
+      {kind:"bouw", tr:"Yarın geleceğini biliyorum.", model:"Ik weet dat hij morgen komt.",
+        answers:["ik weet dat hij morgen komt"],
+        words:["ik","weet (weten)","dat","hij","morgen","komt"],
+        e:"Na 'dat' komt de bijzin: onderwerp → rest → werkwoord (komt) achteraan."},
+      {kind:"bouw", tr:"Yarın yağmur yağarsa evde kalırım.", model:"Als het morgen regent, blijf ik thuis.",
+        answers:["als het morgen regent blijf ik thuis"],
+        words:["als","het","morgen","regent","blijf","ik","thuis"],
+        e:"Bijzin eerst (regent achteraan), daarna hoofdzin omgedraaid: blijf → ik."},
+      {kind:"bouw", tr:"Vaktim olmadığını söylüyor.", model:"Hij zegt dat hij geen tijd heeft.",
+        answers:["hij zegt dat hij geen tijd heeft"],
+        words:["hij","zegt (zeggen)","dat","hij","geen tijd","heeft"],
+        e:"In de bijzin gaat 'heeft' naar het eind: <i>…dat hij geen tijd heeft.</i>"},
+    ],
+  },
+  {
+    n:"X8", num:"Les 8", t:"Alles combineren: perfect, modaal én bijzin", label:"Uitdaging+",
+    desc:"Langere zinnen waarin de voltooide tijd, twee werkwoorden en bijzinnen door elkaar lopen.",
+    intro:`<h3>Combineren</h3>
+      <p>Je kent nu de scheidbare werkwoorden, de voltooide tijd, twee werkwoorden en de bijzin.
+         In deze les komen ze <b>door elkaar</b> voor. Let telkens goed op wat er <b>achteraan</b> hoort.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-eind">EIND</span></div>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Ik denk dat de trein vertraging heeft.","Ik denk dat de trein heeft vertraging."], c:0,
+        e:"Bijzin na 'dat': het werkwoord 'heeft' gaat naar het eind."},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Zij is niet gekomen omdat ze ziek was.","Zij is niet gekomen omdat ze was ziek."], c:0,
+        e:"In de bijzin met 'omdat' gaat 'was' naar het eind: <b>…omdat ze ziek was.</b>"},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Weet jij of de winkel vandaag open is?","Weet jij of de winkel is vandaag open?"], c:0,
+        e:"Na 'of' begint een bijzin: het werkwoord 'is' gaat naar het eind."},
+      {kind:"sleep",
+        parts:[["WIE","Wij"],["DOET","zijn"],["WANNEER","vanochtend"],["WAAR","naar de stad"],["EIND","gefietst"]],
+        e:"Beweging → 'zijn' op plek 2, deelwoord achteraan: <i>Wij zijn vanochtend naar de stad gefietst.</i>"},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","wil"],["WANNEER","volgende week"],["WAAR","naar Turkije"],["EIND","reizen"]],
+        e:"'wil' op plek 2, tweede werkwoord achteraan: <i>Ik wil volgende week naar Turkije reizen.</i>"},
+      {kind:"bouw", tr:"Trenin rötar yaptığını düşünüyorum.", model:"Ik denk dat de trein vertraging heeft.",
+        answers:["ik denk dat de trein vertraging heeft"],
+        words:["ik","denk (denken)","dat","de trein","vertraging","heeft"],
+        e:"Hoofdzin normaal, daarna bijzin met 'heeft' achteraan."},
+      {kind:"bouw", tr:"Hasta olduğu için gelmedi.", model:"Hij is niet gekomen omdat hij ziek was.",
+        answers:["hij is niet gekomen omdat hij ziek was"],
+        words:["hij","is (zijn)","niet","gekomen","omdat","hij","ziek","was"],
+        e:"Voltooide tijd + bijzin: 'gekomen' achteraan in de hoofdzin, 'was' achteraan in de bijzin."},
+      {kind:"bouw", tr:"Yarın gelip gelemeyeceğimi soruyor.", model:"Hij vraagt of ik morgen kan komen.",
+        answers:["hij vraagt of ik morgen kan komen","hij vraagt of ik morgen komen kan"],
+        words:["hij","vraagt (vragen)","of","ik","morgen","kan","komen"],
+        e:"Na 'of' een bijzin met twee werkwoorden helemaal achteraan (kan komen)."},
+      {kind:"bouw", tr:"Gelecek hafta Türkiye'ye gitmek istiyorum.", model:"Ik wil volgende week naar Turkije reizen.",
+        answers:["ik wil volgende week naar turkije reizen","ik wil volgende week naar turkije gaan"],
+        words:["ik","wil (willen)","volgende week","naar Turkije","reizen"],
+        e:"'wil' op plek 2 → WANNEER → WAAR → EIND (reizen) achteraan."},
+    ],
+  },
+  {
+    n:"X9", num:"Les 9", t:"Grote uitdaging: alles door elkaar", label:"Eindbaas",
+    desc:"De moeilijkste zinnen uit de hele leerlijn: scheidbaar, voltooid, modaal, ontkenning én bijzinnen — allemaal door elkaar.",
+    intro:`<h3>De grote uitdaging</h3>
+      <p>Dit is de laatste en moeilijkste les. Hier komt <b>alles</b> samen: scheidbare werkwoorden,
+         de voltooide tijd, twee werkwoorden, ontkenning en bijzinnen — vaak in één lange zin.</p>
+      <div class="zin-legend"><span class="zrole r-wie">WIE</span><span class="zrole r-doet">DOET</span><span class="zrole r-wat">WAT</span><span class="zrole r-waar">WAAR</span><span class="zrole r-wanneer">WANNEER</span><span class="zrole r-eind">EIND</span></div>
+      <p>Neem de tijd en let steeds op wat er <b>achteraan</b> hoort. Je kunt dit!</p>`,
+    items:[
+      {kind:"herken",
+        q:"Welke zin is helemaal goed?",
+        o:["Ik heb hem gisteren opgebeld omdat ik een vraag had.","Ik heb hem gisteren opbelde omdat ik had een vraag."], c:0,
+        e:"Scheidbaar + voltooid: 'opgebeld' achteraan in de hoofdzin. In de bijzin gaat 'had' naar het eind."},
+      {kind:"herken",
+        q:"Welke zin is goed?",
+        o:["Morgen kan ik niet komen omdat ik moet werken.","Morgen ik kan niet komen omdat ik werken moet."], c:0,
+        e:"Begin je met 'Morgen', dan komt het werkwoord op plek 2: <b>Morgen kan ik…</b>"},
+      {kind:"herken", sentence:"De buurman heeft zijn oude bank verkocht.",
+        parts:[["WIE","De buurman"],["DOET","heeft"],["WAT","zijn oude bank"],["EIND","verkocht"]], ask:"EIND",
+        e:"Het voltooid deelwoord staat achteraan: <b>verkocht</b>. Dat is de EIND."},
+      {kind:"sleep",
+        parts:[["WIE","Ik"],["DOET","heb"],["WANNEER","vanmorgen"],["WAT","mijn moeder"],["EIND","opgebeld"]],
+        e:"Scheidbaar + voltooid: <i>Ik heb vanmorgen mijn moeder opgebeld.</i> 'opgebeld' achteraan."},
+      {kind:"sleep",
+        parts:[["WIE","Wij"],["DOET","willen"],["WANNEER","volgend jaar"],["WAAR","naar een groter huis"],["EIND","verhuizen"]],
+        e:"'willen' op plek 2, tweede werkwoord achteraan: <i>Wij willen volgend jaar naar een groter huis verhuizen.</i>"},
+      {kind:"bouw", tr:"Dün onu aradım çünkü bir sorum vardı.", model:"Ik heb hem gisteren opgebeld omdat ik een vraag had.",
+        answers:["ik heb hem gisteren opgebeld omdat ik een vraag had"],
+        words:["ik","heb (opbellen)","hem","gisteren","opgebeld","omdat","ik","een vraag","had"],
+        e:"Hoofdzin: 'opgebeld' achteraan. Bijzin met 'omdat': 'had' achteraan."},
+      {kind:"bouw", tr:"Yarın gelemem çünkü çalışmam gerekiyor.", model:"Ik kan morgen niet komen omdat ik moet werken.",
+        answers:["ik kan morgen niet komen omdat ik moet werken","ik kan morgen niet komen omdat ik werken moet"],
+        words:["ik","kan (kunnen)","morgen","niet","komen","omdat","ik","moet","werken"],
+        e:"Hoofdzin: 'komen' achteraan, 'niet' ervoor. Bijzin met 'omdat': de werkwoorden achteraan."},
+      {kind:"bouw", tr:"Komşu eski koltuğunu sattı.", model:"De buurman heeft zijn oude bank verkocht.",
+        answers:["de buurman heeft zijn oude bank verkocht"],
+        words:["de buurman","heeft (hebben)","zijn oude bank","verkocht"],
+        e:"Voltooide tijd: 'heeft' op plek 2, 'verkocht' achteraan."},
+      {kind:"bouw", tr:"Yağmur yağdığı için tren rötar yaptı.", model:"De trein had vertraging omdat het regende.",
+        answers:["de trein had vertraging omdat het regende"],
+        words:["de trein","had (hebben)","vertraging","omdat","het","regende"],
+        e:"Bijzin met 'omdat': het werkwoord 'regende' gaat naar het eind."},
+      {kind:"bouw", tr:"Bu akşam bizimle gelebilir misin?", model:"Kun je vanavond met ons meekomen?",
+        answers:["kun je vanavond met ons meekomen","kan je vanavond met ons meekomen"],
+        words:["kun (kunnen)","je","vanavond","met ons","meekomen"],
+        e:"Vraag met twee werkwoorden: 'meekomen' (scheidbaar) blijft helemaal achteraan."},
     ],
   },
 ];
