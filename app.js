@@ -108,12 +108,14 @@ function notify(msg,type){
 }
 
 /* ---------------- afgeleide aantallen (inhoud) ---------------- */
-/* Twee zinsopbouw-leerlijnen: ZINS (leerlijn 1) en ZINS2 (leerlijn 2, zelfde
-   theorie, andere zinnen). ALL_ZINS bundelt ze voor opzoeken en tellen. */
+/* Drie zinsopbouw-leerlijnen: ZINS (leerlijn 1), ZINS2 (leerlijn 2, zelfde
+   theorie, andere zinnen) en ZINS3 (leerlijn 3, aanzienlijk moeilijker).
+   ALL_ZINS bundelt ze voor opzoeken en tellen. */
 const ZINS_L1 = (typeof ZINS!=='undefined') ? ZINS : [];
 const ZINS_L2 = (typeof ZINS2!=='undefined') ? ZINS2 : [];
-const ALL_ZINS = ZINS_L1.concat(ZINS_L2);
-const ZINS_LESSONS = ALL_ZINS.length;                 // Zinsopbouw-lessen (beide leerlijnen)
+const ZINS_L3 = (typeof ZINS3!=='undefined') ? ZINS3 : [];
+const ALL_ZINS = ZINS_L1.concat(ZINS_L2).concat(ZINS_L3);
+const ZINS_LESSONS = ALL_ZINS.length;                 // Zinsopbouw-lessen (alle leerlijnen)
 const ZINS_EXERCISES = ALL_ZINS.reduce((s,z)=>s+((z.items&&z.items.length)||0),0);
 const TOTAL_LESSONS = COURSES.length + ZINS_LESSONS + SOON.length;  // alle lessen (alle leerlijnen)
 const PLAYABLE = COURSES.filter(c=>QUIZZES[c.n]).length;            // Woordjes met vragen
@@ -460,8 +462,9 @@ function renderDash(){
   renderBadges({done,streak,perfect:Object.values(prog.lessons||{}).some(v=>v>=100),playable:PLAYABLE+zStats.released});
 }
 /* Zinsopbouw-leerlijnen: leerlijn 1 (ZINS) in #soonGrid, leerlijn 2 (ZINS2) in
-   #soon2Grid. Beide gebruiken dezelfde kaart-opbouw; renderZinsList doet één
-   leerlijn en geeft z'n eigen voortgang terug. renderZins bundelt de tellers. */
+   #soon2Grid, leerlijn 3 (ZINS3) in #soon3Grid. Alle drie gebruiken dezelfde
+   kaart-opbouw; renderZinsList doet één leerlijn en geeft z'n eigen voortgang
+   terug. renderZins bundelt de tellers. */
 function renderZinsList(list, gridId, countId, kicker, prog, includeSoon){
   const grid=$(gridId); if(!grid)return {done:0,busy:0,released:0,next:null};
   const teacherView=isTeacherViewer();
@@ -496,7 +499,8 @@ function renderZinsList(list, gridId, countId, kicker, prog, includeSoon){
 function renderZins(prog){
   const a=renderZinsList(ZINS_L1,'soonGrid','zinsCount','Zinsopbouw 1',prog,true);
   const b=renderZinsList(ZINS_L2,'soon2Grid','zins2Count','Zinsopbouw 2',prog,false);
-  return {done:a.done+b.done, busy:a.busy+b.busy, released:a.released+b.released, next:a.next||b.next};
+  const c=renderZinsList(ZINS_L3,'soon3Grid','zins3Count','Zinsopbouw 3',prog,false);
+  return {done:a.done+b.done+c.done, busy:a.busy+b.busy+c.busy, released:a.released+b.released+c.released, next:a.next||b.next||c.next};
 }
 /* 'Ga verder waar je gebleven was': knop naar de eerstvolgende onafgeronde les */
 function renderContinueBar(next,prog,shown){
@@ -659,7 +663,8 @@ function renderTeacher(students){
   const cards=playable.map(c=>lessonCard(c.n,'Les '+c.n,c.t)).join('');
   const zcards1=ZINS_L1.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
   const zcards2=ZINS_L2.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
-  const zcards=zcards1+zcards2;
+  const zcards3=ZINS_L3.map(z=>lessonCard(z.n,z.num||'Zin',z.t)).join('');
+  const zcards=zcards1+zcards2+zcards3;
   const welcome=`
     <div class="welcome">
       <div><h1>Docenten-dashboard 👩‍🏫</h1><p>Kies een les om de resultaten per leerling en per vraag te bekijken${CLOUD?' — live uit de database':''}.</p></div>
@@ -679,6 +684,7 @@ function renderTeacher(students){
     ? (cards?`<div class="tv-cards-sub">Woordjes</div>${cards}`:'')
       +(zcards1?`<div class="tv-cards-sub">Zinsopbouw 1</div>${zcards1}`:'')
       +(zcards2?`<div class="tv-cards-sub">Zinsopbouw 2</div>${zcards2}`:'')
+      +(zcards3?`<div class="tv-cards-sub">Zinsopbouw 3</div>${zcards3}`:'')
     : '<p style="color:var(--ink-faint)">Nog geen lessen met vragen.</p>';
   const serkan=isSerkan();
   if(serkan){
@@ -807,7 +813,7 @@ function recentCompletedHtml(students, limitOverride){
   }
   const rows=top.map(it=>{
     const zins=!!zinsById(it.lesson);
-    const trackLabel=zins?(ZINS_L2.some(z=>z.n===it.lesson)?'Zinsopbouw 2':'Zinsopbouw 1'):'Woordjes';
+    const trackLabel=zins?(ZINS_L3.some(z=>z.n===it.lesson)?'Zinsopbouw 3':ZINS_L2.some(z=>z.n===it.lesson)?'Zinsopbouw 2':'Zinsopbouw 1'):'Woordjes';
     return `<div class="rc-item">
     <span class="rc-name">${esc(it.name)}</span>
     <span class="rc-lesson"><span class="rc-track ${zins?'rc-track-zins':'rc-track-woord'}">${trackLabel}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
@@ -866,6 +872,7 @@ function releasePanelHtml(){
   const wRows=COURSES.filter(c=>QUIZZES[c.n]).map(c=>releaseRowHtml(c.n,'Les '+c.n,c.t)).join('');
   const zRows1=ZINS_L1.map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
   const zRows2=ZINS_L2.map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
+  const zRows3=ZINS_L3.map(z=>releaseRowHtml(z.n,z.num||'Zin',z.t)).join('');
   return `<details class="rel-panel" open>
     <summary><b>Lessen vrijgeven</b> <span class="rel-hint">— vink aan welke lessen je leerlingen mogen zien</span></summary>
     <p class="tv-note" style="margin:2px 0 12px">Een les die niet is vrijgegeven, is voor leerlingen onzichtbaar. Zo kun je rustig een nieuwe les ontwerpen. Jij ziet verborgen lessen zelf wél (met 🔒) om te testen.</p>
@@ -873,6 +880,7 @@ function releasePanelHtml(){
     <div class="rel-list">${wRows||'<span class="tv-note">Nog geen lessen met vragen.</span>'}</div>
     ${zRows1?`<div class="rel-group-title">Zinsopbouw 1</div><div class="rel-list">${zRows1}</div>`:''}
     ${zRows2?`<div class="rel-group-title">Zinsopbouw 2</div><div class="rel-list">${zRows2}</div>`:''}
+    ${zRows3?`<div class="rel-group-title">Zinsopbouw 3</div><div class="rel-list">${zRows3}</div>`:''}
   </details>`;
 }
 function wireReleasePanel(students){

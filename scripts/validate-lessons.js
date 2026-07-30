@@ -101,6 +101,7 @@ function validateZinsLine(label, arr) {
 
 validateZinsLine('Zinsopbouw 1', extractArray('ZINS'));
 validateZinsLine('Zinsopbouw 2', extractArray('ZINS2'));
+validateZinsLine('Zinsopbouw 3', extractArray('ZINS3'));
 
 console.log(`Woordjes: ${lessons} lessen / ${total} vragen | Zinsopbouw: ${zLessons} lessen / ${zItems} opdrachten | Fouten: ${errors}`);
 if (errors) { console.error('\nVALIDATIE MISLUKT — herstel bovenstaande fouten.'); process.exit(1); }
