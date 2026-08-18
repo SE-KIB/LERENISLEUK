@@ -370,14 +370,27 @@ $('forgot').addEventListener('click',async e=>{e.preventDefault();
   alert('Wachtwoord vergeten? Neem contact op via info@sekibar.nl, dan zetten we het voor je klaar.');});
 
 let activeMode='student';   // 'student' of 'teacher' — voor de joker omschakelbaar
+let turkishMode=false;      // Turkse weergave: toont alléén de laatste afgeronde lessen met Turkse interface-teksten
 function updateSwitchBtn(){
   const b=$('switchBtn');
   if(currentUser&&currentUser.joker){          // alleen de joker wisselt tussen docent- en leerlingscherm; pure docenten niet
     b.style.display='';
     b.textContent = activeMode==='teacher' ? '↔ Naar leerlingscherm' : '↔ Naar docentscherm';
   } else { b.style.display='none'; }
+  const t=$('turkishBtn');
+  if(t){
+    // De Turkse knop staat naast 'Wissel weergave' en is er voor iedereen die het docentoverzicht mag zien.
+    if(isTeacherViewer()){
+      t.style.display='';
+      t.textContent = turkishMode ? '↩ Nederlands' : '🇹🇷 Türkçe';
+      t.title = turkishMode ? 'Terug naar het gewone scherm' : 'Toon de laatste afgeronde lessen in het Turks';
+    } else { t.style.display='none'; }
+  }
 }
-async function goHome(){ if(activeMode==='teacher') await showTeacher(); else await showDash(); }
+async function goHome(){
+  if(turkishMode){ await showTurkishRecent(); return; }
+  if(activeMode==='teacher') await showTeacher(); else await showDash();
+}
 
 async function login(u){
   currentUser=u;
@@ -395,19 +408,26 @@ async function login(u){
   syncPwaForUser();   // installeren-/meldingen-knoppen bijwerken voor deze gebruiker
 }
 $('switchBtn').addEventListener('click',async ()=>{
+  turkishMode=false;                                     // wisselen van weergave verlaat de Turkse weergave
   activeMode = activeMode==='teacher' ? 'student' : 'teacher';
+  updateSwitchBtn();
+  await goHome();
+});
+$('turkishBtn').addEventListener('click',async ()=>{
+  turkishMode=!turkishMode;
   updateSwitchBtn();
   await goHome();
 });
 $('logoutBtn').addEventListener('click',async ()=>{
   if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} }
   stopTeacherAutoRefresh();
-  currentUser=null; progCache={lessons:{},days:[]};
+  currentUser=null; progCache={lessons:{},days:[]}; turkishMode=false;
   $('switchBtn').style.display='none';
+  $('turkishBtn').style.display='none';
   $('appView').classList.add('hidden'); $('teacherView').classList.add('hidden'); $('loginView').classList.remove('hidden');
   $('dashView').classList.remove('hidden'); $('quizView').classList.add('hidden');
   $('pw').value='';$('email').value='';$('loginError').classList.remove('show');});
-$('homeLink').addEventListener('click',()=>{ goHome(); });
+$('homeLink').addEventListener('click',()=>{ turkishMode=false; updateSwitchBtn(); goHome(); });
 
 /* ---------------- dashboard render ---------------- */
 function pill(status){const map={done:['done','✓ Afgerond'],busy:['busy','● Mee bezig'],new:['new','Nieuw'],soon:['soon','Binnenkort']};
@@ -728,6 +748,58 @@ function renderRecentAll(students){
     <section class="tv-recent"><div class="rc-list" id="tvRecentAll">${recentCompletedHtml(students,100000)}</div></section>`;
   $('tvBack').addEventListener('click',()=>renderTeacher(students));
   window.scrollTo(0,0);
+}
+/* ---------------- Turkse weergave: alléén de laatste afgeronde lessen ----------------
+   Zelfde docentlijst als 'Laatste afgeronde lessen', maar met Turkse interface-teksten.
+   De lesinhoud zelf blijft ongewijzigd. */
+async function showTurkishRecent(){
+  $('dashView').classList.add('hidden'); $('quizView').classList.add('hidden');
+  $('teacherView').classList.remove('hidden');
+  stopTeacherAutoRefresh();
+  $('teacherView').innerHTML='<p style="padding:24px 4px" lang="tr">Yükleniyor…</p>';
+  const students=await gatherTeacherData();
+  renderTurkishRecent(students);
+  window.scrollTo(0,0);
+}
+/* datum in het Turks */
+function fmtDateTR(iso){
+  if(!iso)return '';
+  try{ const d=new Date(iso);
+    return d.toLocaleDateString('tr-TR',{day:'numeric',month:'short',year:'numeric'})+' · '+
+           d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return String(iso).slice(0,16).replace('T',' '); }
+}
+/* leerlijn-label in het Turks */
+function trackLabelTR(lesId){
+  if(!zinsById(lesId)) return 'Kelimeler';                         // Woordjes
+  if(ZINS_L3.some(z=>z.n===lesId)) return 'Cümle kurma 3';
+  if(ZINS_L2.some(z=>z.n===lesId)) return 'Cümle kurma 2';
+  return 'Cümle kurma 1';                                          // Zinsopbouw
+}
+function renderTurkishRecent(students){
+  const items=[];
+  (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
+    name:stu.name, lesson:a.lesson, created_at:a.created_at, score:a.score, total:a.total, pct:a.pct, mode:a.mode
+  })));
+  items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
+  let list;
+  if(!items.length){
+    list=`<div class="tv-recent-empty" lang="tr">Henüz tamamlanan ders yok. Bir öğrenci bir dersi tamamladığında en üstte burada görünür.</div>`;
+  } else {
+    list=items.map(it=>`<div class="rc-item">
+      <span class="rc-name">${esc(it.name)}</span>
+      <span class="rc-lesson"><span class="rc-track ${zinsById(it.lesson)?'rc-track-zins':'rc-track-woord'}" lang="tr">${esc(trackLabelTR(it.lesson))}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
+      <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
+      <span class="rc-when tnum">${fmtDateTR(it.created_at)}</span>
+    </div>`).join('')
+      +`<div class="rc-count" lang="tr">${items.length} tamamlanan ders gösteriliyor</div>`;
+  }
+  $('teacherView').innerHTML=`
+    <div class="welcome" lang="tr"><div>
+      <h1>Son tamamlanan dersler</h1>
+      <p>Tüm öğrenciler, en yeni en üstte${CLOUD?' — veritabanından canlı':''}.</p>
+    </div></div>
+    <section class="tv-recent"><div class="rc-list" id="tvRecentTR">${list}</div></section>`;
 }
 /* Alleen Serkan (de beheerder/joker) mag het dashboard aanpassen. */
 function isSerkan(){ return !!(currentUser && (currentUser.joker || String(currentUser.email||'').toLowerCase()==='s@e.nl')); }
