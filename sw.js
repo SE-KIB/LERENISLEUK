@@ -13,7 +13,7 @@
    een melding — óók als de app dicht is. Bij een tik op de melding opent
    'notificationclick' de app op de juiste plek.
    ============================================================ */
-const VERSION = 'v9-2026-08-18';
+const VERSION = 'v10-2026-08-18';
 const CACHE = 'lil-cache-' + VERSION;
 
 // De 'app-shell' die we bij installatie alvast opslaan (offline startpunt).
