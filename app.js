@@ -395,6 +395,7 @@ async function goHome(){
 async function login(u){
   currentUser=u;
   activeMode = (u.role==='teacher') ? 'teacher' : 'student';
+  turkishMode = !!u.joker;   // het Joker-account start direct op de Turkse pagina
   const first=(u.name||'Cursist').split(' ')[0];
   $('username').textContent=first;
   $('avatar').textContent=((u.name&&u.name[0])||'C').toUpperCase();
