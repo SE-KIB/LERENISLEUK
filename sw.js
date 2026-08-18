@@ -13,7 +13,7 @@
    een melding — óók als de app dicht is. Bij een tik op de melding opent
    'notificationclick' de app op de juiste plek.
    ============================================================ */
-const VERSION = 'v8-2026-08-18';
+const VERSION = 'v9-2026-08-18';
 const CACHE = 'lil-cache-' + VERSION;
 
 // De 'app-shell' die we bij installatie alvast opslaan (offline startpunt).
@@ -25,7 +25,10 @@ const CORE = [
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE).catch(() => {})));
+  // Verse kopieën ophalen (HTTP-cache omzeilen) zodat een nieuwe uitrol nooit 'blijft plakken'.
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(
+    CORE.map((u) => fetch(u, { cache: 'reload' }).then((r) => r.ok && c.put(u, r)).catch(() => {}))
+  )));
 });
 
 self.addEventListener('activate', (e) => {
@@ -47,7 +50,7 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith((async () => {
     try {
-      const fresh = await fetch(req);                     // altijd eerst live proberen
+      const fresh = await fetch(req, { cache: 'no-store' });   // altijd eerst live proberen, HTTP-cache omzeilen
       if (fresh && fresh.ok) {
         const copy = fresh.clone();
         caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
