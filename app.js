@@ -759,6 +759,7 @@ async function showTurkishRecent(){
   $('teacherView').innerHTML='<p style="padding:24px 4px" lang="tr">Yükleniyor…</p>';
   const students=await gatherTeacherData();
   renderTurkishRecent(students);
+  startTurkishAutoRefresh();
   window.scrollTo(0,0);
 }
 /* datum in het Turks */
@@ -769,37 +770,58 @@ function fmtDateTR(iso){
            d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
   }catch(e){ return String(iso).slice(0,16).replace('T',' '); }
 }
-/* leerlijn-label in het Turks */
-function trackLabelTR(lesId){
-  if(!zinsById(lesId)) return 'Kelimeler';                         // Woordjes
-  if(ZINS_L3.some(z=>z.n===lesId)) return 'Cümle kurma 3';
-  if(ZINS_L2.some(z=>z.n===lesId)) return 'Cümle kurma 2';
-  return 'Cümle kurma 1';                                          // Zinsopbouw
+/* 'hoeveel dagen geleden' in het Turks — wordt bij elke (her)tekening opnieuw berekend,
+   dus het loopt vanzelf mee met de dag van vandaag. */
+function daysAgoTR(iso){
+  const t=new Date(iso).getTime(); if(isNaN(t))return '';
+  const days=Math.floor((Date.now()-t)/86400000);
+  if(days<=0)return 'bugün';          // vandaag
+  if(days===1)return 'dün';           // gisteren
+  return days+' gün önce';            // n dagen geleden
 }
-function renderTurkishRecent(students){
+/* cijfer op een schaal van 10 (afgerond) uit het percentage */
+function gradeOutOf10(pct){ return Math.max(0,Math.min(10,Math.round((Number(pct)||0)/10))); }
+/* alleen: naam · cijfer x/10 · datum (met daaronder hoeveel dagen geleden) */
+function turkishRowsHtml(students){
   const items=[];
   (students||[]).forEach(stu=>(stu.attempts||[]).forEach(a=>items.push({
-    name:stu.name, lesson:a.lesson, created_at:a.created_at, score:a.score, total:a.total, pct:a.pct, mode:a.mode
+    name:stu.name, created_at:a.created_at, pct:a.pct
   })));
   items.sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));
-  let list;
   if(!items.length){
-    list=`<div class="tv-recent-empty" lang="tr">Henüz tamamlanan ders yok. Bir öğrenci bir dersi tamamladığında en üstte burada görünür.</div>`;
-  } else {
-    list=items.map(it=>`<div class="rc-item">
-      <span class="rc-name">${esc(it.name)}</span>
-      <span class="rc-lesson"><span class="rc-track ${zinsById(it.lesson)?'rc-track-zins':'rc-track-woord'}" lang="tr">${esc(trackLabelTR(it.lesson))}</span>${recentModeChip(it.mode)}${esc(lessonNumLabel(it.lesson))} · ${esc(lessonTitle(it.lesson))}</span>
-      <span class="rc-score tnum">${it.score}/${it.total} (${it.pct}%)</span>
-      <span class="rc-when tnum">${fmtDateTR(it.created_at)}</span>
-    </div>`).join('')
-      +`<div class="rc-count" lang="tr">${items.length} tamamlanan ders gösteriliyor</div>`;
+    return `<div class="tv-recent-empty" lang="tr">Henüz tamamlanan ders yok. Bir öğrenci bir dersi tamamladığında en üstte burada görünür.</div>`;
   }
+  return items.map(it=>`<div class="rc-item">
+      <span class="rc-name">${esc(it.name)}</span>
+      <span class="rc-score tnum">${gradeOutOf10(it.pct)}/10</span>
+      <span class="rc-when tnum">${fmtDateTR(it.created_at)}<span class="rc-ago" lang="tr">${esc(daysAgoTR(it.created_at))}</span></span>
+    </div>`).join('')
+    +`<div class="rc-count" lang="tr">${items.length} tamamlanan ders gösteriliyor</div>`;
+}
+function renderTurkishRecent(students){
   $('teacherView').innerHTML=`
     <div class="welcome" lang="tr"><div>
       <h1>Son tamamlanan dersler</h1>
-      <p>Tüm öğrenciler, en yeni en üstte${CLOUD?' — veritabanından canlı':''}.</p>
+      <p>Sadece isim, not (x/10) ve tarih — otomatik güncellenir.</p>
     </div></div>
-    <section class="tv-recent"><div class="rc-list" id="tvRecentTR">${list}</div></section>`;
+    <section class="tv-recent"><div class="rc-list" id="tvRecentTR">${turkishRowsHtml(students)}</div></section>`;
+}
+/* automatisch verversen zolang de Turkse weergave open staat: nieuwe afgeronde
+   lessen verschijnen vanzelf én 'hoeveel dagen geleden' loopt mee. Stopt zichzelf
+   zodra de gebruiker weg navigeert (dan bestaat #tvRecentTR niet meer). */
+let turkishRefreshTimer=null;
+async function refreshTurkishRecent(){
+  if(!$('tvRecentTR')||$('teacherView').classList.contains('hidden')){
+    if(turkishRefreshTimer){ clearInterval(turkishRefreshTimer); turkishRefreshTimer=null; }
+    return;
+  }
+  let students; try{ students=await gatherTeacherData(); }catch(e){ return; }
+  const box=$('tvRecentTR');
+  if(box&&!$('teacherView').classList.contains('hidden'))box.innerHTML=turkishRowsHtml(students);
+}
+function startTurkishAutoRefresh(){
+  if(turkishRefreshTimer)clearInterval(turkishRefreshTimer);
+  turkishRefreshTimer=setInterval(refreshTurkishRecent,15000);
 }
 /* Alleen Serkan (de beheerder/joker) mag het dashboard aanpassen. */
 function isSerkan(){ return !!(currentUser && (currentUser.joker || String(currentUser.email||'').toLowerCase()==='s@e.nl')); }
