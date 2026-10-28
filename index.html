@@ -3,21 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Gesloten — sekibar.nl</title>
+<title>Sekibar AI</title>
 <link rel="icon" href="icons/favicon-32.png">
-<style>
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    font-family:system-ui,-apple-system,sans-serif;background:#f6f7fb;color:#1f2430;text-align:center;padding:16px}
-  @media (prefers-color-scheme:dark){body{background:#14161c;color:#e8eaf0}}
-  h1{font-size:1.8rem;margin:0 0 .5rem}
-  p{margin:0;opacity:.75}
-</style>
+<link rel="stylesheet" href="ai.css">
 </head>
 <body>
-  <main>
-    <h1>De website is tijdelijk gesloten</h1>
-    <p>Kom later nog eens terug.</p>
-  </main>
+  <section id="login" class="login" hidden>
+    <form id="loginForm" class="card">
+      <h1>Sekibar AI</h1>
+      <p class="muted">Log in om te chatten.</p>
+      <input id="email" type="email" placeholder="E-mailadres" required autocomplete="email">
+      <input id="password" type="password" placeholder="Wachtwoord" required autocomplete="current-password" minlength="6">
+      <button type="submit">Inloggen</button>
+      <button type="button" id="signup" class="link">Nog geen account? Registreren</button>
+      <p id="loginMsg" class="msg" role="status"></p>
+    </form>
+  </section>
+
+  <section id="app" class="app" hidden>
+    <aside class="side">
+      <button id="newChat">+ Nieuw gesprek</button>
+      <ul id="convList"></ul>
+      <button id="logout" class="link">Uitloggen</button>
+    </aside>
+    <main class="chat">
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <form id="chatForm" class="composer">
+        <textarea id="input" rows="1" placeholder="Stel een vraag…" required maxlength="8000"></textarea>
+        <button type="submit" id="send">Verstuur</button>
+      </form>
+    </main>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="ai.js"></script>
 </body>
 </html>
