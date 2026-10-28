@@ -144,7 +144,15 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .meter{height:4px;margin-top:4px;background:var(--cf)}
 .meter span{display:block;height:100%;width:12%;background:linear-gradient(90deg,var(--c),var(--c2));box-shadow:var(--glow);transition:width .6s}
 .conv-list{list-style:none;margin:0;padding:0;overflow:auto;flex:1;font-size:.95rem}
-.conv-list li{padding:6px 8px;border-left:2px solid transparent;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.conv-list li{display:flex;align-items:center;gap:6px;padding:6px 8px;border-left:2px solid transparent;cursor:pointer;color:var(--text)}
+.conv-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-btns{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.conv-list li:hover .conv-btns,.conv-list li.active .conv-btns,.conv-list li:focus-within .conv-btns{opacity:1}
+@media (hover:none){.conv-btns{opacity:1}}
+.conv-btns button{width:22px;height:22px;padding:0;border:1px solid var(--cd);background:var(--cf);color:var(--c);font-size:.75rem;line-height:1}
+.conv-btns button:hover{border-color:var(--c);color:#fff}
+.conv-btns .del:hover{border-color:var(--red);color:var(--red)}
+.conv-edit{flex:1;min-width:0;background:rgba(0,20,30,.8);border:1px solid var(--c);color:#fff;padding:2px 6px;font:inherit;outline:none}
 .conv-list li:hover{background:var(--cf)}
 .conv-list li.active{border-left-color:var(--c);background:rgba(0,225,255,.1);color:#fff}
 .conv-list .empty{color:var(--muted);cursor:default;font-family:var(--f-mono);font-size:.75rem}
@@ -283,3 +291,5 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .lab-or::before,.lab-or::after{content:"";flex:1;height:1px;background:var(--cd)}
 .lab-id{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.6rem .7rem;font-family:var(--f-mono);color:var(--c2);outline:none}
 .lab-id:focus{border-color:var(--c);box-shadow:0 0 0 1px var(--c),var(--glow)}
+select.lab-id{font-family:var(--f-body);font-size:1rem;appearance:auto}
+select.lab-id option{background:#02121a;color:var(--c2)}

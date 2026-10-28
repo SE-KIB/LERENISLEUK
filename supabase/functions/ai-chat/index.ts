@@ -334,6 +334,41 @@ async function askGemini(history: Turn[], actions: Actions): Promise<string> {
   return "";
 }
 
+// ---------- Gemini TTS ----------
+const DEFAULT_TTS_STYLE = "a calm, refined British AI butler: composed, highly intelligent, subtly dry-humoured, warm but precise, unhurried pace";
+const TTS_MODELS = env("TTS_MODEL", "gemini-2.5-flash-preview-tts,gemini-2.5-flash-tts,gemini-2.5-pro-preview-tts").split(",").map((m) => m.trim()).filter(Boolean);
+
+function pcmToWav(pcm: Uint8Array, rate = 24000) {
+  const h = new DataView(new ArrayBuffer(44)), w = (o: number, t: string) => [...t].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); h.setUint32(4, 36 + pcm.length, true); w(8, "WAVEfmt "); h.setUint32(16, 16, true); h.setUint16(20, 1, true);
+  h.setUint16(22, 1, true); h.setUint32(24, rate, true); h.setUint32(28, rate * 2, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true);
+  w(36, "data"); h.setUint32(40, pcm.length, true);
+  const out = new Uint8Array(44 + pcm.length); out.set(new Uint8Array(h.buffer), 0); out.set(pcm, 44);
+  return out;
+}
+async function geminiSpeech(text: string, voiceName: string, style: string) {
+  let last = "";
+  for (const model of TTS_MODELS) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Read the following Dutch text aloud. Voice and delivery: ${style}.\n\n${text}` }] }],
+        generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } } },
+      }),
+      signal: AbortSignal.timeout(20000),
+    }).catch((e) => { last = String(e); return null; });
+    if (!r) continue;
+    if (!r.ok) { last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`; console.warn("Gemini TTS overgeslagen:", last); continue; }
+    const part = (await r.json()).candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data);
+    if (!part) { last = `${model}: geen audio`; continue; }
+    const rate = Number(/rate=(\d+)/.exec(part.inlineData.mimeType ?? "")?.[1] ?? 24000);
+    const pcm = Uint8Array.from(atob(part.inlineData.data), (c) => c.charCodeAt(0));
+    return pcmToWav(pcm, rate);
+  }
+  throw new Error(last || "geen TTS-model beschikbaar");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Alleen POST" }, 405);
@@ -387,14 +422,34 @@ Deno.serve(async (req) => {
     return json({ error: "Spraakherkenning mislukt: " + last }, 502);
   }
 
-  let body: { conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string; generatedVoiceId?: string; name?: string };
+  let body: {
+    conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
+    generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
+  };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 
   // Stem: de gekozen eigen stem (Stemlab) staat in app_metadata van de gebruiker, anders ELEVENLABS_VOICE_ID.
-  const getVoiceId = async () => {
-    const { data } = await admin.auth.admin.getUserById(userId!);
-    return (data?.user?.app_metadata?.eco_voice_id as string) || env("ELEVENLABS_VOICE_ID");
+  const getMeta = async () => (await admin.auth.admin.getUserById(userId!)).data?.user?.app_metadata ?? {};
+  const setMeta = async (patch: Record<string, unknown>) => {
+    const meta: Record<string, unknown> = { ...(await getMeta()), ...patch };
+    for (const k of Object.keys(meta)) if (meta[k] === null) delete meta[k];
+    await admin.auth.admin.updateUserById(userId!, { app_metadata: meta });
   };
+
+  // Stemlab (gratis): Gemini-stem kiezen met eigen toon.
+  if (body.voice === "gemini") {
+    if (!env("GEMINI_API_KEY")) return json({ error: "GEMINI_API_KEY ontbreekt in de secrets" }, 501);
+    await setMeta({ eco_tts: "gemini", eco_gemini_voice: (body.ttsVoice || "Charon").slice(0, 40), eco_gemini_style: (body.ttsStyle || "").slice(0, 600) });
+    return json({ ok: true });
+  }
+  if (body.voice === "reset") {
+    await setMeta({ eco_voice_id: null, eco_tts: null, eco_gemini_voice: null, eco_gemini_style: null });
+    return json({ ok: true });
+  }
+  if (body.voice === "status") {
+    const m = await getMeta();
+    return json({ tts: m.eco_tts || "", geminiVoice: m.eco_gemini_voice || "", geminiStyle: m.eco_gemini_style || "", voiceId: m.eco_voice_id || "" });
+  }
 
   // Stemlab: een eigen stem ontwerpen (3 voorbeelden), opslaan of terugzetten.
   if (body.voice) {
@@ -431,8 +486,7 @@ Deno.serve(async (req) => {
       if ([404, 405].includes(r.status)) r = await el("/v1/text-to-voice/create-voice-from-preview", payload);
       if (!r.ok) return fail(r, "opslaan");
       const { voice_id } = await r.json();
-      const { data } = await admin.auth.admin.getUserById(userId);
-      await admin.auth.admin.updateUserById(userId, { app_metadata: { ...(data?.user?.app_metadata ?? {}), eco_voice_id: voice_id } });
+      await setMeta({ eco_voice_id: voice_id, eco_tts: "elevenlabs" });
       return json({ voiceId: voice_id });
     }
     if (body.voice === "set") {
@@ -442,23 +496,27 @@ Deno.serve(async (req) => {
       const r = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, { headers: { "xi-api-key": env("ELEVENLABS_API_KEY") } });
       if (r.status === 404 || r.status === 400) return json({ error: "Deze stem-ID bestaat niet (of staat niet in 'Mijn stemmen')" }, 400);
       const name = r.ok ? (await r.json()).name : "";
-      const { data } = await admin.auth.admin.getUserById(userId);
-      await admin.auth.admin.updateUserById(userId, { app_metadata: { ...(data?.user?.app_metadata ?? {}), eco_voice_id: voiceId } });
+      await setMeta({ eco_voice_id: voiceId, eco_tts: "elevenlabs" });
       return json({ voiceId, name });
     }
-    if (body.voice === "reset") {
-      const { data } = await admin.auth.admin.getUserById(userId);
-      const meta = { ...(data?.user?.app_metadata ?? {}) }; delete meta.eco_voice_id;
-      await admin.auth.admin.updateUserById(userId, { app_metadata: meta });
-      return json({ ok: true });
-    }
-    if (body.voice === "status") return json({ voiceId: await getVoiceId() || null });
     return json({ error: "Onbekende stemactie" }, 400);
   }
 
-  // Stem: tekst omzetten naar spraak via ElevenLabs (alleen voor ingelogde/geautoriseerde gebruiker).
+  // Stem: tekst → spraak. Gemini TTS (gratis, toon te sturen) of ElevenLabs, volgens de keuze in het Stemlab.
   if (typeof body.tts === "string") {
-    const voiceId = env("ELEVENLABS_API_KEY") ? await getVoiceId() : "";
+    const meta = await getMeta();
+    const wantGemini = body.preview || meta.eco_tts === "gemini" ||
+      (!meta.eco_tts && !(env("ELEVENLABS_API_KEY") && ((meta.eco_voice_id as string) || env("ELEVENLABS_VOICE_ID"))));
+    if (wantGemini && env("GEMINI_API_KEY")) {
+      const text = body.tts.trim().slice(0, 1500);
+      if (!text) return json({ error: "Geen tekst" }, 400);
+      const voiceName = (body.ttsVoice || (meta.eco_gemini_voice as string) || "Charon").slice(0, 40);
+      const style = (body.ttsStyle ?? (meta.eco_gemini_style as string) ?? "").trim() || DEFAULT_TTS_STYLE;
+      const wav = await geminiSpeech(text, voiceName, style).catch((e) => { console.error("Gemini TTS", e); return null; });
+      if (!wav) return json({ error: "Gemini-stem niet beschikbaar" }, 502);
+      return new Response(wav, { headers: { ...CORS, "Content-Type": "audio/wav", "Cache-Control": "no-store" } });
+    }
+    const voiceId = env("ELEVENLABS_API_KEY") ? ((meta.eco_voice_id as string) || env("ELEVENLABS_VOICE_ID")) : "";
     if (!env("ELEVENLABS_API_KEY") || !voiceId) return json({ error: "Geen stem ingesteld" }, 501);
     const text = body.tts.trim().slice(0, 2500);
     if (!text) return json({ error: "Geen tekst" }, 400);

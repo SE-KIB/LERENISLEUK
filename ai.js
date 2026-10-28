@@ -260,11 +260,46 @@ async function loadConversations() {
   if (!data?.length) list.innerHTML = `<li class="empty">GEEN OPGESLAGEN SESSIES</li>`;
   for (const c of data ?? []) {
     const li = document.createElement("li");
-    li.textContent = c.title; li.dataset.id = c.id;
-    li.onclick = () => { openConversation(c.id); closeDrawer(); };
+    li.dataset.id = c.id;
+    li.innerHTML = `<span class="conv-title"></span><span class="conv-btns">` +
+      `<button type="button" title="Naam wijzigen" aria-label="Naam wijzigen">✎</button>` +
+      `<button type="button" title="Verwijderen" aria-label="Verwijderen" class="del">✕</button></span>`;
+    li.querySelector(".conv-title").textContent = c.title;
+    li.onclick = () => { if (!li.classList.contains("editing")) { openConversation(c.id); closeDrawer(); } };
+    const [ren, del] = li.querySelectorAll(".conv-btns button");
+    ren.onclick = (e) => { e.stopPropagation(); renameConversation(li, c); };
+    del.onclick = (e) => { e.stopPropagation(); deleteConversation(li, c); };
     list.append(li);
   }
   markActive();
+}
+function renameConversation(li, c) {
+  li.classList.add("editing");
+  const title = li.querySelector(".conv-title");
+  const input = document.createElement("input");
+  input.className = "conv-edit"; input.value = c.title; input.maxLength = 80;
+  title.replaceWith(input); input.focus(); input.select();
+  let done = false;
+  const finish = async (save) => {
+    if (done) return; done = true;
+    const name = input.value.trim();
+    input.replaceWith(title); li.classList.remove("editing");
+    if (!save || !name || name === c.title) return;
+    const { error } = await sb.from("ai_conversations").update({ title: name }).eq("id", c.id);
+    if (error) { typeCaption("Naam wijzigen mislukt: " + error.message, "err"); return; }
+    c.title = name; title.textContent = name; sfx.tick();
+  };
+  input.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); };
+  input.onblur = () => finish(true);
+  input.onclick = (e) => e.stopPropagation();
+}
+async function deleteConversation(li, c) {
+  if (!confirm(`Gesprek "${c.title}" verwijderen? Dit kan niet ongedaan worden.`)) return;
+  const { error } = await sb.from("ai_conversations").delete().eq("id", c.id); // berichten gaan mee (cascade)
+  if (error) { typeCaption("Verwijderen mislukt: " + error.message, "err"); return; }
+  li.remove(); sfx.tick();
+  if (currentConv === c.id) { currentConv = null; $("messages").innerHTML = ""; $("convId").textContent = "—"; typeCaption("Gesprek verwijderd."); }
+  if (!$("convList").children.length) $("convList").innerHTML = `<li class="empty">GEEN OPGESLAGEN SESSIES</li>`;
 }
 function markActive() {
   for (const li of $("convList").children) li.classList.toggle("active", li.dataset.id === currentConv);
@@ -409,7 +444,7 @@ function chunks(text) {
   while (parts.length && (first.join("").length < 40 || !first.length)) first.push(parts.shift());
   return [first.join("").trim(), parts.join("").trim()].filter(Boolean);
 }
-let voiceGen = 0, queue = [];
+let voiceGen = 0, queue = [], wholeText = false; // wholeText: stemdienst liever één verzoek per antwoord (Gemini)
 async function ttsBlob(text) {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(FUNCTION_URL, {
@@ -419,6 +454,7 @@ async function ttsBlob(text) {
   });
   if (res.status === 501 || res.status === 400) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
   if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error("stem " + res.status);
+  if ((res.headers.get("content-type") || "").includes("wav")) wholeText = true;
   return URL.createObjectURL(await res.blob());
 }
 async function playNext(gen) {
@@ -436,7 +472,7 @@ async function playNext(gen) {
 player.onended = () => playNext(voiceGen);
 async function sayPremium(text) {
   const gen = ++voiceGen;
-  queue = chunks(text).map(ttsBlob);
+  queue = (wholeText ? [text] : chunks(text)).map(ttsBlob);
   queue.forEach((p) => p.catch(() => {})); // fouten worden bij het afspelen afgehandeld
   await queue[0]; // gooit een fout als de stem niet beschikbaar is → terugval op browserstem
   playNext(gen);
@@ -461,7 +497,7 @@ async function say(text) {
   stopSpeaking();
   const t = plain(text);
   if (premiumVoice) {
-    try { await sayPremium(t); $("stVoice").textContent = "NATUURLIJK"; return; }
+    try { await sayPremium(t); $("stVoice").textContent = wholeText ? "GEMINI" : "ELEVENLABS"; return; }
     catch (e) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); }
   }
   sayBrowser(t);
@@ -509,19 +545,26 @@ async function recordWhisper() {
     an = ctx.createAnalyser(); an.fftSize = 512;
     ctx.createMediaStreamSource(stream).connect(an);
   } catch { an = null; }
+  // Drempel past zich aan het achtergrondgeluid aan (eerste ~0,4 s); pauzes tot 2,2 s zijn toegestaan.
   const buf = new Float32Array(512);
+  const SILENCE_MS = 2200, MAX_MS = 120000, NO_SPEECH_MS = 10000;
+  let floor = 0, floorN = 0;
   const watch = () => {
     if (mr.state !== "recording") return;
+    const now = Date.now();
     if (an) {
       an.getFloatTimeDomainData(buf);
       const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
-      bump(Math.min(0.6, rms * 6));
-      const now = Date.now();
-      if (rms > 0.02) { spoke = true; quietSince = 0; }
-      else if (spoke) { quietSince ||= now; if (now - quietSince > 1300) return mr.stop(); }
-      if (!spoke && now - started > 7000) return mr.stop();   // niets gezegd
+      bump(Math.min(0.6, rms * 8));
+      if (now - started < 400) { floor = (floor * floorN + rms) / ++floorN; }
+      else {
+        const threshold = Math.max(0.006, floor * 2.5);
+        if (rms > threshold) { spoke = true; quietSince = 0; }
+        else if (spoke) { quietSince ||= now; if (now - quietSince > SILENCE_MS) return mr.stop(); }
+        if (!spoke && now - started > NO_SPEECH_MS) return mr.stop();   // niets gezegd
+      }
     }
-    if (Date.now() - started > 30000) return mr.stop();      // maximaal 30 s
+    if (now - started > MAX_MS) return mr.stop();                       // maximaal 2 minuten
     raf = requestAnimationFrame(watch);
   };
 
@@ -529,7 +572,7 @@ async function recordWhisper() {
     cancelAnimationFrame(raf);
     stream.getTracks().forEach((t) => t.stop());
     recording = null; micOn(false);
-    if (an && !spoke) { typeCaption(""); return; }
+    if (an && !spoke && Date.now() - started < 1500) { typeCaption(""); return; } // per ongeluk getikt
     const blob = new Blob(parts, { type: mr.mimeType || type || "audio/webm" });
     const ext = /mp4|m4a/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : "webm";
     setState("thinking"); typeCaption("Uitschrijven…", "user");
@@ -720,8 +763,16 @@ async function callFn(payload) {
 }
 const labMsg = (t, cls = "") => { $("labMsg").className = "login-msg " + cls; $("labMsg").textContent = t; };
 let labAudio = null;
+const GEM_STYLE = "a calm, refined British AI butler: composed, highly intelligent, subtly dry-humoured, warm but precise, unhurried pace";
+const gemMsg = (t, cls = "") => { $("gemMsg").className = "login-msg " + cls; $("gemMsg").textContent = t; };
 $("labOpen").onclick = () => {
   closeDrawer();
+  if (!$("gemStyle").value) $("gemStyle").value = GEM_STYLE;
+  callFn({ voice: "status" }).then((st) => {
+    if (st.geminiVoice) $("gemVoice").value = st.geminiVoice;
+    if (st.geminiStyle) $("gemStyle").value = st.geminiStyle;
+    gemMsg(st.tts === "gemini" ? `Actief: Gemini-stem ${st.geminiVoice || "Charon"}.` : st.tts === "elevenlabs" ? "Actief: ElevenLabs-stem." : "");
+  }).catch(() => {});
   if (!$("labDesc").value) $("labDesc").value = LAB_PRESETS.brits;
   if (!$("labText").value) $("labText").value = LAB_TEXT;
   $("voiceLab").hidden = false; labMsg("");
@@ -753,7 +804,7 @@ $("labForm").onsubmit = async (e) => {
         use.disabled = true; labMsg("STEM OPSLAAN…");
         try {
           await callFn({ voice: "save", generatedVoiceId: p.id, name: "ECO", description: $("labDesc").value });
-          premiumVoice = true;
+          premiumVoice = true; wholeText = false;
           labMsg("Opgeslagen. ECO gebruikt nu deze stem.", "ok");
           setTimeout(closeLab, 900);
           say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
@@ -767,13 +818,38 @@ $("labForm").onsubmit = async (e) => {
       : "Mislukt: " + err.message, "err");
   } finally { $("labGen").disabled = false; }
 };
+$("gemTry").onclick = async () => {
+  $("gemTry").disabled = true; gemMsg("STEM GENEREREN…");
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(FUNCTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ tts: $("labText").value || LAB_TEXT, ttsVoice: $("gemVoice").value, ttsStyle: $("gemStyle").value, preview: true }),
+    });
+    if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
+    labAudio?.pause();
+    labAudio = new Audio(URL.createObjectURL(await res.blob()));
+    await labAudio.play();
+    gemMsg(`Je hoort ${$("gemVoice").value}. Bevalt hij? Klik GEBRUIK GEMINI-STEM.`, "ok");
+  } catch (err) { gemMsg("Mislukt: " + err.message, "err"); }
+  finally { $("gemTry").disabled = false; }
+};
+$("gemUse").onclick = async () => {
+  try {
+    await callFn({ voice: "gemini", ttsVoice: $("gemVoice").value, ttsStyle: $("gemStyle").value });
+    premiumVoice = true;
+    gemMsg(`Ingesteld: ${$("gemVoice").value}. ECO gebruikt nu deze stem.`, "ok");
+    say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
+  } catch (err) { gemMsg("Mislukt: " + err.message, "err"); }
+};
 $("labSet").onclick = async () => {
   const id = $("labVoiceId").value.trim();
   if (!id) { labMsg("Plak eerst een stem-ID.", "err"); return; }
   $("labSet").disabled = true; labMsg("STEM CONTROLEREN…");
   try {
     const { name } = await callFn({ voice: "set", generatedVoiceId: id });
-    premiumVoice = true;
+    premiumVoice = true; wholeText = false;
     labMsg(`Ingesteld${name ? ": " + name : ""}. ECO gebruikt nu deze stem.`, "ok");
     say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
   } catch (err) { labMsg("Mislukt: " + err.message, "err"); }

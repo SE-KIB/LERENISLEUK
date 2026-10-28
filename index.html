@@ -125,6 +125,27 @@
     <div id="voiceLab" class="modal" hidden>
       <form id="labForm" class="panel modal-panel">
         <div class="panel-h"><span>STEMLAB</span><button type="button" class="link" id="labClose">SLUITEN</button></div>
+        <div class="lab-or"><span>GEMINI-STEM · GRATIS</span></div>
+        <p class="login-sub">Kies een stem en beschrijf de toon. Klik op PROBEER om te luisteren; bevalt hij, klik GEBRUIK.</p>
+        <label class="field"><span>STEM</span>
+          <select id="gemVoice" class="lab-id">
+            <option value="Charon">Charon — diep, rustig, informatief</option>
+            <option value="Orus">Orus — stevig, zelfverzekerd</option>
+            <option value="Algieba">Algieba — glad, verfijnd</option>
+            <option value="Iapetus">Iapetus — helder, precies</option>
+            <option value="Schedar">Schedar — gelijkmatig, kalm</option>
+            <option value="Gacrux">Gacrux — volwassen, warm</option>
+            <option value="Sadaltager">Sadaltager — deskundig</option>
+            <option value="Alnilam">Alnilam — vastberaden</option>
+            <option value="Rasalgethi">Rasalgethi — informatief, zakelijk</option>
+            <option value="Algenib">Algenib — licht rauw</option>
+            <option value="Umbriel">Umbriel — ontspannen</option>
+            <option value="Enceladus">Enceladus — zacht, ademend</option>
+          </select></label>
+        <label class="field"><span>TOON (ENGELS WERKT HET BEST)</span><textarea id="gemStyle" rows="3" maxlength="600"></textarea></label>
+        <div class="lab-actions"><button type="button" class="chip" id="gemTry">▶ PROBEER</button><button type="button" class="btn-primary" id="gemUse">GEBRUIK GEMINI-STEM</button></div>
+        <p id="gemMsg" class="login-msg" role="status"></p>
+        <div class="lab-or"><span>ELEVENLABS · EIGEN STEM ONTWERPEN (BETAALD)</span></div>
         <p class="login-sub">Beschrijf de stem; ElevenLabs maakt drie versies. Kies er één en ECO gebruikt hem meteen.</p>
         <div class="lab-presets"><button type="button" class="chip" data-preset="brits">BRITSE BUTLER</button><button type="button" class="chip" data-preset="nl">NEDERLANDS, ZELFDE SFEER</button></div>
         <label class="field"><span>BESCHRIJVING (ENGELS WERKT HET BEST)</span><textarea id="labDesc" rows="5" maxlength="1000" required></textarea></label>
