@@ -1,6 +1,8 @@
 // ECO — frontend. Praat alleen met Supabase; de AI-sleutel staat nooit in de browser.
 const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
+// Interne naam (slug) van de Edge Function in Supabase; de weergavenaam daar is "ai-chat".
+const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/smooth-service`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const md = (t) => DOMPurify.sanitize(marked.parse(t));
@@ -70,7 +72,7 @@ $("chatForm").onsubmit = async (e) => {
   try {
     const { data: { session } } = await sb.auth.getSession();
     const isNew = !currentConv;
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
+    const res = await fetch(FUNCTION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
       body: JSON.stringify({ conversationId: currentConv, message: text }),
