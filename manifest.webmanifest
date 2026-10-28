@@ -1,17 +1,15 @@
 {
-  "name": "Çalış Artık Da — Nederlands leren",
-  "short_name": "Çalış Artık Da",
-  "description": "Speels Nederlands leren, stap voor stap.",
-  "start_url": "./index.html",
+  "name": "JARVIS",
+  "short_name": "JARVIS",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0a7048",
-  "theme_color": "#12a06a",
+  "background_color": "#14161c",
+  "theme_color": "#14161c",
   "lang": "nl",
-  "orientation": "portrait",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

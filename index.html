@@ -3,179 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Çalış Artık Da — Nederlands leren</title>
-<meta name="description" content="Leer Nederlands in je eigen tempo: interactieve modules, directe feedback en uitleg. Voor de basisschool en inburgering / NT2.">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>JARVIS</title>
+<link rel="icon" href="icons/favicon-32.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#12a06a" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b1712" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="JARVIS">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Çalış Artık Da">
-<link rel="stylesheet" href="styles.css">
+<meta name="theme-color" content="#14161c">
+<link rel="stylesheet" href="ai.css">
 </head>
 <body>
+  <section id="login" class="login" hidden>
+    <form id="loginForm" class="card">
+      <h1>J.A.R.V.I.S.</h1>
+      <p class="muted">Identificeer jezelf.</p>
+      <input id="email" type="email" placeholder="E-mailadres" required autocomplete="email">
+      <input id="password" type="password" placeholder="Wachtwoord" required autocomplete="current-password" minlength="6">
+      <button type="submit">Inloggen</button>
+      <p id="loginMsg" class="msg" role="status"></p>
+    </form>
+  </section>
 
-<!-- ============ LOGIN ============ -->
-<div id="loginView">
-  <div class="login-wrap">
-    <aside class="login-aside">
-      <canvas id="bgCanvas" aria-hidden="true"></canvas>
-      <div class="aside-top"><span>📖</span> Çalış Artık Da</div>
-      <div class="aside-mid">
-        <div class="eyebrow">Nederlands leren</div>
-        <p class="aside-title">Van eerste woorden tot vloeiend — in jouw tempo.</p>
-        <p>Interactieve modules, directe feedback en heldere uitleg. Voor de basisschool en inburgering / NT2.</p>
-      </div>
-      <div class="aside-stats">
-        <div><div class="n tnum" id="asideLessen">–</div><div class="l">lessen</div></div>
-        <div><div class="n tnum" id="asideSpeelbaar">–</div><div class="l">nu speelbaar</div></div>
-        <div><div class="n tnum" id="asideOefeningen">–</div><div class="l">oefeningen</div></div>
-      </div>
-      <div class="aside-version" id="versionFront" style="position:relative; z-index:2; margin-top:18px; font-size:12px; color:#a9f0cf; letter-spacing:.02em">Serkan Yapiyor Bu Isi - Version PR49 - Joker start op Turkse pagina</div>
+  <section id="app" class="app" hidden>
+    <aside class="side">
+      <div class="orb" id="orb"></div>
+      <button id="newChat">+ Nieuw gesprek</button>
+      <label class="muted"><input type="checkbox" id="speak" checked> Antwoorden voorlezen</label>
+      <ul id="convList"></ul>
+      <button id="logout" class="link">Uitloggen</button>
     </aside>
-
-    <main class="login-main">
-      <button class="iconbtn themebtn" id="themeToggle" title="Wissel thema" aria-label="Wissel thema">🌙</button>
-      <div class="login-card">
-        <div class="brand mobile-brand"><span class="logo">Aa</span><div>Çalış Artık Da<small>Nederlands leren</small></div></div>
-        <h1 id="loginTitle">Welkom terug</h1>
-        <p class="sub" id="loginSub">Log in met je account om verder te gaan met je lessen.</p>
-
-        <form id="loginForm">
-          <div class="field">
-            <label for="email">E-mailadres</label>
-            <input type="text" id="email" placeholder="E-mailadres" autocomplete="username" inputmode="email" required>
-          </div>
-          <div class="field">
-            <div class="lbl-row"><label for="pw">Wachtwoord</label><a href="#" id="forgot">Vergeten?</a></div>
-            <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" required>
-          </div>
-          <div class="row-between">
-            <label class="check"><input type="checkbox" id="remember" checked> Onthoud mij</label>
-          </div>
-          <button type="submit" class="btn-primary" id="submitBtn">Inloggen</button>
-          <div class="login-error" id="loginError">E-mailadres of wachtwoord klopt niet.</div>
-        </form>
-
-        <div class="signup-line">Nog geen account? <a href="mailto:info@sekibar.nl">Neem contact op</a></div>
-      </div>
+    <main class="chat">
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <form id="chatForm" class="composer">
+        <button type="button" id="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">🎙️</button>
+        <textarea id="input" rows="1" placeholder="Zeg of typ iets, Serkan…" required maxlength="8000"></textarea>
+        <button type="submit" id="send">Verstuur</button>
+      </form>
     </main>
-  </div>
-</div>
+  </section>
 
-<!-- ============ APP ============ -->
-<div id="appView" class="hidden">
-  <header class="topbar">
-    <div class="topbar-in">
-      <div class="brand"><span class="logo">Aa</span><div>Çalış Artık Da<small>Nederlands leren</small></div></div>
-      <div class="spacer"></div>
-      <button class="linkbtn" id="switchBtn" style="display:none; color:var(--brand-deep)">↔ Wissel weergave</button>
-      <button class="linkbtn" id="turkishBtn" style="display:none; background:#e11d1d; color:#fff; font-weight:800; border-radius:8px; padding:6px 12px; box-shadow:0 2px 8px rgba(225,29,29,.35)" title="Toon de laatste afgeronde lessen in het Turks">🇹🇷 Türkçe</button>
-      <button class="linkbtn" id="homeLink">Lessen</button>
-      <button class="iconbtn" id="installBtn" title="Installeer app" aria-label="Installeer de app op je beginscherm" style="display:none">📲</button>
-      <button class="iconbtn" id="notifyBtn" title="Zet meldingen aan" aria-label="Meldingen aan of uit" aria-pressed="false" style="display:none">🔕</button>
-      <button class="iconbtn" id="soundToggle" title="Geluidseffecten uit zetten" aria-label="Geluidseffecten aan of uit" aria-pressed="false">🔊</button>
-      <button class="iconbtn" id="themeToggle2" title="Wissel thema" aria-label="Wissel thema">🌙</button>
-      <div class="userchip"><span class="avatar" id="avatar">S</span><span id="username">Cursist</span></div>
-      <button class="iconbtn" id="logoutBtn" title="Uitloggen" aria-label="Uitloggen">⏻</button>
-    </div>
-  </header>
-
-  <!-- dashboard -->
-  <div id="dashView" class="app">
-    <div class="welcome">
-      <div>
-        <h1 id="greeting">Goedemiddag 👋</h1>
-        <p>Leer Nederlands stap voor stap — kies een les en ga verder waar je gebleven was.</p>
-      </div>
-      <div class="stat-strip">
-        <div class="stat"><div class="n tnum" id="statDone">–</div><div class="l">afgerond</div></div>
-        <div class="stat"><div class="n tnum" id="statBusy">–</div><div class="l">mee bezig</div></div>
-        <div class="stat accent"><div class="n tnum" id="statStreak">–</div><div class="l">dagen streak 🔥</div></div>
-      </div>
-    </div>
-
-    <!-- ga verder waar je gebleven was -->
-    <div id="continueBar" class="continue-bar hidden"></div>
-
-    <div class="section-head"><span class="bar"></span><h2>Woordjes</h2><span class="count" id="courseCount"></span></div>
-    <div class="lesson-search hidden" id="lessonSearchWrap">
-      <input type="search" id="lessonSearch" placeholder="🔎 Zoek een les op nummer of onderwerp…" aria-label="Zoek een les op nummer of onderwerp">
-    </div>
-    <div class="grid" id="courseGrid"></div>
-
-    <div class="section-head"><span class="bar"></span><h2>Zinsopbouw 1</h2><span class="count" id="zinsCount">binnenkort</span></div>
-    <div class="grid" id="soonGrid"></div>
-
-    <div class="section-head"><span class="bar"></span><h2>Zinsopbouw 2</h2><span class="count" id="zins2Count">binnenkort</span></div>
-    <div class="grid" id="soon2Grid"></div>
-
-    <div class="section-head"><span class="bar"></span><h2>Zinsopbouw 3</h2><span class="count" id="zins3Count">binnenkort</span></div>
-    <div class="grid" id="soon3Grid"></div>
-
-    <!-- badges / beloningen -->
-    <div class="section-head"><span class="bar"></span><h2>Jouw badges</h2><span class="count" id="badgeCount"></span></div>
-    <div class="badges" id="badgeRow"></div>
-
-    <!-- contact -->
-    <div class="section-head"><span class="bar"></span><h2>Contact &amp; vragen</h2></div>
-    <div class="contact">
-      <div class="contact-card">
-        <div class="contact-info">
-          <h2>Neem contact op</h2>
-          <p>Vragen over een les, je account of samenwerken? Stuur een berichtje of mail direct naar
-             <a href="mailto:info@sekibar.nl">info@sekibar.nl</a>. We reageren meestal binnen één werkdag.</p>
-        </div>
-        <form id="contactForm" action="https://formspree.io/f/your-form-id" method="POST">
-          <label class="sr-only" for="contactNaam">Je naam</label>
-          <input type="text" id="contactNaam" name="naam" placeholder="Je naam" autocomplete="name" required>
-          <label class="sr-only" for="contactEmail">Je e-mailadres</label>
-          <input type="email" id="contactEmail" name="email" placeholder="Je e-mailadres" autocomplete="email" required>
-          <label class="sr-only" for="contactBericht">Je vraag of bericht</label>
-          <textarea id="contactBericht" name="bericht" placeholder="Je vraag of bericht…" required></textarea>
-          <button type="submit" class="btn-primary" style="width:auto; justify-self:start">Versturen →</button>
-          <p id="contactFeedback" class="contact-feedback" role="status" aria-live="polite"></p>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- quiz -->
-  <div id="quizView" class="quiz hidden"></div>
-
-  <!-- docenten-dashboard -->
-  <div id="teacherView" class="app hidden"></div>
-
-  <footer class="footer">
-    <span>© <span id="year"></span> Çalış Artık Da · sekibar.nl</span><span class="spacer"></span>
-    <span id="version">Serkan Yapiyor Bu Isi - Version PR49 - Joker start op Turkse pagina</span>
-  </footer>
-</div>
-
-<!-- korte, niet-blokkerende meldingen (bv. 'opslaan mislukt') -->
-<div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="false"></div>
-
-<!-- uitleg voor iPhone/iPad: 'Zet op beginscherm' (Safari heeft geen install-knop) -->
-<div id="installHint" class="install-hint hidden" role="dialog" aria-modal="false" aria-label="App op beginscherm zetten">
-  <div class="install-hint-card">
-    <button type="button" id="installHintClose" class="install-hint-x" aria-label="Sluiten">×</button>
-    <div class="install-hint-title">📲 Zet de app op je beginscherm</div>
-    <p class="install-hint-text"></p>
-  </div>
-</div>
-
-<!-- Supabase JS — vaste versie + SRI-hash (integriteitscontrole tegen CDN-manipulatie).
-     Alleen actief zodra je de sleutels hieronder invult. -->
-<script
-  src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
-  integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
-  crossorigin="anonymous"
-  onerror="window.__supabaseLoadFailed=true"></script>
-<!-- Lesdata (leerlijn + vragenbanken), los van de app-logica -->
-<script src="lessons.js"></script>
-<script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="ai.js"></script>
 </body>
 </html>

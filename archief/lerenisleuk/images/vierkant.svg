@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een vierkant">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <rect x="46" y="26" width="68" height="68" rx="4" fill="#dcf3e8" stroke="#12a06a" stroke-width="6"/>
+  <rect x="42" y="22" width="8" height="8" fill="#0a7048"/><rect x="110" y="22" width="8" height="8" fill="#0a7048"/>
+  <rect x="42" y="90" width="8" height="8" fill="#0a7048"/><rect x="110" y="90" width="8" height="8" fill="#0a7048"/>
+</svg>

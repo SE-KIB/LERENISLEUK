@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const file = path.join(__dirname, '..', 'lessons.js');
+const file = path.join(__dirname, '..', 'archief', 'lerenisleuk', 'lessons.js');
 const s = fs.readFileSync(file, 'utf8');
 
 // QUIZZES-object-literal uit lessons.js knippen (haakjes-balans).
