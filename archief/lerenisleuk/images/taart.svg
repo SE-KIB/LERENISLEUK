@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een verjaardagstaart">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <ellipse cx="80" cy="102" rx="52" ry="7" fill="#cfe0d8"/>
+  <rect x="40" y="60" width="80" height="40" rx="6" fill="#f2934b"/>
+  <path d="M40 66 q10 10 20 0 q10 10 20 0 q10 10 20 0 q10 10 20 0 v-8 h-80 z" fill="#dcf3e8"/>
+  <rect x="52" y="44" width="4" height="18" fill="#12a06a"/>
+  <rect x="78" y="44" width="4" height="18" fill="#0a7048"/>
+  <rect x="104" y="44" width="4" height="18" fill="#12a06a"/>
+  <circle cx="54" cy="40" r="4" fill="#f2934b"/><circle cx="80" cy="40" r="4" fill="#f2934b"/><circle cx="106" cy="40" r="4" fill="#f2934b"/>
+</svg>

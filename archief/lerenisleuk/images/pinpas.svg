@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een pinpas">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <rect x="26" y="34" width="108" height="64" rx="10" fill="#12a06a"/>
+  <rect x="26" y="46" width="108" height="14" fill="#0f2a22"/>
+  <rect x="40" y="70" width="20" height="15" rx="3" fill="#f2934b"/>
+  <rect x="70" y="74" width="52" height="4" rx="2" fill="#dcf3e8"/>
+  <rect x="70" y="83" width="34" height="4" rx="2" fill="#dcf3e8"/>
+</svg>

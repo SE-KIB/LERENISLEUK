@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="een huis">
+  <rect width="160" height="120" rx="14" fill="#eaf5ef"/>
+  <polygon points="80,24 34,62 126,62" fill="#12a06a"/>
+  <rect x="46" y="60" width="68" height="48" rx="4" fill="#ffffff" stroke="#0a7048" stroke-width="3"/>
+  <rect x="66" y="78" width="20" height="30" rx="2" fill="#f2934b"/>
+  <rect x="92" y="72" width="16" height="16" rx="2" fill="#dcf3e8" stroke="#0a7048" stroke-width="2"/>
+  <rect x="70" y="18" width="10" height="16" fill="#0a7048"/>
+</svg>
