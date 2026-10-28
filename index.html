@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ECO</title>
 <link rel="icon" href="icons/favicon-32.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -10,38 +10,110 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ECO">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#14161c">
+<meta name="theme-color" content="#01070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ai.css">
 </head>
-<body>
-  <div id="version" class="version" title="Laatst bijgewerkte pull request">PR57 | 28-10-2026 19:35</div>
+<body data-state="idle">
+  <div class="fx-grid" aria-hidden="true"></div>
+  <div class="fx-scan" aria-hidden="true"></div>
+
+  <!-- Opstartsequentie -->
+  <section id="boot" class="boot" aria-label="Systeem start op">
+    <div class="boot-inner">
+      <div class="boot-logo">E.C.O.</div>
+      <pre id="bootLog" class="boot-log"></pre>
+      <div class="boot-bar"><span id="bootBar"></span></div>
+      <div class="boot-hint">tik om over te slaan</div>
+    </div>
+  </section>
+
+  <!-- Identiteitscontrole -->
   <section id="login" class="login" hidden>
-    <form id="loginForm" class="card">
-      <h1>E.C.O.</h1>
-      <p class="muted">Identificeer jezelf.</p>
-      <input id="email" type="email" placeholder="E-mailadres" required autocomplete="email">
-      <input id="password" type="password" placeholder="Wachtwoord" required autocomplete="current-password" minlength="6">
-      <button type="submit">Inloggen</button>
-      <p id="loginMsg" class="msg" role="status"></p>
+    <div class="login-reactor reactor-wrap"><div class="reactor" data-reactor></div></div>
+    <form id="loginForm" class="panel login-panel">
+      <div class="panel-h"><span>IDENTITEITSVERIFICATIE</span><i>SEC-LVL 5</i></div>
+      <p class="login-sub">Toegang beperkt tot geautoriseerd personeel.</p>
+      <label class="field"><span>GEBRUIKER</span>
+        <input id="email" type="email" required autocomplete="email" spellcheck="false"></label>
+      <label class="field"><span>WACHTWOORDSLEUTEL</span>
+        <input id="password" type="password" required autocomplete="current-password" minlength="6"></label>
+      <button type="submit" class="btn-primary">VERIFIËREN</button>
+      <p id="loginMsg" class="login-msg" role="status"></p>
+      <div class="scanline" aria-hidden="true"></div>
     </form>
   </section>
 
-  <section id="app" class="app" hidden>
-    <aside class="side">
-      <div class="orb" id="orb"></div>
-      <button id="newChat">+ Nieuw gesprek</button>
-      <label class="muted"><input type="checkbox" id="speak" checked> Antwoorden voorlezen</label>
-      <ul id="convList"></ul>
-      <button id="logout" class="link">Uitloggen</button>
+  <!-- HUD -->
+  <section id="app" class="hud" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <b>E.C.O.</b>
+        <span>PERSONAL INTELLIGENCE SYSTEM</span>
+      </div>
+      <div class="sysline"><i class="dot"></i><span id="sysLine">ALLE SYSTEMEN OPERATIONEEL</span></div>
+      <div class="top-right">
+        <div id="version" class="version" title="Laatst bijgewerkte pull request">PR58 | 28-10-2026 19:44</div>
+        <button type="button" id="archiveBtn" class="chip only-mobile" aria-controls="leftCol">ARCHIEF</button>
+      </div>
+    </header>
+
+    <aside class="col left" id="leftCol">
+      <div class="panel">
+        <div class="panel-h"><span>LOKALE TIJD</span><i>CET</i></div>
+        <div id="clock" class="clock">00:00<small>:00</small></div>
+        <div id="date" class="date"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><span>SYSTEEMSTATUS</span><i id="uptime">00:00:00</i></div>
+        <ul class="stats">
+          <li><span>KERN</span><b class="ok">ONLINE</b></li>
+          <li><span>NETWERK</span><b id="stNet" class="ok">ONLINE</b></li>
+          <li><span>ENERGIE</span><b id="stBat">—</b></li>
+          <li><span>SPRAAK</span><b id="stVoice">—</b></li>
+          <li><span>LATENTIE</span><b id="stLat">—</b></li>
+          <li><span>GEBRUIKER</span><b id="stUser">—</b></li>
+        </ul>
+        <div class="meter"><span id="meterFill"></span></div>
+      </div>
+      <div class="panel grow">
+        <div class="panel-h"><span>ARCHIEF</span><button type="button" id="newChat" class="link">+ NIEUW</button></div>
+        <ul id="convList" class="conv-list"></ul>
+      </div>
+      <div class="panel controls">
+        <label class="switch"><input type="checkbox" id="speak" checked><i></i><span>STEM</span></label>
+        <label class="switch"><input type="checkbox" id="sfx" checked><i></i><span>GELUID</span></label>
+        <button type="button" id="logout" class="link danger">AFMELDEN</button>
+      </div>
     </aside>
-    <main class="chat">
-      <div id="messages" class="messages" aria-live="polite"></div>
-      <form id="chatForm" class="composer">
-        <button type="button" id="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">🎙️</button>
-        <textarea id="input" rows="1" placeholder="Zeg of typ iets, Serkan…" required maxlength="8000"></textarea>
-        <button type="submit" id="send">Verstuur</button>
+
+    <main class="center">
+      <div class="reactor-wrap main-reactor">
+        <canvas id="viz" aria-hidden="true"></canvas>
+        <div class="reactor" data-reactor></div>
+        <div class="reactor-label"><b>E.C.O.</b><span id="stateLabel">STAND-BY</span></div>
+        <div class="readout tl" aria-hidden="true" id="roA"></div>
+        <div class="readout br" aria-hidden="true" id="roB"></div>
+      </div>
+      <div id="caption" class="caption" aria-live="polite"></div>
+      <form id="chatForm" class="cmd">
+        <button type="button" id="mic" class="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+        </button>
+        <span class="prompt">›</span>
+        <textarea id="input" rows="1" placeholder="Opdracht…" required maxlength="8000" enterkeyhint="send"></textarea>
+        <button type="submit" id="send" class="btn-primary">UITVOEREN</button>
       </form>
     </main>
+
+    <aside class="col right">
+      <div class="panel grow">
+        <div class="panel-h"><span>TRANSCRIPT</span><i id="convId">—</i></div>
+        <div id="messages" class="log"></div>
+      </div>
+    </aside>
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
