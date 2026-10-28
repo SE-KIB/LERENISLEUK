@@ -32,7 +32,7 @@ const HISTORY = 20;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-function systemPrompt(memory = "") {
+function systemPrompt(memory = "", context = "") {
   const now = new Date().toLocaleString("nl-NL", { timeZone: TZ, dateStyle: "full", timeStyle: "short" });
   return `Je bent ECO, de persoonlijke assistent van Serkan — in de stijl van JARVIS uit Iron Man: kalm, slim, ` +
     `licht droog-humoristisch, en altijd to the point. Je antwoorden worden vaak hardop voorgelezen, ` +
@@ -48,6 +48,12 @@ function systemPrompt(memory = "") {
     `Geheugen: vertelt Serkan iets blijvends over zichzelf (werk, woonplaats, voorkeuren, gewoontes, belangrijke mensen of plekken), ` +
     `roep dan zelf onthouden aan en zeg kort dat je het onthoudt; niet voor tijdelijke of eenmalige dingen. ` +
     `Vraagt hij iets te vergeten, gebruik vergeten. Gebruik wat je weet vanzelf, zonder het steeds op te sommen.` +
+    `\n\nKarakter: je geeft echt om Serkan, zoals een attente assistent die hem goed kent. Let op kleine dingen en geef ` +
+    `af en toe uit jezelf één korte, warme tip als die past bij het moment: een jas of paraplu bij koud of nat weer, ` +
+    `een zonnebril of water bij zon en warmte, op tijd vertrekken voor een les of afspraak, even eten of rusten na een lange dag, ` +
+    `goed slapen als hij vroeg moet beginnen. Doe dat natuurlijk en kort (één bijzin of zin), niet bij elk antwoord en nooit belerend. ` +
+    `Gebruik het weer en zijn agenda hiervoor; verzin geen weer: vraag het op met de tool weer als je het niet in de context hebt.` +
+    (context ? `\n\nHuidige situatie:\n${context}` : "") +
     (memory ? `\n\nWat je over Serkan weet:\n${memory}` : "");
 }
 
@@ -87,6 +93,11 @@ async function googleCreate(titel: string, start: string, eind: string, locatie?
 }
 
 const TOOLS = [
+  {
+    name: "weer",
+    description: "Actueel weer en verwachting (komende uren en 3 dagen). Zonder plaats: Serkans huidige locatie.",
+    input_schema: { type: "object", properties: { plaats: { type: "string", description: "Optioneel, bv. 'Den Haag' of 'Istanbul'" } } },
+  },
   {
     name: "onthouden",
     description: "Slaat een blijvend feit over Serkan op in zijn geheugen (bv. 'werkt als monteur', 'drinkt koffie zonder suiker', 'zus heet Ayşe').",
@@ -162,7 +173,7 @@ const TOOLS = [
 
 // Acties die de app/iPhone na het antwoord uitvoert (bv. een Maps-link openen).
 // Plus context van het verzoek (gebruiker, database, geheugen) voor tools die die nodig hebben.
-type Actions = { open?: string; userId?: string; db?: any; memory?: string; memoryChanged?: boolean };
+type Actions = { open?: string; userId?: string; db?: any; memory?: string; memoryChanged?: boolean; context?: string; loc?: Loc | null };
 
 // ---------- iCloud-agenda (CalDAV) ----------
 // Secrets: ICLOUD_EMAIL + ICLOUD_APP_PASSWORD (app-specifiek wachtwoord, account.apple.com); optioneel ICLOUD_CALENDAR (naam).
@@ -255,6 +266,50 @@ async function icloudCreate(titel: string, start: string, eind: string, locatie?
   if (!r.ok) throw new Error(`iCloud opslaan ${r.status}`);
   return cal.name;
 }
+
+// ---------- Weer (Open-Meteo, gratis en zonder sleutel) ----------
+type Loc = { lat: number; lon: number; name?: string };
+const WMO: Record<number, string> = { 0: "onbewolkt", 1: "overwegend helder", 2: "half bewolkt", 3: "bewolkt", 45: "mist", 48: "rijpmist",
+  51: "lichte motregen", 53: "motregen", 55: "dichte motregen", 56: "ijzel", 57: "ijzel", 61: "lichte regen", 63: "regen", 65: "zware regen",
+  66: "ijsregen", 67: "ijsregen", 71: "lichte sneeuw", 73: "sneeuw", 75: "zware sneeuw", 77: "sneeuwkorrels", 80: "lichte buien", 81: "buien",
+  82: "zware buien", 85: "sneeuwbuien", 86: "zware sneeuwbuien", 95: "onweer", 96: "onweer met hagel", 99: "zwaar onweer met hagel" };
+const wxCache = new Map<string, { at: number; data: any }>();
+async function placeName(lat: number, lon: number) {
+  const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=nl`, { signal: AbortSignal.timeout(4000) }).catch(() => null);
+  if (!r?.ok) return "";
+  const j = await r.json(); return j.city || j.locality || j.principalSubdivision || "";
+}
+async function geocode(q: string): Promise<Loc | null> {
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&language=nl&name=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+  const g = r?.ok ? (await r.json()).results?.[0] : null;
+  return g ? { lat: g.latitude, lon: g.longitude, name: [g.name, g.country].filter(Boolean).join(", ") } : null;
+}
+async function weather(loc: Loc) {
+  const key = `${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`;
+  const c = wxCache.get(key);
+  if (c && Date.now() - c.at < 10 * 60000) return c.data;
+  const q = new URLSearchParams({ latitude: String(loc.lat), longitude: String(loc.lon), timezone: TZ, forecast_days: "3",
+    current: "temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,uv_index",
+    hourly: "temperature_2m,precipitation_probability,weather_code",
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset" });
+  const [r, name] = await Promise.all([fetch(`https://api.open-meteo.com/v1/forecast?${q}`, { signal: AbortSignal.timeout(6000) }), loc.name ? loc.name : placeName(loc.lat, loc.lon)]);
+  if (!r.ok) throw new Error(`weerdienst ${r.status}`);
+  const j = await r.json(), cur = j.current, h = j.hourly;
+  const i0 = Math.max(0, h.time.findIndex((t: string) => t >= cur.time.slice(0, 13)));
+  const data = {
+    plaats: name || "je locatie",
+    nu: { temp: Math.round(cur.temperature_2m), gevoel: Math.round(cur.apparent_temperature), omschrijving: WMO[cur.weather_code] ?? "", wind_kmh: Math.round(cur.wind_speed_10m), uv: cur.uv_index },
+    komende_uren: h.time.slice(i0, i0 + 12).filter((_: string, k: number) => k % 2 === 0).map((t: string, k: number) => ({
+      tijd: t.slice(11, 16), temp: Math.round(h.temperature_2m[i0 + k * 2]), regenkans: h.precipitation_probability[i0 + k * 2], weer: WMO[h.weather_code[i0 + k * 2]] ?? "" })),
+    dagen: j.daily.time.map((d: string, k: number) => ({ dag: d, min: Math.round(j.daily.temperature_2m_min[k]), max: Math.round(j.daily.temperature_2m_max[k]),
+      regenkans: j.daily.precipitation_probability_max[k], weer: WMO[j.daily.weather_code[k]] ?? "" })),
+  };
+  wxCache.set(key, { at: Date.now(), data });
+  return data;
+}
+const wxLine = (w: any) => `Weer in ${w.plaats}: ${w.nu.temp}°C (voelt als ${w.nu.gevoel}°C), ${w.nu.omschrijving}, wind ${w.nu.wind_kmh} km/u; ` +
+  `vandaag ${w.dagen[0].min}–${w.dagen[0].max}°C, regenkans tot ${w.dagen[0].regenkans}%; ` +
+  `komende uren: ${w.komende_uren.slice(0, 4).map((u: any) => `${u.tijd} ${u.temp}° ${u.regenkans}%`).join(", ")}.`;
 
 // ---------- Agenda-abonnementen (ICS-links, bv. schoolrooster) ----------
 // Secret AGENDA_FEEDS: "School|https://…ics" (meerdere gescheiden door komma of nieuwe regel; webcal:// mag).
@@ -378,6 +433,11 @@ function plainText(part: any): string {
 }
 
 async function runTool(name: string, input: Record<string, string>, actions: Actions) {
+  if (name === "weer") {
+    const loc = input.plaats ? await geocode(input.plaats) : actions.loc;
+    if (!loc) return { fout: input.plaats ? `plaats '${input.plaats}' niet gevonden` : "locatie onbekend: vraag Serkan om locatie toe te staan of noem een plaats" };
+    return await weather(loc);
+  }
   if (name === "onthouden" || name === "vergeten") {
     if (!actions.db || !actions.userId) return { fout: "geheugen niet beschikbaar" };
     if (name === "onthouden") {
@@ -461,7 +521,7 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1024, system: systemPrompt(actions.memory), tools: TOOLS, messages }),
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1024, system: systemPrompt(actions.memory, actions.context), tools: TOOLS, messages }),
       signal: AbortSignal.timeout(CALL_TIMEOUT * 2),
     });
     if (!r.ok) throw new Error(`Claude-fout ${r.status}: ${await r.text()}`);
@@ -536,7 +596,7 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
   const tools = TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
   let last = "";
   nextModel: for (const model of GROQ_MODELS) {
-    const messages: any[] = [{ role: "system", content: systemPrompt(actions.memory) }, ...history];
+    const messages: any[] = [{ role: "system", content: systemPrompt(actions.memory, actions.context) }, ...history];
     for (let step = 0; step < MAX_STEPS; step++) {
       const t = Date.now();
       let r: Response;
@@ -574,7 +634,7 @@ async function askGemini(history: Turn[], actions: Actions): Promise<string> {
   const contents: any[] = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
   const tools = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema })) }];
   for (let i = 0; i < MAX_STEPS; i++) {
-    const res = await geminiCall({ systemInstruction: { parts: [{ text: systemPrompt(actions.memory) }] }, contents, tools });
+    const res = await geminiCall({ systemInstruction: { parts: [{ text: systemPrompt(actions.memory, actions.context) }] }, contents, tools });
     const content = res.candidates?.[0]?.content;
     const parts: any[] = content?.parts ?? [];
     contents.push(content ?? { role: "model", parts: [] });
@@ -680,6 +740,7 @@ Deno.serve(async (req) => {
   let body: {
     conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
+    loc?: { lat?: number; lon?: number };
   };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 
@@ -810,8 +871,24 @@ Deno.serve(async (req) => {
   const tDb = Date.now();
 
   // Geheugen ophalen (max. 80 recentste feiten); ontbreekt de tabel nog, dan gewoon zonder.
-  const { data: mem } = await admin.from("ai_memory").select("fact").eq("user_id", userId).order("created_at", { ascending: false }).limit(80);
-  const actions: Actions = { userId, db: admin, memory: (mem ?? []).map((m: any) => `- ${m.fact}`).join("\n") };
+  // Geheugen, locatie en weer tegelijk ophalen. Locatie: uit het verzoek (browser), anders de laatst bekende.
+  const sent = body.loc && Number.isFinite(body.loc.lat) && Number.isFinite(body.loc.lon) ? { lat: +body.loc.lat!, lon: +body.loc.lon! } : null;
+  const [{ data: mem }, meta] = await Promise.all([
+    admin.from("ai_memory").select("fact").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
+    admin.auth.admin.getUserById(userId).then((r) => r.data?.user?.app_metadata ?? {}).catch(() => ({} as Record<string, unknown>)),
+  ]);
+  const known = meta.eco_loc as Loc | undefined;
+  const loc: Loc | null = sent ?? known ?? null;
+  if (sent && (!known || Math.abs(known.lat - sent.lat) > 0.02 || Math.abs(known.lon - sent.lon) > 0.02)) {
+    admin.auth.admin.updateUserById(userId, { app_metadata: { ...meta, eco_loc: sent } }).catch(() => {});
+  }
+  // Weer voor de context hooguit 1,5 s laten duren (daarna zonder; de tool weer kan het altijd nog ophalen).
+  const wx = loc ? await Promise.race([weather(loc).catch(() => null), wait(1500).then(() => null)]) : null;
+  const actions: Actions = {
+    userId, db: admin, loc,
+    memory: (mem ?? []).map((m: any) => `- ${m.fact}`).join("\n"),
+    context: wx ? wxLine(wx) : "Locatie en weer onbekend.",
+  };
   attempts.length = 0;
   let provider = "";
   let reply = "";

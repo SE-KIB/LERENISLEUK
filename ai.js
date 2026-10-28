@@ -206,6 +206,7 @@ function render(session) {
   $("stUser").textContent = (session.user.email || "").split("@")[0].toUpperCase();
   currentUserId = session.user.id;
   loadMemory();
+  locate();
   sizeViz();
   requestAnimationFrame(initLayout);
   loadConversations();
@@ -316,6 +317,55 @@ async function openConversation(id) {
   typeCaption(last ? plain(last.content) : "");
 }
 
+// ---------- Locatie en weer ----------
+// Locatie (alleen met toestemming) gaat mee met elke vraag, zodat ECO het weer kent; het paneel haalt het weer direct op.
+let myLoc = null, wxTimer = null;
+const WMO_NL = { 0: "onbewolkt", 1: "overwegend helder", 2: "half bewolkt", 3: "bewolkt", 45: "mist", 48: "rijpmist", 51: "lichte motregen",
+  53: "motregen", 55: "motregen", 56: "ijzel", 57: "ijzel", 61: "lichte regen", 63: "regen", 65: "zware regen", 66: "ijsregen", 67: "ijsregen",
+  71: "lichte sneeuw", 73: "sneeuw", 75: "zware sneeuw", 77: "sneeuwkorrels", 80: "lichte buien", 81: "buien", 82: "zware buien",
+  85: "sneeuwbuien", 86: "sneeuwbuien", 95: "onweer", 96: "onweer met hagel", 99: "onweer met hagel" };
+function locate() {
+  if (!navigator.geolocation) { $("wxDesc").textContent = "Locatie niet beschikbaar"; return; }
+  navigator.geolocation.getCurrentPosition((p) => {
+    myLoc = { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) };
+    $("wxAllow").hidden = true; loadWeather();
+    clearInterval(wxTimer); wxTimer = setInterval(loadWeather, 15 * 60000);
+  }, () => { $("wxDesc").textContent = "Locatie staat uit"; $("wxAllow").hidden = false; }, { maximumAge: 10 * 60000, timeout: 15000 });
+}
+$("wxAllow").onclick = locate;
+function careTip(w) {
+  const feel = w.current.apparent_temperature, code = w.current.weather_code, uv = w.current.uv_index ?? 0, wind = w.current.wind_speed_10m;
+  const rain = Math.max(...w.hourly.precipitation_probability.slice(w._i, w._i + 4));
+  const tips = [];
+  if (rain >= 50 || (code >= 51 && code <= 67) || (code >= 80 && code <= 82)) tips.push("Neem een paraplu of regenjas mee.");
+  if (code >= 71 && code <= 86) tips.push("Het sneeuwt, kleed je warm aan en doe voorzichtig.");
+  if (feel <= 5) tips.push("Het is koud: warme jas, en misschien een sjaal.");
+  else if (feel <= 12) tips.push("Trek wel een jas aan.");
+  else if (feel <= 17) tips.push("Een vest of dunne jas is prettig.");
+  else if (feel >= 25) tips.push("Lekker warm, t-shirtweer. Vergeet niet genoeg te drinken.");
+  if (uv >= 6) tips.push("De zon is sterk, smeer je in.");
+  if (wind >= 40) tips.push("Het waait flink.");
+  return tips.slice(0, 2).join(" ");
+}
+async function loadWeather() {
+  if (!myLoc) return;
+  try {
+    const q = new URLSearchParams({ latitude: myLoc.lat, longitude: myLoc.lon, timezone: "Europe/Amsterdam", forecast_days: 1,
+      current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,uv_index", hourly: "precipitation_probability" });
+    const [w, place] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?${q}`).then((r) => r.json()),
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${myLoc.lat}&longitude=${myLoc.lon}&localityLanguage=nl`)
+        .then((r) => r.json()).then((j) => j.city || j.locality || "").catch(() => ""),
+    ]);
+    w._i = Math.max(0, w.hourly.time.findIndex((t) => t >= w.current.time.slice(0, 13)));
+    $("wxTemp").textContent = `${Math.round(w.current.temperature_2m)}°`;
+    $("wxDesc").textContent = WMO_NL[w.current.weather_code] ?? "";
+    $("wxFeel").textContent = `VOELT ALS ${Math.round(w.current.apparent_temperature)}° · WIND ${Math.round(w.current.wind_speed_10m)} KM/U`;
+    $("wxPlace").textContent = (place || "HIER").toUpperCase();
+    $("wxTip").textContent = careTip(w);
+  } catch { $("wxDesc").textContent = "Weer tijdelijk niet beschikbaar"; }
+}
+
 // ---------- Geheugen (PROFIEL) ----------
 async function loadMemory() {
   const { data, error } = await sb.from("ai_memory").select("id,fact").order("created_at", { ascending: false }).limit(200);
@@ -394,7 +444,7 @@ $("chatForm").onsubmit = async (e) => {
     const res = await fetch(FUNCTION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ conversationId: currentConv, message: text }),
+      body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
     const data = await res.json();
@@ -661,7 +711,7 @@ const DESKTOP = matchMedia("(min-width: 901px)");
 const hud = $("app");
 const wins = [...hud.querySelectorAll("[data-win]")];
 const MIN = { kern: [260, 260], cmd: [320, 58] };
-const AUTO_H = new Set(["cmd", "bediening"]); // hoogte volgt de inhoud
+const AUTO_H = new Set(["cmd", "bediening", "weer"]); // hoogte volgt de inhoud
 let zTop = 10;
 const loadLayout = () => { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; } catch { return {}; } };
 const saveLayout = () => {
