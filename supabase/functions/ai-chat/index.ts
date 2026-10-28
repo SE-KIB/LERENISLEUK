@@ -387,15 +387,71 @@ Deno.serve(async (req) => {
     return json({ error: "Spraakherkenning mislukt: " + last }, 502);
   }
 
-  let body: { conversationId?: string; message?: string; tts?: string };
+  let body: { conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string; generatedVoiceId?: string; name?: string };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
+
+  // Stem: de gekozen eigen stem (Stemlab) staat in app_metadata van de gebruiker, anders ELEVENLABS_VOICE_ID.
+  const getVoiceId = async () => {
+    const { data } = await admin.auth.admin.getUserById(userId!);
+    return (data?.user?.app_metadata?.eco_voice_id as string) || env("ELEVENLABS_VOICE_ID");
+  };
+
+  // Stemlab: een eigen stem ontwerpen (3 voorbeelden), opslaan of terugzetten.
+  if (body.voice) {
+    if (!env("ELEVENLABS_API_KEY")) return json({ error: "ELEVENLABS_API_KEY ontbreekt in de secrets" }, 501);
+    const el = (path: string, payload: unknown) => fetch(`https://api.elevenlabs.io${path}`, {
+      method: "POST",
+      headers: { "xi-api-key": env("ELEVENLABS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify(payload), signal: AbortSignal.timeout(90000),
+    });
+    const fail = async (r: Response, what: string) => {
+      const t = (await r.text()).slice(0, 300);
+      console.error(`ElevenLabs ${what}`, r.status, t);
+      return json({ error: `ElevenLabs (${what}) ${r.status}: ${t}` }, 502);
+    };
+    if (body.voice === "design") {
+      const description = (body.description ?? "").trim().slice(0, 1000);
+      let text = (body.text ?? "").trim().slice(0, 1000);
+      if (description.length < 20) return json({ error: "Beschrijving is te kort (min. 20 tekens)" }, 400);
+      while (text.length < 100) text += (text ? " " : "") + "Alle systemen zijn operationeel en ik sta voor je klaar.";
+      // Nieuwste ontwerp-API eerst; oudere als terugval.
+      let r = await el("/v1/text-to-voice/design", { voice_description: description, text, model_id: env("ELEVENLABS_DESIGN_MODEL", "eleven_multilingual_ttv_v2") });
+      if ([400, 404, 405, 422].includes(r.status)) r = await el("/v1/text-to-voice/create-previews", { voice_description: description, text });
+      if (!r.ok) return fail(r, "ontwerpen");
+      const j = await r.json();
+      const previews = (j.previews ?? []).map((p: any) => ({
+        id: p.generated_voice_id, audio: `data:${p.media_type || "audio/mpeg"};base64,${p.audio_base_64}`,
+      }));
+      return json({ previews });
+    }
+    if (body.voice === "save") {
+      if (!body.generatedVoiceId) return json({ error: "Geen voorbeeld gekozen" }, 400);
+      const payload = { voice_name: (body.name || "ECO").slice(0, 60), voice_description: (body.description || "ECO-stem").slice(0, 1000), generated_voice_id: body.generatedVoiceId };
+      let r = await el("/v1/text-to-voice", payload);
+      if ([404, 405].includes(r.status)) r = await el("/v1/text-to-voice/create-voice-from-preview", payload);
+      if (!r.ok) return fail(r, "opslaan");
+      const { voice_id } = await r.json();
+      const { data } = await admin.auth.admin.getUserById(userId);
+      await admin.auth.admin.updateUserById(userId, { app_metadata: { ...(data?.user?.app_metadata ?? {}), eco_voice_id: voice_id } });
+      return json({ voiceId: voice_id });
+    }
+    if (body.voice === "reset") {
+      const { data } = await admin.auth.admin.getUserById(userId);
+      const meta = { ...(data?.user?.app_metadata ?? {}) }; delete meta.eco_voice_id;
+      await admin.auth.admin.updateUserById(userId, { app_metadata: meta });
+      return json({ ok: true });
+    }
+    if (body.voice === "status") return json({ voiceId: await getVoiceId() || null });
+    return json({ error: "Onbekende stemactie" }, 400);
+  }
 
   // Stem: tekst omzetten naar spraak via ElevenLabs (alleen voor ingelogde/geautoriseerde gebruiker).
   if (typeof body.tts === "string") {
-    if (!env("ELEVENLABS_API_KEY") || !env("ELEVENLABS_VOICE_ID")) return json({ error: "Geen stem ingesteld" }, 501);
+    const voiceId = env("ELEVENLABS_API_KEY") ? await getVoiceId() : "";
+    if (!env("ELEVENLABS_API_KEY") || !voiceId) return json({ error: "Geen stem ingesteld" }, 501);
     const text = body.tts.trim().slice(0, 2500);
     if (!text) return json({ error: "Geen tekst" }, 400);
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${env("ELEVENLABS_VOICE_ID")}?output_format=mp3_44100_64&optimize_streaming_latency=2`, {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64&optimize_streaming_latency=2`, {
       method: "POST",
       headers: { "xi-api-key": env("ELEVENLABS_API_KEY"), "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({

@@ -266,3 +266,16 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 .hud.free .panel.controls{display:grid}
+
+/* Stemlab */
+.modal{position:fixed;inset:0;z-index:45;display:grid;place-items:center;padding:16px;background:rgba(0,6,10,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.modal-panel{width:min(620px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:grid;gap:12px;background:rgba(2,18,26,.96)}
+.field textarea{background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.6rem .7rem;font-family:var(--f-body);font-size:1rem;color:var(--c2);outline:none;resize:vertical}
+.field textarea:focus{border-color:var(--c);box-shadow:0 0 0 1px var(--c),var(--glow)}
+.lab-presets,.lab-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lab-actions{justify-content:space-between}
+.lab-previews{display:grid;gap:8px}
+.lab-item{display:flex;align-items:center;gap:10px;justify-content:space-between;border:1px solid var(--cd);padding:8px 10px;background:var(--cf)}
+.lab-item b{font-family:var(--f-head);font-size:.62rem;letter-spacing:.22em;color:var(--c)}
+.lab-item.playing{border-color:var(--c);box-shadow:var(--glow)}
+.lab-item div{display:flex;gap:8px}

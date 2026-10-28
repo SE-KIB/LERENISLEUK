@@ -89,6 +89,7 @@
       <div class="panel controls" data-win="bediening" data-title="BEDIENING">
         <label class="switch"><input type="checkbox" id="speak" checked><i></i><span>STEM</span></label>
         <label class="switch"><input type="checkbox" id="sfx" checked><i></i><span>GELUID</span></label>
+        <button type="button" id="labOpen" class="link" title="Eigen stem ontwerpen met ElevenLabs">STEMLAB</button>
         <button type="button" id="resetLayout" class="link only-desktop" title="Alle panelen terug naar de standaardindeling">INDELING HERSTELLEN</button>
         <button type="button" id="logout" class="link danger">AFMELDEN</button>
       </div>
@@ -121,6 +122,18 @@
         <div id="messages" class="log"></div>
       </div>
     </aside>
+    <div id="voiceLab" class="modal" hidden>
+      <form id="labForm" class="panel modal-panel">
+        <div class="panel-h"><span>STEMLAB</span><button type="button" class="link" id="labClose">SLUITEN</button></div>
+        <p class="login-sub">Beschrijf de stem; ElevenLabs maakt drie versies. Kies er één en ECO gebruikt hem meteen.</p>
+        <div class="lab-presets"><button type="button" class="chip" data-preset="brits">BRITSE BUTLER</button><button type="button" class="chip" data-preset="nl">NEDERLANDS, ZELFDE SFEER</button></div>
+        <label class="field"><span>BESCHRIJVING (ENGELS WERKT HET BEST)</span><textarea id="labDesc" rows="5" maxlength="1000" required></textarea></label>
+        <label class="field"><span>PROEFTEKST</span><textarea id="labText" rows="3" maxlength="1000"></textarea></label>
+        <div class="lab-actions"><button type="submit" class="btn-primary" id="labGen">GENEREREN</button><button type="button" class="link" id="labReset" title="Terug naar ELEVENLABS_VOICE_ID of de browserstem">STANDAARDSTEM</button></div>
+        <p id="labMsg" class="login-msg" role="status"></p>
+        <div id="labPreviews" class="lab-previews"></div>
+      </form>
+    </div>
     <div id="dockL" class="dock l" aria-label="Ingeklapte panelen links"></div>
     <div id="dockR" class="dock r" aria-label="Ingeklapte panelen rechts"></div>
   </section>
