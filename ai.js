@@ -303,7 +303,8 @@ $("chatForm").onsubmit = async (e) => {
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
     const data = await res.json();
     lastLatency = Math.round(performance.now() - t);
-    $("stLat").textContent = `${lastLatency} MS`;
+    const ai = /ai;dur=(\d+)/.exec(res.headers.get("server-timing") || "")?.[1];
+    $("stLat").textContent = ai ? `${lastLatency} MS · AI ${ai}` : `${lastLatency} MS`;
     currentConv = data.conversationId;
     $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
     const body = entry("assistant", data.reply);
@@ -362,9 +363,17 @@ function voiceLevel() {
   requestAnimationFrame(voiceLevel);
 }
 player.onplay = () => { setState("speaking"); voiceLevel(); };
-player.onended = player.onerror = () => { if (document.body.dataset.state === "speaking") setState("idle"); };
+player.onerror = () => { if (document.body.dataset.state === "speaking") setState("idle"); };
 
-async function sayPremium(text) {
+// Snel beginnen met praten: eerste zin apart laten inspreken, de rest tegelijk ophalen en daarna afspelen.
+function chunks(text) {
+  const parts = text.match(/[^.!?…]+[.!?…]+["')\]]*\s*|[^.!?…]+$/g) || [text];
+  const first = [];
+  while (parts.length && (first.join("").length < 40 || !first.length)) first.push(parts.shift());
+  return [first.join("").trim(), parts.join("").trim()].filter(Boolean);
+}
+let voiceGen = 0, queue = [];
+async function ttsBlob(text) {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
@@ -373,10 +382,27 @@ async function sayPremium(text) {
   });
   if (res.status === 501) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
   if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error("stem " + res.status);
-  const url = URL.createObjectURL(await res.blob());
-  player.src = url;
-  player.onloadeddata = () => URL.revokeObjectURL(url);
-  await player.play();
+  return URL.createObjectURL(await res.blob());
+}
+async function playNext(gen) {
+  if (gen !== voiceGen) return;
+  const next = queue.shift();
+  if (!next) { if (document.body.dataset.state === "speaking") setState("idle"); return; }
+  try {
+    const url = await next;
+    if (gen !== voiceGen) return;
+    player.src = url;
+    player.onloadeddata = () => URL.revokeObjectURL(url);
+    await player.play();
+  } catch (e) { console.warn("Stemdeel overgeslagen:", e.message); playNext(gen); }
+}
+player.onended = () => playNext(voiceGen);
+async function sayPremium(text) {
+  const gen = ++voiceGen;
+  queue = chunks(text).map(ttsBlob);
+  queue.forEach((p) => p.catch(() => {})); // fouten worden bij het afspelen afgehandeld
+  await queue[0]; // gooit een fout als de stem niet beschikbaar is → terugval op browserstem
+  playNext(gen);
 }
 function pickVoice() {
   const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("nl"));
@@ -395,7 +421,7 @@ function sayBrowser(text) {
 }
 async function say(text) {
   if (!$("speak").checked) { if (document.body.dataset.state !== "error") setState("idle"); return; }
-  speechSynthesis?.cancel(); player.pause();
+  stopSpeaking();
   const t = plain(text);
   if (premiumVoice) {
     try { await sayPremium(t); $("stVoice").textContent = "NATUURLIJK"; return; }
@@ -403,7 +429,7 @@ async function say(text) {
   }
   sayBrowser(t);
 }
-function stopSpeaking() { speechSynthesis?.cancel(); player.pause(); }
+function stopSpeaking() { voiceGen++; queue = []; speechSynthesis?.cancel(); player.pause(); }
 speechSynthesis?.getVoices();
 
 // ---------- Spraak in ----------
