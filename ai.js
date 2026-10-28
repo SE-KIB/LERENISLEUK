@@ -574,7 +574,8 @@ function listenBrowser() {
 $("mic").onclick = () => (rec || recording ? stopListening() : listen());
 // Spatie ingedrukt houden buiten het tekstvak = praten.
 addEventListener("keydown", (e) => {
-  if (e.code === "Space" && document.activeElement !== $("input") && !$("app").hidden && !e.repeat && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); listen(); }
+  const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target?.isContentEditable;
+  if (e.code === "Space" && !typing && !$("app").hidden && $("voiceLab").hidden && !e.repeat) { e.preventDefault(); listen(); }
 });
 addEventListener("keyup", (e) => { if (e.code === "Space" && (rec || recording)) stopListening(); });
 
@@ -699,6 +700,75 @@ DESKTOP.addEventListener("change", () => {
   else { hud.classList.remove("free"); for (const w of wins) { w.removeAttribute("style"); w.classList.remove("docked"); } $("dockL").innerHTML = $("dockR").innerHTML = ""; }
 });
 addEventListener("resize", () => { if (hud.classList.contains("free")) wins.forEach(clamp); });
+
+// ---------- Stemlab: eigen stem ontwerpen via ElevenLabs ----------
+const LAB_PRESETS = {
+  brits: "A calm, refined British male AI assistant in his forties. Polite, highly intelligent and subtly dry-humoured. Smooth, warm baritone with crisp, precise articulation and an unhurried pace. A faint polished, digital quality, like a sophisticated computer butler. Studio quality, close microphone.",
+  nl: "A calm, refined male AI assistant in his forties, native Dutch speaker. Polite, highly intelligent and subtly dry-humoured. Smooth, warm baritone with crisp, precise articulation and an unhurried pace. A faint polished, digital quality, like a sophisticated computer butler. Studio quality, close microphone.",
+};
+const LAB_TEXT = "Goedenavond, Serkan. Alle systemen zijn operationeel. Je hebt morgen om tien uur een afspraak bij de tandarts. Zal ik de route alvast klaarzetten?";
+async function callFn(payload) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(FUNCTION_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+  return data;
+}
+const labMsg = (t, cls = "") => { $("labMsg").className = "login-msg " + cls; $("labMsg").textContent = t; };
+let labAudio = null;
+$("labOpen").onclick = () => {
+  closeDrawer();
+  if (!$("labDesc").value) $("labDesc").value = LAB_PRESETS.brits;
+  if (!$("labText").value) $("labText").value = LAB_TEXT;
+  $("voiceLab").hidden = false; labMsg("");
+};
+const closeLab = () => { $("voiceLab").hidden = true; labAudio?.pause(); };
+$("labClose").onclick = closeLab;
+$("voiceLab").addEventListener("click", (e) => { if (e.target === $("voiceLab")) closeLab(); });
+document.querySelectorAll("[data-preset]").forEach((b) => { b.onclick = () => { $("labDesc").value = LAB_PRESETS[b.dataset.preset]; }; });
+$("labForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("labGen").disabled = true; $("labPreviews").innerHTML = "";
+  labMsg("STEMMEN ONTWERPEN… (kan 10–30 seconden duren)");
+  try {
+    const { previews } = await callFn({ voice: "design", description: $("labDesc").value, text: $("labText").value });
+    if (!previews?.length) throw new Error("geen voorbeelden ontvangen");
+    labMsg("Luister en kies je favoriet.", "ok");
+    previews.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "lab-item";
+      row.innerHTML = `<b>VERSIE ${i + 1}</b><div><button type="button" class="chip">▶ AFSPELEN</button><button type="button" class="btn-primary">GEBRUIK DEZE</button></div>`;
+      const [play, use] = row.querySelectorAll("button");
+      play.onclick = () => {
+        labAudio?.pause();
+        document.querySelectorAll(".lab-item").forEach((r) => r.classList.remove("playing"));
+        labAudio = new Audio(p.audio); labAudio.play(); row.classList.add("playing");
+        labAudio.onended = () => row.classList.remove("playing");
+      };
+      use.onclick = async () => {
+        use.disabled = true; labMsg("STEM OPSLAAN…");
+        try {
+          await callFn({ voice: "save", generatedVoiceId: p.id, name: "ECO", description: $("labDesc").value });
+          premiumVoice = true;
+          labMsg("Opgeslagen. ECO gebruikt nu deze stem.", "ok");
+          setTimeout(closeLab, 900);
+          say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
+        } catch (err) { use.disabled = false; labMsg("Opslaan mislukt: " + err.message, "err"); }
+      };
+      $("labPreviews").append(row);
+    });
+  } catch (err) {
+    labMsg("Mislukt: " + err.message, "err");
+  } finally { $("labGen").disabled = false; }
+};
+$("labReset").onclick = async () => {
+  try { await callFn({ voice: "reset" }); premiumVoice = true; labMsg("Standaardstem hersteld.", "ok"); }
+  catch (err) { labMsg("Mislukt: " + err.message, "err"); }
+};
 
 // ---------- Start ----------
 $("versionLogin").textContent = $("version").textContent; // PR-badge alleen zichtbaar op het inlogscherm
