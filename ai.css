@@ -62,7 +62,7 @@ button{cursor:pointer}
 .reactor-wrap{position:relative;aspect-ratio:1;display:grid;place-items:center}
 .reactor,.reactor svg{position:absolute;inset:0;width:100%;height:100%}
 #viz{position:absolute;inset:-8%;width:116%;height:116%}
-.reactor svg{overflow:visible;filter:drop-shadow(0 0 6px rgba(0,225,255,.55))}
+.reactor svg{overflow:visible;filter:drop-shadow(0 0 10px rgba(0,225,255,.6)) drop-shadow(0 0 30px rgba(0,225,255,.25))}
 .reactor .rg{transform-origin:0 0;transform-box:view-box}
 .reactor .s{fill:none;stroke:var(--c)}
 .r1{animation:rot 80s linear infinite}
@@ -72,22 +72,33 @@ button{cursor:pointer}
 .r5{animation:rot 46s linear infinite}
 .r6{animation:rot 9s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-.core-glow{animation:breathe 4s ease-in-out infinite;transform-origin:0 0;transform-box:view-box;transition:opacity .3s}
-.core-glow.a{opacity:0}
-@keyframes breathe{50%{opacity:.75;transform:scale(.95)}}
+.bleed{transition:opacity .3s;animation:breathe 4s ease-in-out infinite;transform-origin:0 0;transform-box:view-box}
+.bleed.a{opacity:0}
+.core{animation:corepulse 4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.7;transform:scale(.97)}}
+@keyframes corepulse{50%{opacity:.88}}
+.coil-body{fill:none;stroke:#1d2b31}
+.coil-wire{fill:none;stroke:#c9dde3;opacity:.8}
+.coil-edge{fill:none;stroke:#e9fdff;opacity:.55}
+.spoke{stroke:#2c3b42}
+.bolt{fill:#a9bcc5;stroke:#33434b;stroke-width:1}
+body[data-state=thinking] .coils{animation:flicker 1.2s ease-in-out infinite}
+@keyframes flicker{50%{opacity:.75}}
+body[data-state=speaking] .bleed{animation-duration:.6s}
+body[data-state=speaking] .core{animation-duration:.6s}
+body[data-state=listening] .bleed.a{opacity:1}
+body[data-state=listening] .bleed.c{opacity:0}
+body[data-state=listening] .bleed{animation-duration:.9s}
+body[data-state=error] .bleed.c{filter:hue-rotate(160deg)}
 body[data-state=thinking] .r2,body[data-state=thinking] .r4,body[data-state=thinking] .r6{animation-duration:2.4s}
 body[data-state=thinking] .r3{animation-duration:4s}
 body[data-state=listening] .reactor .s{stroke:var(--amber)}
 body[data-state=listening] .reactor svg{filter:drop-shadow(0 0 8px rgba(255,177,42,.7))}
-body[data-state=listening] .core-glow{animation-duration:.9s}
-body[data-state=listening] .core-glow.a{opacity:1}
-body[data-state=listening] .core-glow.c{opacity:0}
-body[data-state=speaking] .core-glow{animation-duration:.5s}
 body[data-state=error] .reactor .s{stroke:var(--red)}
 .reactor-label{position:relative;text-align:center;pointer-events:none}
-.reactor-label b{display:block;font-family:var(--f-head);font-size:clamp(1rem,2.6vw,1.6rem);letter-spacing:.35em;margin-left:.35em;color:#fff;text-shadow:0 0 6px #003845,var(--glow)}
-.reactor-label span{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.25em;color:#eaffff;text-shadow:0 0 4px #003845,0 0 8px #003845}
-body[data-state=listening] .reactor-label span{color:var(--amber)}
+.reactor-label b{display:none;font-family:var(--f-head);font-size:clamp(1rem,2.6vw,1.6rem);letter-spacing:.35em;margin-left:.35em;color:#fff;text-shadow:0 0 6px #003845,var(--glow)}
+.reactor-label span{font-family:var(--f-head);font-size:clamp(.5rem,1.1vw,.7rem);letter-spacing:.3em;margin-left:.3em;color:#00515f;text-shadow:0 0 6px rgba(255,255,255,.8)}
+body[data-state=listening] .reactor-label span{color:#6b3c00}
 .readout{position:absolute;font-family:var(--f-mono);font-size:.62rem;line-height:1.5;color:var(--muted);white-space:pre;pointer-events:none}
 .readout.tl{top:4%;left:-4%}.readout.br{bottom:4%;right:-4%;text-align:right}
 
@@ -237,13 +248,15 @@ body[data-state=listening] .reactor-label span{color:var(--amber)}
   .left{position:fixed;z-index:30;top:0;bottom:0;left:0;width:min(300px,86vw);padding:max(16px,env(safe-area-inset-top)) 14px 16px;
     background:rgba(1,10,16,.96);border-right:1px solid var(--cd);transform:translateX(-102%);transition:transform .3s;overflow:auto}
   .left.open{transform:none}
-  .center{order:1}
+  .center{display:contents}
+  .core{order:1}
+  .right{order:2}
+  .cmd{order:3}
   .main-reactor{width:min(78vw,340px)}
   .readout{display:none}
   .caption{font-size:1.1rem;max-height:none}
   .cmd{position:sticky;bottom:max(10px,env(safe-area-inset-bottom));z-index:5}
-  .right{order:2}
-  .right .panel{max-height:50vh}
+  .right .panel{max-height:45vh}
   .login{gap:10px}
   .login-reactor{width:min(200px,50vw)}
 }

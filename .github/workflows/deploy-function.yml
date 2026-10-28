@@ -1,0 +1,51 @@
+name: ECO-functie uitrollen naar Supabase
+
+# Zet de Edge Function automatisch online zodra de code op main verandert,
+# zodat er niets meer met de hand in het Supabase-dashboard geplakt hoeft te worden.
+# Vereist repository-secret SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/ai-chat/**"
+      - ".github/workflows/deploy-function.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-function
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: wlpfgbrvnzjclnjocewj
+      # Interne naam (slug) van de functie in Supabase; de weergavenaam daar is "ai-chat".
+      FUNCTION_SLUG: smooth-service
+    steps:
+      - name: Controleren of de sleutel is ingesteld
+        id: check
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN ontbreekt; functie niet uitgerold. Zie AI-SETUP.md."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ok == 'true'
+
+      - uses: supabase/setup-cli@v1
+        if: steps.check.outputs.ok == 'true'
+        with:
+          version: latest
+
+      - name: Functie uitrollen
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          cp -r supabase/functions/ai-chat "supabase/functions/$FUNCTION_SLUG"
+          supabase functions deploy "$FUNCTION_SLUG" --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
