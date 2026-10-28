@@ -62,12 +62,12 @@
     </header>
 
     <aside class="col left" id="leftCol">
-      <div class="panel">
+      <div class="panel" data-win="tijd">
         <div class="panel-h"><span>LOKALE TIJD</span><i>CET</i></div>
         <div id="clock" class="clock">00:00<small>:00</small></div>
         <div id="date" class="date"></div>
       </div>
-      <div class="panel">
+      <div class="panel" data-win="status">
         <div class="panel-h"><span>SYSTEEMSTATUS</span><i id="uptime">00:00:00</i></div>
         <ul class="stats">
           <li><span>KERN</span><b class="ok">ONLINE</b></li>
@@ -77,20 +77,23 @@
           <li><span>LATENTIE</span><b id="stLat">—</b></li>
           <li><span>GEBRUIKER</span><b id="stUser">—</b></li>
         </ul>
-        <div class="meter"><span id="meterFill"></span></div>
+        <div class="meter-row"><span>ACTIVITEIT</span><b id="meterPct">0%</b></div>
+        <div class="meter" title="Hoe actief ECO nu is: laag in stand-by, hoog tijdens luisteren, denken en spreken"><span id="meterFill"></span></div>
       </div>
-      <div class="panel grow">
+      <div class="panel grow" data-win="archief">
         <div class="panel-h"><span>ARCHIEF</span><button type="button" id="newChat" class="link">+ NIEUW</button></div>
         <ul id="convList" class="conv-list"></ul>
       </div>
-      <div class="panel controls">
+      <div class="panel controls" data-win="bediening" data-title="BEDIENING">
         <label class="switch"><input type="checkbox" id="speak" checked><i></i><span>STEM</span></label>
         <label class="switch"><input type="checkbox" id="sfx" checked><i></i><span>GELUID</span></label>
+        <button type="button" id="resetLayout" class="link only-desktop" title="Alle panelen terug naar de standaardindeling">INDELING HERSTELLEN</button>
         <button type="button" id="logout" class="link danger">AFMELDEN</button>
       </div>
     </aside>
 
     <main class="center">
+      <div class="core" data-win="kern" data-title="KERN">
       <div class="reactor-wrap main-reactor">
         <canvas id="viz" aria-hidden="true"></canvas>
         <div class="reactor" data-reactor></div>
@@ -99,7 +102,8 @@
         <div class="readout br" aria-hidden="true" id="roB"></div>
       </div>
       <div id="caption" class="caption" aria-live="polite"></div>
-      <form id="chatForm" class="cmd">
+      </div>
+      <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
         <button type="button" id="mic" class="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         </button>
@@ -110,11 +114,13 @@
     </main>
 
     <aside class="col right">
-      <div class="panel grow">
+      <div class="panel grow" data-win="transcript">
         <div class="panel-h"><span>TRANSCRIPT</span><i id="convId">—</i></div>
         <div id="messages" class="log"></div>
       </div>
     </aside>
+    <div id="dockL" class="dock l" aria-label="Ingeklapte panelen links"></div>
+    <div id="dockR" class="dock r" aria-label="Ingeklapte panelen rechts"></div>
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
