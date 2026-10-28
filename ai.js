@@ -85,7 +85,7 @@ function sizeViz() {
   const r = viz.getBoundingClientRect(), d = devicePixelRatio || 1;
   viz.width = r.width * d; viz.height = r.height * d;
 }
-addEventListener("resize", sizeViz);
+new ResizeObserver(sizeViz).observe(viz);
 function drawViz(t) {
   const st = document.body.dataset.state;
   energyTarget = { idle: 0.06, listening: 0.45, thinking: 0.25, speaking: 0.35, error: 0.1 }[st] ?? 0.05;
@@ -107,6 +107,8 @@ function drawViz(t) {
     vctx.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
     vctx.stroke();
   }
+  const pct = Math.round(Math.min(1, energy / 0.45) * 100);
+  if (pct !== drawViz.pct) { drawViz.pct = pct; $("meterFill").style.width = `${Math.max(3, pct)}%`; $("meterPct").textContent = `${pct}%`; }
   if (!REDUCED) requestAnimationFrame(drawViz);
 }
 
@@ -127,7 +129,7 @@ function clock() {
   $("uptime").textContent = [up / 3600, (up / 60) % 60, up % 60].map((v) => String(Math.floor(v)).padStart(2, "0")).join(":");
   $("stNet").textContent = navigator.onLine ? "ONLINE" : "OFFLINE";
   $("stNet").className = navigator.onLine ? "ok" : "bad";
-  $("meterFill").style.width = `${15 + energy * 80 + Math.random() * 5}%`;
+
 }
 const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
 function initStatus() {
@@ -181,6 +183,7 @@ function render(session) {
   if (!session) return;
   $("stUser").textContent = (session.user.email || "").split("@")[0].toUpperCase();
   sizeViz();
+  requestAnimationFrame(initLayout);
   loadConversations();
   if (!$("messages").children.length) {
     const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
@@ -431,6 +434,128 @@ addEventListener("keydown", (e) => {
   if (e.code === "Space" && document.activeElement !== $("input") && !$("app").hidden && !e.repeat && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); listen(); }
 });
 addEventListener("keyup", (e) => { if (e.code === "Space" && rec) rec.stop(); });
+
+// ---------- Vrije indeling: panelen verplaatsen, schalen en inklappen (alleen desktop) ----------
+const LAYOUT_KEY = "eco-layout-v1";
+const DESKTOP = matchMedia("(min-width: 901px)");
+const hud = $("app");
+const wins = [...hud.querySelectorAll("[data-win]")];
+const MIN = { kern: [260, 260], cmd: [320, 58] };
+const AUTO_H = new Set(["cmd", "bediening"]); // hoogte volgt de inhoud
+let zTop = 10;
+const loadLayout = () => { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; } catch { return {}; } };
+const saveLayout = () => {
+  const l = {};
+  for (const w of wins) l[w.dataset.win] = { x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight, z: +w.style.zIndex || 2, docked: w.classList.contains("docked") ? w.dataset.side : "" };
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(l)); } catch { /* geen opslag: indeling geldt alleen deze sessie */ }
+};
+const titleOf = (w) => w.dataset.title || w.querySelector(".panel-h span")?.textContent || w.dataset.win.toUpperCase();
+
+// Knoppen en grepen één keer toevoegen.
+for (const w of wins) {
+  let head = w.querySelector(":scope > .panel-h");
+  if (!head) {
+    head = document.createElement("div");
+    head.className = "win-h";
+    head.innerHTML = w.dataset.win === "cmd" ? `<span class="grip" title="Slepen om te verplaatsen">⋮⋮</span>` : `<span>${titleOf(w)}</span>`;
+    w.prepend(head);
+  }
+  const btns = document.createElement("span");
+  btns.className = "win-btns";
+  btns.innerHTML = `<button type="button" title="Inklappen naar de zijkant" aria-label="${titleOf(w)} inklappen">–</button>`;
+  head.append(btns);
+  btns.firstChild.onclick = (e) => { e.stopPropagation(); dock(w); };
+  const rs = document.createElement("div");
+  rs.className = "win-rs"; rs.title = "Slepen om te vergroten of te verkleinen";
+  w.append(rs);
+  drag(head, w, "move");
+  drag(rs, w, "size");
+  w.addEventListener("pointerdown", () => { if (hud.classList.contains("free")) w.style.zIndex = ++zTop; });
+}
+
+function place(w, r) {
+  w.style.left = r.x + "px"; w.style.top = r.y + "px";
+  w.style.width = r.w + "px";
+  if (!AUTO_H.has(w.dataset.win)) w.style.height = r.h + "px";
+  if (r.z) { w.style.zIndex = r.z; zTop = Math.max(zTop, r.z); }
+}
+function clamp(w) {
+  const top = hud.querySelector(".topbar").offsetHeight + 14;
+  const maxX = hud.clientWidth - 40, maxY = hud.clientHeight - 30;
+  w.style.left = Math.min(Math.max(-w.offsetWidth + 60, w.offsetLeft), maxX) + "px";
+  // Onderkant binnen beeld houden als het paneel daar past.
+  const fitY = hud.clientHeight - w.offsetHeight - 14;
+  w.style.top = Math.min(Math.max(top, Math.min(w.offsetTop, fitY >= top ? fitY : maxY)), maxY) + "px";
+}
+function initLayout() {
+  if (!DESKTOP.matches || hud.hidden || hud.classList.contains("free")) return;
+  const saved = loadLayout(), base = hud.getBoundingClientRect();
+  // Startposities = de standaardindeling zoals de grid die nu toont.
+  const measured = new Map(wins.map((w) => {
+    const r = w.getBoundingClientRect();
+    return [w, { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }];
+  }));
+  hud.classList.add("free");
+  for (const w of wins) {
+    const s = saved[w.dataset.win];
+    place(w, s ? s : measured.get(w));
+    clamp(w);
+    if (s?.docked) dock(w, s.docked, false);
+  }
+}
+function resetLayout() {
+  try { localStorage.removeItem(LAYOUT_KEY); } catch { /* niets */ }
+  hud.classList.remove("free");
+  for (const w of wins) { w.removeAttribute("style"); w.classList.remove("docked"); }
+  $("dockL").innerHTML = $("dockR").innerHTML = "";
+  requestAnimationFrame(initLayout);
+}
+$("resetLayout").onclick = resetLayout;
+
+function dock(w, side, save = true) {
+  side ||= w.offsetLeft + w.offsetWidth / 2 < hud.clientWidth / 2 ? "l" : "r";
+  w.dataset.side = side;
+  w.classList.add("docked");
+  const tab = document.createElement("button");
+  tab.type = "button"; tab.textContent = titleOf(w); tab.title = "Uitklappen";
+  tab.onclick = () => { tab.remove(); w.classList.remove("docked"); w.style.zIndex = ++zTop; clamp(w); saveLayout(); sfx.tick(); };
+  $(side === "l" ? "dockL" : "dockR").append(tab);
+  sfx.tick();
+  if (save) saveLayout();
+}
+
+function drag(handle, w, mode) {
+  handle.addEventListener("pointerdown", (e) => {
+    if (!hud.classList.contains("free") || e.button !== 0) return;
+    if (mode === "move" && e.target.closest("button, a, input, label")) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const sx = e.clientX, sy = e.clientY, ox = w.offsetLeft, oy = w.offsetTop, ow = w.offsetWidth, oh = w.offsetHeight;
+    const [mw, mh] = MIN[w.dataset.win] || [180, 90];
+    w.classList.add("dragging"); w.style.zIndex = ++zTop;
+    const move = (ev) => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (mode === "move") { w.style.left = ox + dx + "px"; w.style.top = oy + dy + "px"; }
+      else {
+        w.style.width = Math.max(mw, ow + dx) + "px";
+        if (!AUTO_H.has(w.dataset.win)) w.style.height = Math.max(mh, oh + dy) + "px";
+      }
+    };
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      w.classList.remove("dragging");
+      clamp(w); saveLayout();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up, { once: true });
+    handle.addEventListener("pointercancel", up, { once: true });
+  });
+}
+DESKTOP.addEventListener("change", () => {
+  if (DESKTOP.matches) requestAnimationFrame(initLayout);
+  else { hud.classList.remove("free"); for (const w of wins) { w.removeAttribute("style"); w.classList.remove("docked"); } $("dockL").innerHTML = $("dockR").innerHTML = ""; }
+});
+addEventListener("resize", () => { if (hud.classList.contains("free")) wins.forEach(clamp); });
 
 // ---------- Start ----------
 $("versionLogin").textContent = $("version").textContent; // PR-badge alleen zichtbaar op het inlogscherm
