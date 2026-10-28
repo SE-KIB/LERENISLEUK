@@ -1,4 +1,4 @@
-name: Update PR version in footer
+name: Update PR version badge
 
 on:
   pull_request:
@@ -17,12 +17,12 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set PR number in footer
+      - name: Set PR number and time in badge
         run: |
-          # Werkt het PR-nummer bij in beide plekken ("Version PR<nummer>"): de
-          # footer (#version) én het loginscherm (#versionFront). Het tijd-deel
-          # (" - HH:MM") laten we staan; de app zet de definitieve tekst runtime.
-          sed -i -E 's#(Serkan Yapiyor Bu Isi - Version PR)[0-9]+#\1${{ github.event.pull_request.number }}#g' index.html
+          # Zet rechtsboven in index.html: "PR<nummer> | <datum tijd>" (Nederlandse tijd).
+          STAMP="PR${{ github.event.pull_request.number }} | $(TZ=Europe/Amsterdam date '+%d-%m-%Y %H:%M')"
+          sed -i -E "s#(<div id=\"version\"[^>]*>)[^<]*#\1${STAMP}#" index.html
+          grep -n 'id="version"' index.html
 
       - name: Commit if changed
         run: |
@@ -30,7 +30,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet -- index.html; then
             git add index.html
-            git commit -m "Update footer version to PR #${{ github.event.pull_request.number }}"
+            git commit -m "Update version badge to PR #${{ github.event.pull_request.number }}"
             git push
           else
             echo "No change needed."

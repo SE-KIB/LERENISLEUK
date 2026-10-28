@@ -43,3 +43,4 @@ button{color:#06202a}
 @keyframes pulse{50%{transform:scale(1.12);opacity:1}}
 @media (prefers-reduced-motion:reduce){.orb{animation:none!important}}
 .action{display:inline-block;margin-top:.6rem;padding:.5rem .9rem;border-radius:8px;background:var(--accent);color:#06202a;text-decoration:none;font-weight:600}
+.version{position:fixed;top:max(6px,env(safe-area-inset-top));right:10px;z-index:10;font-size:.72rem;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;pointer-events:none}
