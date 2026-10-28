@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "supabase/functions/ai-chat/**"
+      - "supabase/migrations/**"
       - ".github/workflows/deploy-function.yml"
   workflow_dispatch:
 
@@ -42,6 +43,18 @@ jobs:
         if: steps.check.outputs.ok == 'true'
         with:
           version: latest
+
+      - name: Database bijwerken (migraties)
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          # Alle migraties zijn idempotent; uitvoeren via de Supabase Management API.
+          for f in supabase/migrations/*.sql; do
+            code=$(jq -Rs '{query: .}' < "$f" | curl -sS -o /tmp/out.json -w '%{http_code}' -X POST \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then echo "OK  $f";
+            else echo "::warning::Migratie $f gaf HTTP $code: $(head -c 300 /tmp/out.json)"; fi
+          done
 
       - name: Functie uitrollen
         if: steps.check.outputs.ok == 'true'

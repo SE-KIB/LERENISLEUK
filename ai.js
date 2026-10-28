@@ -10,7 +10,7 @@ const plain = (t) => t.replace(/```[\s\S]*?```/g, "").replace(/[*_#`>]/g, "").re
 const hhmmss = () => new Date().toLocaleTimeString("nl-NL", { hour12: false });
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const T0 = Date.now();
-let currentConv = null, lastLatency = null, justLoggedIn = false;
+let currentConv = null, lastLatency = null, justLoggedIn = false, currentUserId = null;
 
 // Oude service worker van de vorige site opruimen.
 navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
@@ -204,6 +204,8 @@ function render(session) {
   $("app").hidden = !session;
   if (!session) return;
   $("stUser").textContent = (session.user.email || "").split("@")[0].toUpperCase();
+  currentUserId = session.user.id;
+  loadMemory();
   sizeViz();
   requestAnimationFrame(initLayout);
   loadConversations();
@@ -314,6 +316,35 @@ async function openConversation(id) {
   typeCaption(last ? plain(last.content) : "");
 }
 
+// ---------- Geheugen (PROFIEL) ----------
+async function loadMemory() {
+  const { data, error } = await sb.from("ai_memory").select("id,fact").order("created_at", { ascending: false }).limit(200);
+  const list = $("memList");
+  list.innerHTML = "";
+  if (error) { list.innerHTML = `<li class="empty">GEHEUGEN WORDT INGESTELD…</li>`; $("memCount").textContent = "—"; return; }
+  $("memCount").textContent = String(data.length);
+  if (!data.length) list.innerHTML = `<li class="empty">NOG NIETS ONTHOUDEN · ZEG BV. "ONTHOUD DAT…"</li>`;
+  for (const m of data) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span></span><button type="button" title="Vergeten" aria-label="Vergeten">✕</button>`;
+    li.firstChild.textContent = m.fact;
+    li.lastChild.onclick = async () => {
+      const { error: e } = await sb.from("ai_memory").delete().eq("id", m.id);
+      if (e) { typeCaption("Vergeten mislukt: " + e.message, "err"); return; }
+      sfx.tick(); loadMemory();
+    };
+    list.append(li);
+  }
+}
+$("memForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const fact = $("memInput").value.trim();
+  if (!fact || !currentUserId) return;
+  const { error } = await sb.from("ai_memory").insert({ user_id: currentUserId, fact });
+  if (error) { typeCaption("Onthouden mislukt: " + error.message, "err"); return; }
+  $("memInput").value = ""; sfx.tick(); loadMemory();
+};
+
 // ---------- Transcript en ondertiteling ----------
 function entry(role, text, time = hhmmss()) {
   const div = document.createElement("div");
@@ -384,6 +415,7 @@ $("chatForm").onsubmit = async (e) => {
       setTimeout(() => { location.href = data.open; }, 1800); // eerst laten voorlezen, dan Maps openen
     }
     if (isNew) loadConversations();
+    if (data.memoryChanged) loadMemory();
   } catch (err) {
     setState("error"); sfx.error();
     typeCaption("Storing: " + err.message, "err");
