@@ -444,7 +444,7 @@ function chunks(text) {
   while (parts.length && (first.join("").length < 40 || !first.length)) first.push(parts.shift());
   return [first.join("").trim(), parts.join("").trim()].filter(Boolean);
 }
-let voiceGen = 0, queue = [], wholeText = false; // wholeText: stemdienst liever één verzoek per antwoord (Gemini)
+let voiceGen = 0, queue = [], wholeText = false, lastVoiceError = ""; // wholeText: stemdienst liever één verzoek per antwoord (Gemini)
 async function ttsBlob(text) {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(FUNCTION_URL, {
@@ -482,6 +482,7 @@ function pickVoice() {
   return vs.find((v) => /xander|frank|male|man|google/i.test(v.name)) || vs[0];
 }
 function sayBrowser(text) {
+  $("stVoice").textContent = "BROWSER (ROBOT)"; $("stVoice").className = "warn"; $("stVoice").title = lastVoiceError || "Geen natuurlijke stem ingesteld";
   if (!window.speechSynthesis) { setState("idle"); return; }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "nl-NL"; u.rate = 1.04; u.pitch = 0.88;
@@ -497,8 +498,8 @@ async function say(text) {
   stopSpeaking();
   const t = plain(text);
   if (premiumVoice) {
-    try { await sayPremium(t); $("stVoice").textContent = wholeText ? "GEMINI" : "ELEVENLABS"; return; }
-    catch (e) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); }
+    try { await sayPremium(t); $("stVoice").textContent = wholeText ? "GEMINI" : "ELEVENLABS"; $("stVoice").className = "ok"; return; }
+    catch (e) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); lastVoiceError = e.message; }
   }
   sayBrowser(t);
 }
@@ -763,7 +764,12 @@ async function callFn(payload) {
 }
 const labMsg = (t, cls = "") => { $("labMsg").className = "login-msg " + cls; $("labMsg").textContent = t; };
 let labAudio = null;
-const GEM_STYLE = "a calm, refined British AI butler: composed, highly intelligent, subtly dry-humoured, warm but precise, unhurried pace";
+const GEM_STYLES = {
+  natuurlijk: "a warm, natural and friendly human personal assistant speaking fluent, native Dutch. Conversational and relaxed, with natural intonation, small pauses and genuine warmth; confident and calm, never robotic or monotone",
+  butler: "a calm, refined British-sounding personal butler speaking Dutch: composed, intelligent, subtly dry-humoured, warm and human, unhurried natural pace, never robotic",
+  energiek: "an upbeat, friendly and lively human personal assistant speaking native Dutch: cheerful, expressive, natural rhythm, smiling voice",
+};
+const GEM_STYLE = GEM_STYLES.natuurlijk;
 const gemMsg = (t, cls = "") => { $("gemMsg").className = "login-msg " + cls; $("gemMsg").textContent = t; };
 $("labOpen").onclick = () => {
   closeDrawer();
@@ -818,6 +824,7 @@ $("labForm").onsubmit = async (e) => {
       : "Mislukt: " + err.message, "err");
   } finally { $("labGen").disabled = false; }
 };
+document.querySelectorAll("[data-gem]").forEach((b) => { b.onclick = () => { $("gemStyle").value = GEM_STYLES[b.dataset.gem]; }; });
 $("gemTry").onclick = async () => {
   $("gemTry").disabled = true; gemMsg("STEM GENEREREN…");
   try {
