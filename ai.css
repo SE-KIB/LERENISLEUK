@@ -15,7 +15,7 @@ input,textarea{font:inherit;width:100%;padding:.65rem;border:1px solid var(--lin
 .side ul{list-style:none;margin:0;padding:0;flex:1}
 .side li{padding:.5rem;border-radius:6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side li.active,.side li:hover{background:var(--me)}
-.chat{display:flex;flex-direction:column;min-width:0;height:100vh}
+.chat{display:flex;flex-direction:column;min-width:0;height:100vh;height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
 .messages{flex:1;overflow:auto;padding:1.5rem 16px;display:flex;flex-direction:column;gap:1rem;max-width:820px;width:100%;margin:0 auto}
 .bubble{padding:.75rem 1rem;border-radius:12px;line-height:1.55;overflow-wrap:anywhere}
 .bubble.user{background:var(--me);align-self:flex-end;max-width:85%;white-space:pre-wrap}
@@ -23,7 +23,7 @@ input,textarea{font:inherit;width:100%;padding:.65rem;border:1px solid var(--lin
 .bubble pre{overflow:auto;background:var(--bg);padding:.75rem;border-radius:8px}
 .composer{display:flex;gap:.5rem;padding:1rem 16px;max-width:820px;width:100%;margin:0 auto}
 .composer textarea{resize:none;max-height:200px}
-@media (max-width:700px){.app{grid-template-columns:1fr}.side{display:none}}
+@media (max-width:700px){.app{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:100dvh}.side{flex-direction:row;align-items:center;flex-wrap:wrap;padding:.5rem 16px;padding-top:max(.5rem,env(safe-area-inset-top));border-right:0;border-bottom:1px solid var(--line)}.side ul{display:none}.side .orb{width:36px;height:36px;margin:0}.chat{height:auto;min-height:0}}
 
 /* JARVIS-stijl */
 :root{--accent:#22d3ee;--me:#0e2a33}

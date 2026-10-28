@@ -25,13 +25,13 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
    Zet daarna Authentication → Providers → Email → *Allow new users to sign up* **uit**.
    Kopieer je User UID (nodig voor Siri).
 4. **Google Agenda koppelen:**
-   - https://console.cloud.google.com → nieuw project → *Google Calendar API* inschakelen.
+   - https://console.cloud.google.com → nieuw project → *Google Calendar API* én *Gmail API* inschakelen.
    - OAuth-toestemmingsscherm: type *External*, jezelf als testgebruiker toevoegen, en daarna
      **"Publish app"** (anders verloopt de koppeling na 7 dagen).
    - Credentials → OAuth client ID → type *Web application*, redirect-URI
      `https://developers.google.com/oauthplayground`.
    - Ga naar https://developers.google.com/oauthplayground → tandwiel → *Use your own OAuth credentials* →
-     vul client-ID/secret in → scope `https://www.googleapis.com/auth/calendar.events` → Authorize →
+     vul client-ID/secret in → scopes (spatie-gescheiden) `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose` → Authorize →
      *Exchange authorization code for tokens* → kopieer de **refresh token**.
 5. **Secrets zetten en uitrollen** (`JARVIS_KEY` = zelfverzonnen lange geheime tekst):
    ```bash
@@ -54,12 +54,30 @@ Opdrachten-app → nieuwe opdracht, naam **Jarvis**:
 
 Nu werkt "Hé Siri, Jarvis" → je vraag inspreken → JARVIS antwoordt hardop. Gesprekken zie je terug op sekibar.nl.
 
+## JARVIS als app op je telefoon
+iPhone: open sekibar.nl in **Safari** → deelknop → **Zet op beginscherm**. Android: Chrome → ⋮ → *App installeren*.
+Hij opent dan schermvullend als eigen app met JARVIS-icoon; je blijft ingelogd.
+Bij de eerste keer 🎙️ vraagt de telefoon toestemming voor de microfoon.
+
+## Wat JARVIS mag zien
+| Bron | Hoe | Kan JARVIS |
+|---|---|---|
+| Google Agenda | Google-koppeling (hierboven) | afspraken bekijken en maken |
+| Gmail | Google-koppeling (hierboven) | zoeken, lezen, **concepten** maken (versturen doe je zelf) |
+| iPhone zelf (Herinneringen, Agenda van iCloud, Contacten, locatie) | iPhone-opdracht stuurt die gegevens mee | erover antwoorden |
+
+Een website of app-snelkoppeling kan zelf **niet** in je iCloud of telefoon kijken; dat staat Apple niet toe.
+De route via de Opdrachten-app wel: die vraagt jou eenmalig toestemming en geeft de gegevens door.
+Voorbeeld "Hé Siri, Jarvis" met je agenda en herinneringen erbij: voeg vóór stap 2 toe
+*Zoek agenda-activiteiten* (vandaag) en *Zoek herinneringen* (niet voltooid), en zet in het `message`-veld:
+`Mijn agenda vandaag: [Agenda-activiteiten] — Open herinneringen: [Herinneringen] — Vraag: [Gedicteerde tekst]`.
+
 ## Op de website
 - 🎙️-knop of **spatie ingedrukt houden** om te praten; antwoorden worden voorgelezen (uit te zetten).
 - Spraakherkenning werkt in Chrome, Edge en Safari.
 
 ## Volgende stappen (ideeën)
-- Meer tools: herinneringen, weer, e-mail (Gmail), lampen/thermostaat (Home Assistant), notities.
+- Meer tools: weer, lampen/thermostaat (Home Assistant), notities, iCloud-agenda rechtstreeks (CalDAV met app-specifiek wachtwoord).
 - Geheugen: vaste feiten over jou die JARVIS onthoudt.
 - Betere stem: een TTS-dienst (bv. ElevenLabs) voor een echte JARVIS-stem.
 - Wake-word ("Jarvis") op een altijd-aan apparaat, bv. een Raspberry Pi.
