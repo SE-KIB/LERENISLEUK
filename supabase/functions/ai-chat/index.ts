@@ -1,4 +1,4 @@
-// Edge Function "ai-chat": JARVIS, de persoonlijke assistent.
+// Edge Function "ai-chat": ECO, de persoonlijke assistent.
 // Toegang: (a) ingelogde Supabase-gebruiker uit ALLOWED_EMAILS, of
 //          (b) header "x-jarvis-key" = JARVIS_KEY (voor de iPhone-opdracht / Siri).
 // Het model kan tools gebruiken (agenda bekijken/maken); de functie voert die uit en
@@ -24,7 +24,7 @@ const json = (body: unknown, status = 200) =>
 
 function systemPrompt() {
   const now = new Date().toLocaleString("nl-NL", { timeZone: TZ, dateStyle: "full", timeStyle: "short" });
-  return `Je bent JARVIS, de persoonlijke assistent van Serkan — zoals JARVIS van Iron Man: kalm, slim, ` +
+  return `Je bent ECO, de persoonlijke assistent van Serkan — in de stijl van JARVIS uit Iron Man: kalm, slim, ` +
     `licht droog-humoristisch, en altijd to the point. Je antwoorden worden vaak hardop voorgelezen, ` +
     `dus houd ze kort (1–3 zinnen), zonder opmaak, lijstjes of emoji, tenzij om meer gevraagd wordt. ` +
     `Spreek Nederlands, tenzij Serkan een andere taal gebruikt. Het is nu ${now} (tijdzone ${TZ}). ` +
