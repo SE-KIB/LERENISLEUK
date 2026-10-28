@@ -7,7 +7,7 @@
 //          (standaard gemini als GEMINI_API_KEY bestaat).
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
-//          optioneel AI_MODEL, TIMEZONE, ALLOWED_ORIGIN,
+//          optioneel AI_MODEL, AI_MODEL_FALLBACKS (komma-gescheiden reservemodellen), TIMEZONE, ALLOWED_ORIGIN,
 //          ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID (natuurlijke stem; body { tts: "tekst" } geeft audio/mpeg).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -223,21 +223,34 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
 const THINKING = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
 let thinkingIdx = 0;
 
+// Bij drukte (503/429/500) eerst kort opnieuw proberen, daarna overstappen op een reservemodel.
+const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-latest,gemini-2.5-flash").split(",").map((m) => m.trim())]
+  .filter((m, i, a) => m && a.indexOf(m) === i);
+let usedModel = MODEL;
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function geminiCall(body: Record<string, unknown>) {
-  for (;;) {
-    const thinking = THINKING[thinkingIdx];
-    const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.6 };
-    if (thinking) generationConfig.thinkingConfig = thinking;
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: "POST",
-      headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-      body: JSON.stringify({ ...body, generationConfig }),
-    });
-    if (r.ok) return await r.json();
-    const err = await r.text();
-    if (r.status === 400 && thinking && /think/i.test(err)) { thinkingIdx++; continue; }
-    throw new Error(`Gemini-fout ${r.status}: ${err}`);
+  let last = "";
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const thinking = THINKING[thinkingIdx];
+      const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.6 };
+      if (thinking) generationConfig.thinkingConfig = thinking;
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+        body: JSON.stringify({ ...body, generationConfig }),
+      });
+      if (r.ok) { usedModel = model; return await r.json(); }
+      last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
+      if (r.status === 400 && thinking && /think/i.test(last)) { thinkingIdx++; attempt--; continue; }
+      if (r.status === 404) break;                                  // model bestaat niet → volgende
+      if ([429, 500, 503].includes(r.status)) { if (attempt === 0) await wait(700); continue; } // druk → nog 1x, dan volgende
+      throw new Error(`Gemini-fout ${last}`);
+    }
+    console.warn("Gemini-model overgeslagen:", last);
   }
+  throw new Error(`Gemini-fout (alle modellen bezet): ${last}`);
 }
 
 async function askGemini(history: Turn[], actions: Actions): Promise<string> {
@@ -335,7 +348,7 @@ Deno.serve(async (req) => {
   reply ||= "Daar kom ik niet uit, sorry.";
 
   const tAi = Date.now();
-  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${MODEL})`);
+  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${PROVIDER === "gemini" ? usedModel : MODEL})`);
 
   // Opslaan ná het antwoord, zodat de gebruiker er niet op hoeft te wachten.
   const save = Promise.all([
