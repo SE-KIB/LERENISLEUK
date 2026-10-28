@@ -545,19 +545,26 @@ async function recordWhisper() {
     an = ctx.createAnalyser(); an.fftSize = 512;
     ctx.createMediaStreamSource(stream).connect(an);
   } catch { an = null; }
+  // Drempel past zich aan het achtergrondgeluid aan (eerste ~0,4 s); pauzes tot 2,2 s zijn toegestaan.
   const buf = new Float32Array(512);
+  const SILENCE_MS = 2200, MAX_MS = 120000, NO_SPEECH_MS = 10000;
+  let floor = 0, floorN = 0;
   const watch = () => {
     if (mr.state !== "recording") return;
+    const now = Date.now();
     if (an) {
       an.getFloatTimeDomainData(buf);
       const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
-      bump(Math.min(0.6, rms * 6));
-      const now = Date.now();
-      if (rms > 0.02) { spoke = true; quietSince = 0; }
-      else if (spoke) { quietSince ||= now; if (now - quietSince > 1300) return mr.stop(); }
-      if (!spoke && now - started > 7000) return mr.stop();   // niets gezegd
+      bump(Math.min(0.6, rms * 8));
+      if (now - started < 400) { floor = (floor * floorN + rms) / ++floorN; }
+      else {
+        const threshold = Math.max(0.006, floor * 2.5);
+        if (rms > threshold) { spoke = true; quietSince = 0; }
+        else if (spoke) { quietSince ||= now; if (now - quietSince > SILENCE_MS) return mr.stop(); }
+        if (!spoke && now - started > NO_SPEECH_MS) return mr.stop();   // niets gezegd
+      }
     }
-    if (Date.now() - started > 30000) return mr.stop();      // maximaal 30 s
+    if (now - started > MAX_MS) return mr.stop();                       // maximaal 2 minuten
     raf = requestAnimationFrame(watch);
   };
 
@@ -565,7 +572,7 @@ async function recordWhisper() {
     cancelAnimationFrame(raf);
     stream.getTracks().forEach((t) => t.stop());
     recording = null; micOn(false);
-    if (an && !spoke) { typeCaption(""); return; }
+    if (an && !spoke && Date.now() - started < 1500) { typeCaption(""); return; } // per ongeluk getikt
     const blob = new Blob(parts, { type: mr.mimeType || type || "audio/webm" });
     const ext = /mp4|m4a/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : "webm";
     setState("thinking"); typeCaption("Uitschrijven…", "user");
