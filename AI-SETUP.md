@@ -44,6 +44,11 @@ Opnemen stopt vanzelf na ~1,3 s stilte. Zonder Groq-sleutel gebruikt ECO de spra
    = naam van de agenda waarin nieuwe afspraken komen (standaard de eerste gewone agenda).
 ECO leest dan alle iCloud-agenda's (en Google als die ook gekoppeld is) en zet nieuwe afspraken in iCloud.
 
+## Agenda-links (schoolrooster e.d.)
+Elk systeem dat een ICS/iCal-link geeft (MyTimetable, Zermelo, Magister, SOMtoday, Outlook "Agenda publiceren") kan erbij.
+Supabase-secret `AGENDA_FEEDS` = `Naam|link`, meerdere gescheiden door komma's, bv. `School|https://…/ical?…`.
+ECO leest deze agenda's mee (alleen-lezen; herhalingen worden uitgevouwen). Houd de link privé.
+
 ## Welk AI-model?
 ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
 Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
