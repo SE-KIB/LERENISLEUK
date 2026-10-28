@@ -1,36 +1,43 @@
 name: Update PR version badge
 
+# Zet na elke samengevoegde PR op main het label "PR<nummer> | <datum tijd>" in index.html
+# (zichtbaar op het inlogscherm). Draait op main zelf, zodat het label nooit achterloopt.
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+  push:
+    branches: [main]
 
 permissions:
   contents: write
+
+concurrency:
+  group: pr-version
+  cancel-in-progress: false
 
 jobs:
   update-version:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
 
       - name: Set PR number and time in badge
+        id: stamp
         run: |
-          # Zet rechtsboven in index.html: "PR<nummer> | <datum tijd>" (Nederlandse tijd).
-          STAMP="PR${{ github.event.pull_request.number }} | $(TZ=Europe/Amsterdam date '+%d-%m-%Y %H:%M')"
+          MSG="$(git log -1 --format=%s)"
+          NR="$(echo "$MSG" | sed -nE 's/^Merge pull request #([0-9]+).*/\1/p')"
+          if [ -z "$NR" ]; then echo "Geen PR-merge ($MSG); niets te doen."; echo "nr=" >> "$GITHUB_OUTPUT"; exit 0; fi
+          STAMP="PR${NR} | $(TZ=Europe/Amsterdam date '+%d-%m-%Y %H:%M')"
           sed -i -E "s#(<div id=\"version\"[^>]*>)[^<]*#\1${STAMP}#" index.html
           grep -n 'id="version"' index.html
+          echo "nr=$NR" >> "$GITHUB_OUTPUT"
 
       - name: Commit if changed
+        if: steps.stamp.outputs.nr != ''
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet -- index.html; then
             git add index.html
-            git commit -m "Update version badge to PR #${{ github.event.pull_request.number }}"
+            git commit -m "Update version badge to PR #${{ steps.stamp.outputs.nr }}"
             git push
           else
             echo "No change needed."
