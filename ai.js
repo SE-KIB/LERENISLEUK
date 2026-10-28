@@ -633,7 +633,7 @@ function speakingNow() {
 player.onplay = () => { if (player.src !== SILENCE) speakingNow(); };
 
 async function ttsFetch(text) {
-  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 15000);
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
   const res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ tts: text, stream: true }), signal: ctrl.signal })
     .finally(() => clearTimeout(timer));
   if (res.status === 501 || res.status === 400) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
@@ -645,12 +645,15 @@ async function playPcm(res, gen, item) {
   const rate = +res.headers.get("x-audio-rate") || 24000;
   const out = audioOut();
   if (actx.state !== "running") await Promise.race([actx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 1000))]);
+  if (actx.state !== "running") { res.body.cancel().catch(() => {}); throw new Error("audio staat stil (tik eerst op het scherm)"); }
   try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* oudere Safari */ }
   const reader = res.body.getReader();
   let carry = null;
   for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
+    let stall; // geen nieuwe audio binnen 10 s: stoppen in plaats van eindeloos wachten
+    const { value, done } = await Promise.race([reader.read(), new Promise((r) => { stall = setTimeout(() => r({ done: true }), 10000); })]);
+    clearTimeout(stall);
+    if (done) { reader.cancel().catch(() => {}); break; }
     if (gen !== voiceGen) { reader.cancel().catch(() => {}); return; }
     let bytes = value;
     if (carry !== null) { const b = new Uint8Array(bytes.length + 1); b[0] = carry; b.set(bytes, 1); bytes = b; carry = null; }
@@ -726,7 +729,7 @@ const speech = {
     const rest = full.slice(this.spoken);
     this.spoken = full.length;
     if (rest.trim()) this.push(rest);
-    if (this.running !== voiceGen && !this.items.length) this.ended(voiceGen);
+    if (this.running !== voiceGen && !this.items.length) { const gen = voiceGen; pcmDone(gen).then(() => this.ended(gen)); }
   },
   async run(gen) {
     this.running = gen;
