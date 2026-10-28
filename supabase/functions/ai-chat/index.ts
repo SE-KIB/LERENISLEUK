@@ -264,17 +264,22 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Alleen POST" }, 405);
   const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
-  // Wie vraagt er?
-  let userId: string | null = null;
+  // Wie vraagt er? Toegestaan: e-mail uit ALLOWED_EMAILS, of het account met id JARVIS_USER_ID.
+  let userId: string | null = null, reason = "";
   const key = req.headers.get("x-jarvis-key");
   if (key && env("JARVIS_KEY") && key === env("JARVIS_KEY")) {
     userId = env("JARVIS_USER_ID") || null;
+    if (!userId) reason = "JARVIS_USER_ID ontbreekt in de secrets";
   } else {
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer /, "");
     const { data: { user } } = await admin.auth.getUser(token);
-    if (user && ALLOWED.includes((user.email ?? "").toLowerCase())) userId = user.id;
+    if (!user) reason = "niet (meer) ingelogd, log opnieuw in";
+    else if (ALLOWED.includes((user.email ?? "").toLowerCase()) || user.id === env("JARVIS_USER_ID")) userId = user.id;
+    else reason = ALLOWED.length || env("JARVIS_USER_ID")
+      ? `account ${user.email} staat niet in ALLOWED_EMAILS`
+      : "ALLOWED_EMAILS en JARVIS_USER_ID zijn leeg in de secrets";
   }
-  if (!userId) return json({ error: "Geen toegang" }, 401);
+  if (!userId) return json({ error: "Geen toegang: " + reason }, 401);
 
   let body: { conversationId?: string; message?: string; tts?: string };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }

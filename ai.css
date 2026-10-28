@@ -193,6 +193,7 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .action{display:inline-block;margin-top:8px;padding:.45rem .8rem;border:1px solid var(--c);color:var(--c2);text-decoration:none;
   font-family:var(--f-head);font-size:.62rem;letter-spacing:.2em;background:rgba(0,225,255,.1)}
 .only-mobile{display:none}
+.danger-chip{color:var(--red);border-color:rgba(255,77,77,.4)}
 
 /* ---------- Vrije indeling (desktop): verplaatsen, schalen, inklappen ---------- */
 .win-h,.win-btns,.win-rs{display:none}

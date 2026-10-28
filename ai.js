@@ -235,7 +235,15 @@ $("loginForm").onsubmit = async (e) => {
   msg.className = "login-msg ok"; msg.textContent = "IDENTITEIT BEVESTIGD";
   justLoggedIn = true;
 };
-$("logout").onclick = () => sb.auth.signOut();
+async function logout() {
+  stopSpeaking(); closeDrawer();
+  await sb.auth.signOut({ scope: "local" }).catch(() => {}); // lokaal: werkt ook als de server weigert
+  // Ook lokaal wissen, zodat afmelden altijd lukt, zelfs als de server niet bereikbaar is.
+  try { Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k)); } catch { /* geen opslag */ }
+  lastUserId = null; currentConv = null; $("messages").innerHTML = "";
+  render(null);
+}
+$("logout").onclick = $("logoutTop").onclick = logout;
 $("newChat").onclick = () => {
   currentConv = null; $("messages").innerHTML = ""; $("convId").textContent = "—"; markActive();
   typeCaption("Nieuw gesprek gestart. Ik luister."); closeDrawer(); $("input").focus();
