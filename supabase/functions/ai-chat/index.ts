@@ -7,7 +7,8 @@
 //          (standaard gemini als GEMINI_API_KEY bestaat).
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
-//          optioneel AI_MODEL, TIMEZONE, ALLOWED_ORIGIN.
+//          optioneel AI_MODEL, TIMEZONE, ALLOWED_ORIGIN,
+//          ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID (natuurlijke stem; body { tts: "tekst" } geeft audio/mpeg).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
@@ -255,8 +256,25 @@ Deno.serve(async (req) => {
   }
   if (!userId) return json({ error: "Geen toegang" }, 401);
 
-  let body: { conversationId?: string; message?: string };
+  let body: { conversationId?: string; message?: string; tts?: string };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
+
+  // Stem: tekst omzetten naar spraak via ElevenLabs (alleen voor ingelogde/geautoriseerde gebruiker).
+  if (typeof body.tts === "string") {
+    if (!env("ELEVENLABS_API_KEY") || !env("ELEVENLABS_VOICE_ID")) return json({ error: "Geen stem ingesteld" }, 501);
+    const text = body.tts.trim().slice(0, 2500);
+    if (!text) return json({ error: "Geen tekst" }, 400);
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${env("ELEVENLABS_VOICE_ID")}?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: { "xi-api-key": env("ELEVENLABS_API_KEY"), "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({
+        text, model_id: env("ELEVENLABS_MODEL", "eleven_multilingual_v2"),
+        voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+      }),
+    });
+    if (!r.ok) { console.error("ElevenLabs-fout", r.status, await r.text()); return json({ error: "Stemdienst gaf een fout" }, 502); }
+    return new Response(r.body, { headers: { ...CORS, "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
+  }
   const message = (body.message ?? "").trim();
   if (!message || message.length > 8000) return json({ error: "Bericht leeg of te lang" }, 400);
 
