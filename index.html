@@ -3,33 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sekibar AI</title>
+<title>JARVIS</title>
 <link rel="icon" href="icons/favicon-32.png">
 <link rel="stylesheet" href="ai.css">
 </head>
 <body>
   <section id="login" class="login" hidden>
     <form id="loginForm" class="card">
-      <h1>Sekibar AI</h1>
-      <p class="muted">Log in om te chatten.</p>
+      <h1>J.A.R.V.I.S.</h1>
+      <p class="muted">Identificeer jezelf.</p>
       <input id="email" type="email" placeholder="E-mailadres" required autocomplete="email">
       <input id="password" type="password" placeholder="Wachtwoord" required autocomplete="current-password" minlength="6">
       <button type="submit">Inloggen</button>
-      <button type="button" id="signup" class="link">Nog geen account? Registreren</button>
       <p id="loginMsg" class="msg" role="status"></p>
     </form>
   </section>
 
   <section id="app" class="app" hidden>
     <aside class="side">
+      <div class="orb" id="orb"></div>
       <button id="newChat">+ Nieuw gesprek</button>
+      <label class="muted"><input type="checkbox" id="speak" checked> Antwoorden voorlezen</label>
       <ul id="convList"></ul>
       <button id="logout" class="link">Uitloggen</button>
     </aside>
     <main class="chat">
       <div id="messages" class="messages" aria-live="polite"></div>
       <form id="chatForm" class="composer">
-        <textarea id="input" rows="1" placeholder="Stel een vraag…" required maxlength="8000"></textarea>
+        <button type="button" id="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">🎙️</button>
+        <textarea id="input" rows="1" placeholder="Zeg of typ iets, Serkan…" required maxlength="8000"></textarea>
         <button type="submit" id="send">Verstuur</button>
       </form>
     </main>

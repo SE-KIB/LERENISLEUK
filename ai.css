@@ -24,3 +24,20 @@ input,textarea{font:inherit;width:100%;padding:.65rem;border:1px solid var(--lin
 .composer{display:flex;gap:.5rem;padding:1rem 16px;max-width:820px;width:100%;margin:0 auto}
 .composer textarea{resize:none;max-height:200px}
 @media (max-width:700px){.app{grid-template-columns:1fr}.side{display:none}}
+
+/* JARVIS-stijl */
+:root{--accent:#22d3ee;--me:#0e2a33}
+@media (prefers-color-scheme:light){:root{--accent:#0891b2;--me:#e0f7fb}}
+.card h1,.side{letter-spacing:.08em}
+button{color:#06202a}
+#mic{font-size:1.2rem;padding:.5rem .8rem}
+#mic.on{background:#f43f5e;color:#fff}
+.orb{width:84px;height:84px;margin:.5rem auto 1rem;border-radius:50%;
+  background:radial-gradient(circle,var(--accent) 0 18%,transparent 19% 40%,var(--accent) 41% 44%,transparent 45%);
+  box-shadow:0 0 24px var(--accent);opacity:.75;transition:transform .3s}
+.orb.thinking{animation:spin 1.2s linear infinite}
+.orb.listening{animation:pulse .8s ease-in-out infinite;box-shadow:0 0 40px #f43f5e}
+.orb.speaking{animation:pulse .5s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{transform:scale(1.12);opacity:1}}
+@media (prefers-reduced-motion:reduce){.orb{animation:none!important}}
