@@ -49,8 +49,9 @@ Opdrachten-app → nieuwe opdracht, naam **Jarvis**:
 2. *Haal inhoud op van URL*: `https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/ai-chat`
    — methode **POST**; headers `x-jarvis-key` = je JARVIS_KEY, `Content-Type` = `application/json`;
    verzoekhoofdtekst JSON met veld `message` = *Gedicteerde tekst*.
-3. *Haal woordenboekwaarde op* → sleutel `reply`.
-4. *Spreek tekst uit* → *Woordenboekwaarde*.
+3. *Haal woordenboekwaarde op* → sleutel `reply` → *Spreek tekst uit*.
+4. *Haal woordenboekwaarde op* → sleutel `open`; *Als* die *een waarde heeft* → *Open URL's*.
+   (Hiermee opent "Hé Siri, Jarvis, route naar Utrecht Centraal" meteen Google Maps.)
 
 Nu werkt "Hé Siri, Jarvis" → je vraag inspreken → JARVIS antwoordt hardop. Gesprekken zie je terug op sekibar.nl.
 
@@ -64,6 +65,7 @@ Bij de eerste keer 🎙️ vraagt de telefoon toestemming voor de microfoon.
 |---|---|---|
 | Google Agenda | Google-koppeling (hierboven) | afspraken bekijken en maken |
 | Gmail | Google-koppeling (hierboven) | zoeken, lezen, **concepten** maken (versturen doe je zelf) |
+| Google Maps | geen koppeling nodig | route openen vanaf je locatie ("route naar …") |
 | iPhone zelf (Herinneringen, Agenda van iCloud, Contacten, locatie) | iPhone-opdracht stuurt die gegevens mee | erover antwoorden |
 
 Een website of app-snelkoppeling kan zelf **niet** in je iCloud of telefoon kijken; dat staat Apple niet toe.

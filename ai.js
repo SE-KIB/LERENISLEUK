@@ -80,6 +80,12 @@ $("chatForm").onsubmit = async (e) => {
     currentConv = data.conversationId;
     out.innerHTML = md(data.reply);
     say(data.reply);
+    if (data.open) {
+      const a = document.createElement("a");
+      a.href = data.open; a.className = "action"; a.textContent = "🗺️ Open in Google Maps";
+      out.append(a);
+      setTimeout(() => { location.href = data.open; }, 1200); // even laten voorlezen, dan Maps openen
+    }
     if (isNew) loadConversations();
   } catch (err) {
     out.textContent = "⚠️ " + err.message;

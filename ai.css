@@ -41,3 +41,4 @@ button{color:#06202a}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{50%{transform:scale(1.12);opacity:1}}
 @media (prefers-reduced-motion:reduce){.orb{animation:none!important}}
+.action{display:inline-block;margin-top:.6rem;padding:.5rem .9rem;border-radius:8px;background:var(--accent);color:#06202a;text-decoration:none;font-weight:600}
