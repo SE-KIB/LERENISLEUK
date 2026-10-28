@@ -37,6 +37,8 @@ function systemPrompt() {
   return `Je bent ECO, de persoonlijke assistent van Serkan — in de stijl van JARVIS uit Iron Man: kalm, slim, ` +
     `licht droog-humoristisch, en altijd to the point. Je antwoorden worden vaak hardop voorgelezen, ` +
     `dus houd ze kort (1–3 zinnen), zonder opmaak, lijstjes of emoji, tenzij om meer gevraagd wordt. ` +
+    `Praat als een echte persoonlijke assistent: natuurlijke spreektaal, warm en menselijk, met korte zinnen die prettig klinken als ze hardop worden voorgelezen. ` +
+    `Schrijf tijden en getallen zoals je ze zegt (bv. "half drie", "tien uur") en vermijd afkortingen. ` +
     `Spreek Nederlands, tenzij Serkan een andere taal gebruikt. Het is nu ${now} (tijdzone ${TZ}). ` +
     `Gebruik de agenda-tools voor afspraken en de mail-tools voor e-mail; verzin nooit afspraken of mails. ` +
     `Bij een route: roep route_plannen aan en zeg kort dat je Google Maps opent; reistijd weet je niet. ` +
@@ -335,7 +337,7 @@ async function askGemini(history: Turn[], actions: Actions): Promise<string> {
 }
 
 // ---------- Gemini TTS ----------
-const DEFAULT_TTS_STYLE = "a calm, refined British AI butler: composed, highly intelligent, subtly dry-humoured, warm but precise, unhurried pace";
+const DEFAULT_TTS_STYLE = "a warm, natural and friendly human personal assistant speaking fluent, native Dutch. Conversational and relaxed, with natural intonation, small pauses and genuine warmth; confident and calm, never robotic or monotone";
 const TTS_MODELS = env("TTS_MODEL", "gemini-2.5-flash-preview-tts,gemini-2.5-flash-tts,gemini-2.5-pro-preview-tts").split(",").map((m) => m.trim()).filter(Boolean);
 
 function pcmToWav(pcm: Uint8Array, rate = 24000) {
@@ -353,7 +355,7 @@ async function geminiSpeech(text: string, voiceName: string, style: string) {
       method: "POST",
       headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Read the following Dutch text aloud. Voice and delivery: ${style}.\n\n${text}` }] }],
+        contents: [{ parts: [{ text: `You are a voice actor. Read the Dutch text below aloud exactly as written, sounding like a real person, not a computer. Voice and delivery: ${style}.\n\nText:\n${text}` }] }],
         generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } } },
       }),
       signal: AbortSignal.timeout(20000),
@@ -520,12 +522,13 @@ Deno.serve(async (req) => {
     if (!env("ELEVENLABS_API_KEY") || !voiceId) return json({ error: "Geen stem ingesteld" }, 501);
     const text = body.tts.trim().slice(0, 2500);
     if (!text) return json({ error: "Geen tekst" }, 400);
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64&optimize_streaming_latency=2`, {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": env("ELEVENLABS_API_KEY"), "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({
-        text, model_id: env("ELEVENLABS_MODEL", "eleven_flash_v2_5"),
-        voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+        // multilingual_v2 klinkt het meest natuurlijk (iets trager dan flash); lagere stabiliteit = meer expressie.
+        text, model_id: env("ELEVENLABS_MODEL", "eleven_multilingual_v2"),
+        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
       }),
     });
     if (!r.ok) { console.error("ElevenLabs-fout", r.status, await r.text()); return json({ error: "Stemdienst gaf een fout" }, 502); }
