@@ -33,6 +33,11 @@ Eenmalig, kan ook op de telefoon:
 Klaar: ECO gebruikt dan eerst Groq en valt bij een storing terug op Gemini. Ander Groq-model kiezen kan met
 `GROQ_MODEL` (komma-gescheiden, eerste die werkt wordt gebruikt).
 
+## Spraakherkenning (Whisper via Groq)
+Met `GROQ_API_KEY` neemt de microfoonknop je stem op en laat die uitschrijven door `whisper-large-v3`
+(reserve: `whisper-large-v3-turbo`; instelbaar met `STT_MODEL`, taal met `STT_LANGUAGE`, standaard `nl`).
+Opnemen stopt vanzelf na ~1,3 s stilte. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
+
 ## Welk AI-model?
 ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
 Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
