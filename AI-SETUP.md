@@ -8,7 +8,7 @@ Browser (index.html + ai.js, GitHub Pages)
 Supabase Edge Function `ai-chat`  ── controleert login, daglimiet, slaat gesprek op
    │  geheime API-sleutel (alleen op de server)
    ▼
-Taalmodel (Anthropic Claude API)
+Taalmodel (Groq, met Gemini als reserve)
 ```
 De "eigen AI" is een eigen assistent: eigen website, eigen accounts, eigen gespreksgeschiedenis,
 eigen instructies (systeemprompt) en eigen limieten, bovenop een bestaand taalmodel. Zelf een model
@@ -49,10 +49,32 @@ Elk systeem dat een ICS/iCal-link geeft (MyTimetable, Zermelo, Magister, SOMtoda
 Supabase-secret `AGENDA_FEEDS` = `Naam|link`, meerdere gescheiden door komma's, bv. `School|https://…/ical?…`.
 ECO leest deze agenda's mee (alleen-lezen; herhalingen worden uitgevouwen). Houd de link privé.
 
+## Brightspace (lesplanning, opdrachten, deadlines)
+1. Brightspace → **Agenda** (Calendar) → **Abonneren** (Subscribe) → kies *alle cursussen* → kopieer de link
+   (iets als `https://brightspace.hhs.nl/d2l/le/calendar/feed/user/feed.ics?token=…`). Zie je geen *Abonneren*, dan
+   heeft de school agenda-feeds uitgezet; dan kan het helaas niet.
+2. Supabase-secret `AGENDA_FEEDS` aanvullen met een komma: `School|https://mytimetable…,Brightspace|https://…feed.ics?token=…`
+   (de naam moet "Brightspace" bevatten, dan herkent ECO de items als opdrachten en deadlines).
+ECO ziet daarna wat docenten in de Brightspace-agenda zetten. Lesplanning die alleen als document in een cursus staat,
+kan ECO niet lezen (daarvoor zou hij met jouw schoolaccount moeten inloggen).
+
+Wat ECO met het rooster doet: bij elke les kijkt hij of het een **belangrijke** les is (toets, tentamen, presentatie,
+deadline, verplicht), **zelfstudie**, of **vervalt**, en of de les **eerder of later** begint dan normaal (vergeleken met
+dezelfde les op dezelfde weekdag in de weken eromheen). Ook per dag: "eerste les een uur later dan normaal" of
+"geen les, terwijl er normaal wel les is".
+
+## Dagrapport uit je mail
+Elke ochtend rond half acht komt er een mail met onderwerp "Dagrapport" binnen. ECO leest het nieuwste rapport als je vraagt
+naar je mail, het dagrapport of hoe je dag eruitziet.
+- Is Google gekoppeld (zie hieronder), dan werkt het meteen.
+- Anders: https://myaccount.google.com/apppasswords (tweestapsverificatie moet aan staan) → naam `ECO` → kopieer het
+  wachtwoord. Supabase-secrets: `GMAIL_EMAIL` (je Gmail-adres) en `GMAIL_APP_PASSWORD`. ECO leest dan alleen-lezen via IMAP.
+- Ander onderwerp? Secret `DAGRAPPORT_QUERY`, bv. `subject:Dagrapport from:me` (Gmail-zoektaal).
+
 ## Welk AI-model?
-ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
-Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
-(standaard `gemini-flash-latest` of `claude-sonnet-5-5`).
+ECO probeert eerst **Groq** (`openai/gpt-oss-120b`, dan `gpt-oss-20b`; instelbaar met `GROQ_MODEL`) en valt bij een
+storing terug op **Gemini** (`gemini-flash-latest`, dan `AI_MODEL_FALLBACKS`). Volgorde aan te passen met `AI_PROVIDERS`
+(bv. `groq,gemini,anthropic`); Claude werkt ook als `ANTHROPIC_API_KEY` bestaat. Elke aanroep heeft 10 seconden (`AI_TIMEOUT_MS`).
 
 **Gemini-sleutel (gratis laag):** https://aistudio.google.com → *Get API key* → *Create API key* →
 in Supabase als secret `GEMINI_API_KEY`. Let op: in de gratis laag mag Google je gesprekken gebruiken
