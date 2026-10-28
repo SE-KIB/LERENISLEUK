@@ -99,7 +99,7 @@ const TOOLS = [
   },
   {
     name: "agenda_bekijken",
-    description: "Haalt afspraken op uit Serkans agenda (iCloud en/of Google) tussen twee tijdstippen.",
+    description: "Haalt afspraken op uit al Serkans agenda's (iCloud, Google en abonnementen zoals zijn schoolrooster) tussen twee tijdstippen.",
     input_schema: {
       type: "object",
       properties: {
@@ -256,6 +256,115 @@ async function icloudCreate(titel: string, start: string, eind: string, locatie?
   return cal.name;
 }
 
+// ---------- Agenda-abonnementen (ICS-links, bv. schoolrooster) ----------
+// Secret AGENDA_FEEDS: "School|https://…ics" (meerdere gescheiden door komma of nieuwe regel; webcal:// mag).
+const FEEDS = () => env("AGENDA_FEEDS").split(/[,\n]/).map((f) => f.trim()).filter(Boolean).map((f, i) => {
+  const [name, url] = f.includes("|") ? f.split("|") : [`Agenda ${i + 1}`, f];
+  return { name: name.trim(), url: url.trim().replace(/^webcal:/i, "https:") };
+});
+const feedCache = new Map<string, { at: number; ics: string }>();
+
+function tzOffset(tz: string, utc: number) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(new Date(utc)).map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - utc;
+}
+function localToUtc(y: number, mo: number, d: number, h: number, mi: number, tz: string) {
+  const guess = Date.UTC(y, mo, d, h, mi);
+  let t = guess - tzOffset(tz, guess);
+  t = guess - tzOffset(tz, t);
+  return t;
+}
+function icsTime(line: string) {
+  const v = line.slice(line.lastIndexOf(":") + 1).trim();
+  const tz = /TZID=([^;:]+)/.exec(line)?.[1]?.replace(/^"|"$/g, "") || TZ;
+  const y = +v.slice(0, 4), mo = +v.slice(4, 6) - 1, d = +v.slice(6, 8);
+  if (v.length === 8) return { ms: localToUtc(y, mo, d, 0, 0, TZ), allDay: true, tz: TZ };
+  const h = +v.slice(9, 11), mi = +v.slice(11, 13);
+  if (v.endsWith("Z")) return { ms: Date.UTC(y, mo, d, h, mi), allDay: false, tz: TZ };
+  let zone = tz; try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { zone = TZ; } // Windows-namen e.d.
+  return { ms: localToUtc(y, mo, d, h, mi, zone), allDay: false, tz: zone };
+}
+const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+function feedEvents(ics: string, from: number, to: number) {
+  const lines = ics.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
+  const out: { titel: string; locatie?: string; ms: number; end: number; allDay: boolean }[] = [];
+  let ev: any = null;
+  for (const l of lines) {
+    if (l === "BEGIN:VEVENT") { ev = { ex: new Set<number>() }; continue; }
+    if (!ev) continue;
+    if (l === "END:VEVENT") {
+      if (ev.start && !ev.recurId) {
+        const dur = (ev.end?.ms ?? ev.start.ms + (ev.start.allDay ? 86400000 : 3600000)) - ev.start.ms;
+        const push = (ms: number) => { if (ms < to && ms + dur > from && !ev.ex.has(ms)) out.push({ titel: ev.titel ?? "(zonder titel)", locatie: ev.loc, ms, end: ms + dur, allDay: ev.start.allDay }); };
+        if (!ev.rrule) push(ev.start.ms);
+        else {
+          const r = Object.fromEntries(ev.rrule.split(";").map((kv: string) => kv.split("=")));
+          const interval = +(r.INTERVAL || 1), count = r.COUNT ? +r.COUNT : Infinity;
+          const until = r.UNTIL ? icsTime("X:" + r.UNTIL).ms : Infinity;
+          // Herhaling op lokale datum + dezelfde lokale tijd (klopt ook rond zomer-/wintertijd).
+          const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: ev.start.tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+            .formatToParts(new Date(ev.start.ms)).map((x) => [x.type, x.value]));
+          const base = Date.UTC(+p.year, +p.month - 1, +p.day), hh = +p.hour, mm = +p.minute;
+          const at = (dayUtc: number) => { const d = new Date(dayUtc); return localToUtc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hh, mm, ev.start.tz); };
+          const byday = (r.BYDAY || "").split(",").map((x: string) => DAYS.indexOf(x.replace(/^[+-]?\d+/, ""))).filter((x: number) => x >= 0);
+          let n = 0;
+          for (let i = 0; i < 2000 && n < count; i++) {
+            if (r.FREQ === "DAILY") {
+              const ms = at(base + i * interval * 86400000); if (ms > until || ms > to) break; n++; push(ms);
+            } else if (r.FREQ === "WEEKLY") {
+              const week0 = base - new Date(base).getUTCDay() * 86400000 + i * interval * 7 * 86400000;
+              const days = byday.length ? byday : [new Date(base).getUTCDay()];
+              let stop = false;
+              for (const wd of days.sort()) {
+                const day = week0 + wd * 86400000; if (day < base) continue;
+                const ms = at(day); if (ms > until || ms > to || n >= count) { stop = true; break; } n++; push(ms);
+              }
+              if (stop) break;
+            } else if (r.FREQ === "MONTHLY" || r.FREQ === "YEARLY") {
+              const d0 = new Date(base), k = i * interval;
+              const day = r.FREQ === "MONTHLY" ? Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + k, d0.getUTCDate()) : Date.UTC(d0.getUTCFullYear() + k, d0.getUTCMonth(), d0.getUTCDate());
+              const ms = at(day); if (ms > until || ms > to) break; n++; push(ms);
+            } else { push(ev.start.ms); break; }
+          }
+        }
+      }
+      ev = null; continue;
+    }
+    const key = l.split(/[;:]/)[0], val = l.slice(l.indexOf(":") + 1).replace(/\\n/g, " ").replace(/\\([,;\\])/g, "$1");
+    if (key === "SUMMARY") ev.titel = val;
+    else if (key === "LOCATION") ev.loc = val;
+    else if (key === "DTSTART") ev.start = icsTime(l);
+    else if (key === "DTEND") ev.end = icsTime(l);
+    else if (key === "RRULE") ev.rrule = val;
+    else if (key === "RECURRENCE-ID") ev.recurId = true;
+    else if (key === "EXDATE") for (const x of val.split(",")) ev.ex.add(icsTime(l.slice(0, l.indexOf(":") + 1) + x).ms);
+    else if (key === "STATUS" && /CANCELLED/i.test(val)) ev.titel = "(vervallen) " + (ev.titel ?? "");
+  }
+  const fmt = (ms: number, allDay: boolean) => allDay
+    ? new Date(ms).toLocaleDateString("nl-NL", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }) + " (hele dag)"
+    : new Date(ms).toLocaleString("nl-NL", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return out.sort((a, b) => a.ms - b.ms).slice(0, 80)
+    .map((e) => ({ titel: e.titel, start: fmt(e.ms, e.allDay), eind: e.allDay ? undefined : fmt(e.end, false), locatie: e.locatie }));
+}
+async function feedsEvents(van: string, tot: string) {
+  const from = new Date(van).getTime(), to = new Date(tot).getTime();
+  const res: Record<string, unknown> = {};
+  await Promise.all(FEEDS().map(async (f) => {
+    try {
+      let c = feedCache.get(f.url);
+      if (!c || Date.now() - c.at > 5 * 60000) {
+        const r = await fetch(f.url, { signal: AbortSignal.timeout(12000), headers: { Accept: "text/calendar, */*" } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        c = { at: Date.now(), ics: await r.text() };
+        feedCache.set(f.url, c);
+      }
+      res[f.name] = feedEvents(c.ics, from, to);
+    } catch (e) { res[f.name] = { fout: `agenda-link niet bereikbaar (${(e as Error).message})` }; }
+  }));
+  return res;
+}
+
 // ---------- Gmail ----------
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const header = (m: any, n: string) => m.payload?.headers?.find((h: any) => h.name.toLowerCase() === n)?.value;
@@ -294,14 +403,17 @@ async function runTool(name: string, input: Record<string, string>, actions: Act
     return { geopend_in_google_maps: true, bestemming: input.bestemming };
   }
   if (name === "agenda_bekijken" || name === "afspraak_maken") {
-    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN")) return { fout: "Er is nog geen agenda gekoppeld (iCloud of Google)." };
+    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !(name === "agenda_bekijken" && FEEDS().length))
+      return { fout: "Er is nog geen agenda gekoppeld (iCloud, Google of een agenda-link)." };
     if (name === "agenda_bekijken") {
-      const [ic, go] = await Promise.all([
+      const [ic, go, fe] = await Promise.all([
         ICLOUD() ? icloudEvents(input.van, input.tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
         env("GOOGLE_REFRESH_TOKEN") ? googleEvents(input.van, input.tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
+        FEEDS().length ? feedsEvents(input.van, input.tot) : null,
       ]);
-      return { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}) };
+      return { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
     }
+    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN")) return { fout: "Afspraken maken kan alleen in iCloud of Google; de agenda-link (bv. schoolrooster) is alleen-lezen." };
     const eind = input.eind ?? new Date(new Date(input.start).getTime() + 3600_000).toISOString();
     if (ICLOUD()) {
       const cal = await icloudCreate(input.titel, input.start, eind, input.locatie);
