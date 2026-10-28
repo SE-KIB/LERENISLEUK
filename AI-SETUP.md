@@ -18,7 +18,16 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `index.html`, `ai.js`, `ai.css` — de chatwebsite
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
-- `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Eenmalig instellen
+- `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Welk AI-model?
+ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
+Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
+(standaard `gemini-flash-latest` of `claude-sonnet-5-5`).
+
+**Gemini-sleutel (gratis laag):** https://aistudio.google.com → *Get API key* → *Create API key* →
+in Supabase als secret `GEMINI_API_KEY`. Let op: in de gratis laag mag Google je gesprekken gebruiken
+om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini Pro-abonnement geeft geen API-tegoed.
+
+## Eenmalig instellen
 1. **Anthropic:** API-sleutel op https://console.anthropic.com (betaalmethode + uitgavelimiet instellen).
 2. **Database:** plak `supabase/migrations/20261028_ai.sql` in Supabase → SQL Editor → Run.
 3. **Jouw account:** Supabase → Authentication → Users → *Add user* (je e-mail + wachtwoord).
