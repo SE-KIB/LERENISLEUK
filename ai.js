@@ -376,7 +376,7 @@ addEventListener("keydown", (e) => {
 addEventListener("keyup", (e) => { if (e.code === "Space" && rec) rec.stop(); });
 
 // ---------- Start ----------
-$("versionLogin").textContent = $("version").textContent; // zelfde PR-badge op het inlogscherm
+$("versionLogin").textContent = $("version").textContent; // PR-badge alleen zichtbaar op het inlogscherm
 initStatus();
 clock(); setInterval(clock, 1000);
 readouts(); setInterval(readouts, 1400);
