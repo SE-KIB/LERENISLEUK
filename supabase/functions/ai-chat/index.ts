@@ -7,7 +7,7 @@
 //          (standaard gemini als GEMINI_API_KEY bestaat).
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
-//          optioneel AI_MODEL, AI_MODEL_FALLBACKS (komma-gescheiden reservemodellen), TIMEZONE, ALLOWED_ORIGIN,
+//          optioneel AI_MODEL, AI_TIMEOUT_MS (standaard 10000), AI_MODEL_FALLBACKS (komma-gescheiden reservemodellen), TIMEZONE, ALLOWED_ORIGIN,
 //          ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID (natuurlijke stem; body { tts: "tekst" } geeft audio/mpeg).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -229,6 +229,10 @@ const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-la
 let usedModel = MODEL;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Hoe lang één modelaanroep mag duren voordat we het volgende model proberen.
+const CALL_TIMEOUT = Number(env("AI_TIMEOUT_MS", "10000"));
+const attempts: string[] = []; // voor de log: welk model hoe lang deed
+
 async function geminiCall(body: Record<string, unknown>) {
   let last = "";
   for (const model of GEMINI_MODELS) {
@@ -236,21 +240,31 @@ async function geminiCall(body: Record<string, unknown>) {
       const thinking = THINKING[thinkingIdx];
       const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.6 };
       if (thinking) generationConfig.thinkingConfig = thinking;
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST",
-        headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-        body: JSON.stringify({ ...body, generationConfig }),
-      });
+      const t = Date.now();
+      let r: Response;
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: "POST",
+          headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+          body: JSON.stringify({ ...body, generationConfig }),
+          signal: AbortSignal.timeout(CALL_TIMEOUT),
+        });
+      } catch {
+        attempts.push(`${model}:timeout`);
+        last = `${model} gaf binnen ${CALL_TIMEOUT / 1000}s geen antwoord`;
+        break; // traag → meteen naar het volgende model
+      }
+      attempts.push(`${model}:${r.status}:${Date.now() - t}ms`);
       if (r.ok) { usedModel = model; return await r.json(); }
       last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
       if (r.status === 400 && thinking && /think/i.test(last)) { thinkingIdx++; attempt--; continue; }
-      if (r.status === 404) break;                                  // model bestaat niet → volgende
-      if ([429, 500, 503].includes(r.status)) { if (attempt === 0) await wait(700); continue; } // druk → nog 1x, dan volgende
+      if (r.status === 404) break;                                   // model bestaat niet → volgende
+      if ([429, 500, 503].includes(r.status)) { if (attempt === 0) await wait(500); continue; } // druk → nog 1x, dan volgende
       throw new Error(`Gemini-fout ${last}`);
     }
     console.warn("Gemini-model overgeslagen:", last);
   }
-  throw new Error(`Gemini-fout (alle modellen bezet): ${last}`);
+  throw new Error(`Gemini-fout (alle modellen bezet of traag): ${last}`);
 }
 
 async function askGemini(history: Turn[], actions: Actions): Promise<string> {
@@ -336,6 +350,7 @@ Deno.serve(async (req) => {
   const tDb = Date.now();
 
   const actions: Actions = {};
+  attempts.length = 0;
   let reply = "";
   try {
     reply = PROVIDER === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
@@ -348,7 +363,7 @@ Deno.serve(async (req) => {
   reply ||= "Daar kom ik niet uit, sorry.";
 
   const tAi = Date.now();
-  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${PROVIDER === "gemini" ? usedModel : MODEL})`);
+  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${PROVIDER === "gemini" ? usedModel : MODEL}) pogingen: ${attempts.join(", ")}`);
 
   // Opslaan ná het antwoord, zodat de gebruiker er niet op hoeft te wachten.
   const save = Promise.all([
@@ -361,7 +376,7 @@ Deno.serve(async (req) => {
   const rt = (globalThis as any).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(save); else await save;
 
-  return new Response(JSON.stringify({ conversationId: convId, reply, open: actions.open ?? "" }), {
+  return new Response(JSON.stringify({ conversationId: convId, reply, open: actions.open ?? "", model: PROVIDER === "gemini" ? usedModel : MODEL }), {
     headers: { ...CORS, "Content-Type": "application/json", "Server-Timing": `db;dur=${tDb - t0}, ai;dur=${tAi - tDb}` },
   });
 });

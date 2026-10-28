@@ -333,7 +333,8 @@ $("chatForm").onsubmit = async (e) => {
     const data = await res.json();
     lastLatency = Math.round(performance.now() - t);
     const ai = /ai;dur=(\d+)/.exec(res.headers.get("server-timing") || "")?.[1];
-    $("stLat").textContent = ai ? `${lastLatency} MS · AI ${ai}` : `${lastLatency} MS`;
+    $("stLat").textContent = ai ? `${(lastLatency / 1000).toFixed(1)}S · AI ${(ai / 1000).toFixed(1)}S` : `${(lastLatency / 1000).toFixed(1)}S`;
+    if (data.model) $("stModel").textContent = data.model.replace(/^gemini-|^claude-/, "").toUpperCase();
     currentConv = data.conversationId;
     $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
     const body = entry("assistant", data.reply);
