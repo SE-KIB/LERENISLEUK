@@ -124,6 +124,7 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
   gap:14px;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));padding-bottom:max(14px,env(safe-area-inset-bottom))}
 .topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--cd);padding-bottom:10px}
 .brand b{font-family:var(--f-head);font-size:1.1rem;letter-spacing:.35em;color:var(--c);text-shadow:var(--glow)}
+.brand-ver{font-size:.275rem;font-size:max(.275rem,7px);letter-spacing:.06em;margin-left:-.3rem;vertical-align:baseline;position:relative;top:.05em;color:var(--muted);text-shadow:none;font-family:var(--f-mono)}
 .brand span{margin-left:12px;font-family:var(--f-head);font-size:.56rem;letter-spacing:.3em;color:var(--muted)}
 .sysline{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.18em;color:var(--c2);display:flex;align-items:center;gap:8px}
 .dot{width:7px;height:7px;border-radius:50%;background:#5dffb0;box-shadow:0 0 8px #5dffb0;animation:blink 2s infinite}
