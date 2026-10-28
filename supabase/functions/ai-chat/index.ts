@@ -220,8 +220,9 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
 
 // Snelheid: "denken" uit of zo laag mogelijk. Niet elk Gemini-model kent elke instelling,
 // dus we proberen ze op volgorde en onthouden welke werkt.
+// Gemini 2.5 kent thinkingBudget, Gemini 3 kent thinkingLevel; per model onthouden welke werkt.
 const THINKING = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
-let thinkingIdx = 0;
+const thinkingIdx = new Map<string, number>();
 
 // Bij drukte (503/429/500) eerst kort opnieuw proberen, daarna overstappen op een reservemodel.
 const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-latest,gemini-2.5-flash").split(",").map((m) => m.trim())]
@@ -235,9 +236,11 @@ const attempts: string[] = []; // voor de log: welk model hoe lang deed
 
 async function geminiCall(body: Record<string, unknown>) {
   let last = "";
-  for (const model of GEMINI_MODELS) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const thinking = THINKING[thinkingIdx];
+  nextModel: for (const model of GEMINI_MODELS) {
+    let busyRetry = true;
+    for (;;) {
+      const ti = thinkingIdx.get(model) ?? 0;
+      const thinking = THINKING[ti];
       const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.6 };
       if (thinking) generationConfig.thinkingConfig = thinking;
       const t = Date.now();
@@ -252,19 +255,18 @@ async function geminiCall(body: Record<string, unknown>) {
       } catch {
         attempts.push(`${model}:timeout`);
         last = `${model} gaf binnen ${CALL_TIMEOUT / 1000}s geen antwoord`;
-        break; // traag → meteen naar het volgende model
+        continue nextModel; // traag → meteen naar het volgende model
       }
-      attempts.push(`${model}:${r.status}:${Date.now() - t}ms`);
+      attempts.push(`${model}:${r.status}:${JSON.stringify(thinking)}:${Date.now() - t}ms`);
       if (r.ok) { usedModel = model; return await r.json(); }
       last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
-      if (r.status === 400 && thinking && /think/i.test(last)) { thinkingIdx++; attempt--; continue; }
-      if (r.status === 404) break;                                   // model bestaat niet → volgende
-      if ([429, 500, 503].includes(r.status)) { if (attempt === 0) await wait(500); continue; } // druk → nog 1x, dan volgende
-      throw new Error(`Gemini-fout ${last}`);
+      if (r.status === 400 && ti < THINKING.length - 1) { thinkingIdx.set(model, ti + 1); continue; } // andere denk-instelling
+      if ([429, 500, 503].includes(r.status) && busyRetry) { busyRetry = false; await wait(500); continue; }
+      console.warn("Gemini-model overgeslagen:", last);
+      continue nextModel; // 400 zonder uitweg, 404, of nog steeds druk → volgende model
     }
-    console.warn("Gemini-model overgeslagen:", last);
   }
-  throw new Error(`Gemini-fout (alle modellen bezet of traag): ${last}`);
+  throw new Error(`Gemini-fout (geen model beschikbaar): ${last}`);
 }
 
 async function askGemini(history: Turn[], actions: Actions): Promise<string> {
