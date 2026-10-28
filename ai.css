@@ -11,8 +11,9 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+html{background:var(--bg);color-scheme:dark}
 html,body{height:100%}
-body{margin:0;background:radial-gradient(ellipse at 50% 40%,#04263a 0%,var(--bg2) 35%,var(--bg) 75%);
+body{margin:0;background:var(--bg) radial-gradient(ellipse at 50% 40%,#04263a 0%,var(--bg2) 35%,var(--bg) 75%) fixed;
   color:var(--text);font-family:var(--f-body);font-size:16px;overflow:hidden;-webkit-font-smoothing:antialiased}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
