@@ -308,3 +308,12 @@ select.lab-id option{background:#02121a;color:var(--c2)}
 .mem-add input{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.4rem .55rem;color:var(--c2);font:inherit;font-size:.9rem;outline:none}
 .mem-add input:focus{border-color:var(--c)}
 @media (max-width:900px){.right{display:flex;flex-direction:column;gap:10px}.panel.profile{max-height:40vh}}
+
+/* Weer */
+.wx{display:flex;align-items:center;gap:12px}
+.wx b{font-family:var(--f-head);font-size:2rem;color:#e9fdff;text-shadow:var(--glow);font-weight:500}
+.wx div{display:grid;gap:2px}
+.wx span{text-transform:capitalize}
+.wx small{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.wx-tip{margin-top:8px;font-size:.92rem;color:#ffe2b0;line-height:1.35}
+.wx-tip{min-height:2.7em}
