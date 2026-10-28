@@ -24,7 +24,7 @@ const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,ant
   .split(",").map((p) => p.trim()).filter((p) => KEYS[p] && env(KEYS[p]));
 const MODEL = env("AI_MODEL", "gemini-flash-latest");            // Gemini
 const CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5");
-const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,llama-3.3-70b-versatile").split(",").map((m) => m.trim()).filter(Boolean);
+const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim()).filter(Boolean);
 const TZ = env("TIMEZONE", "Europe/Amsterdam");
 const ALLOWED = env("ALLOWED_EMAILS").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
 const HISTORY = 20;
