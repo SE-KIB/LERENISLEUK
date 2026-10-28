@@ -328,7 +328,9 @@ Deno.serve(async (req) => {
     reply = PROVIDER === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
   } catch (e) {
     console.error(e);
-    return json({ error: "Het AI-model gaf een fout. Probeer het later opnieuw." }, 502);
+    // Alleen geautoriseerde gebruikers komen hier; de echte reden helpt bij het oplossen (sleutel, model, limiet).
+    const detail = String((e as Error)?.message ?? e).replace(/key=[^&\s"]+/gi, "key=***").slice(0, 300);
+    return json({ error: `Het AI-model gaf een fout (${PROVIDER}/${MODEL}): ${detail}` }, 502);
   }
   reply ||= "Daar kom ik niet uit, sorry.";
 
