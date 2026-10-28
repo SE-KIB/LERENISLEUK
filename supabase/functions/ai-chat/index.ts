@@ -356,6 +356,37 @@ Deno.serve(async (req) => {
   }
   if (!userId) return json({ error: "Geen toegang: " + reason }, 401);
 
+  // Spraak naar tekst: audio (multipart, veld "file") → Groq Whisper.
+  if ((req.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
+    if (!env("GROQ_API_KEY")) return json({ error: "Geen spraakherkenning ingesteld" }, 501);
+    const form = await req.formData().catch(() => null);
+    const file = form?.get("file");
+    if (!(file instanceof File) || file.size < 1000) return json({ text: "" });
+    if (file.size > 20_000_000) return json({ error: "Opname te groot" }, 413);
+    let last = "";
+    for (const model of env("STT_MODEL", "whisper-large-v3,whisper-large-v3-turbo").split(",").map((m) => m.trim())) {
+      const out = new FormData();
+      out.append("file", file, file.name || "spraak.webm");
+      out.append("model", model);
+      out.append("language", env("STT_LANGUAGE", "nl"));
+      out.append("response_format", "json");
+      out.append("temperature", "0");
+      const t = Date.now();
+      const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST", headers: { Authorization: `Bearer ${env("GROQ_API_KEY")}` }, body: out,
+        signal: AbortSignal.timeout(15000),
+      }).catch((e) => { last = String(e); return null; });
+      if (r?.ok) {
+        const text = ((await r.json()).text ?? "").trim();
+        console.log(`spraak: ${model} ${Date.now() - t} ms, ${file.size} bytes`);
+        return json({ text, model });
+      }
+      if (r) last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
+      console.warn("Whisper overgeslagen:", last);
+    }
+    return json({ error: "Spraakherkenning mislukt: " + last }, 502);
+  }
+
   let body: { conversationId?: string; message?: string; tts?: string };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 

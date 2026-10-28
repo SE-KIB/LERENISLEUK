@@ -154,8 +154,9 @@ function clock() {
 }
 const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
 function initStatus() {
-  $("stVoice").textContent = Rec ? "IN + UIT" : window.speechSynthesis ? "ALLEEN UIT" : "N.V.T.";
-  $("stVoice").className = Rec ? "ok" : "warn";
+  const canIn = Rec || (navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+  $("stVoice").textContent = canIn ? "IN + UIT" : window.speechSynthesis ? "ALLEEN UIT" : "N.V.T.";
+  $("stVoice").className = canIn ? "ok" : "warn";
   navigator.getBattery?.().then((b) => {
     const upd = () => { $("stBat").textContent = `${Math.round(b.level * 100)}%${b.charging ? " ⚡" : ""}`; $("stBat").className = b.level < 0.2 ? "warn" : "ok"; };
     upd(); b.addEventListener("levelchange", upd); b.addEventListener("chargingchange", upd);
@@ -469,11 +470,93 @@ function stopSpeaking() { voiceGen++; queue = []; speechSynthesis?.cancel(); pla
 speechSynthesis?.getVoices();
 
 // ---------- Spraak in ----------
-let rec = null;
-if (!Rec) $("mic").hidden = true;
+// Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands
+// veel beter. Stopt vanzelf na een korte stilte. Terugval: de spraakherkenning van de browser.
+const CAN_RECORD = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+let whisper = CAN_RECORD, rec = null, recording = null;
+if (!CAN_RECORD && !Rec) $("mic").hidden = true;
+
 function listen() {
-  if (!Rec || rec) return;
+  if (rec || recording) return;
   stopSpeaking();
+  if (whisper) recordWhisper(); else listenBrowser();
+}
+function stopListening() {
+  if (recording) recording.stop();
+  else if (rec) rec.stop();
+}
+function micOn(on) {
+  $("mic").classList.toggle("on", on);
+  if (on) { setState("listening"); sfx.listen(); typeCaption("Ik luister…", "user"); }
+  else if (document.body.dataset.state === "listening") setState("idle");
+}
+
+async function recordWhisper() {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+  catch (e) { typeCaption("Geen toegang tot de microfoon: " + e.message, "err"); return; }
+  const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
+  const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+  const parts = [];
+  mr.ondataavailable = (e) => e.data.size && parts.push(e.data);
+
+  // Stiltedetectie op het echte microfoonsignaal (ook voor de visualisatie).
+  let ctx, an, raf, spoke = false, quietSince = 0;
+  const started = Date.now();
+  try {
+    ctx = actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+    ctx.resume();
+    an = ctx.createAnalyser(); an.fftSize = 512;
+    ctx.createMediaStreamSource(stream).connect(an);
+  } catch { an = null; }
+  const buf = new Float32Array(512);
+  const watch = () => {
+    if (mr.state !== "recording") return;
+    if (an) {
+      an.getFloatTimeDomainData(buf);
+      const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
+      bump(Math.min(0.6, rms * 6));
+      const now = Date.now();
+      if (rms > 0.02) { spoke = true; quietSince = 0; }
+      else if (spoke) { quietSince ||= now; if (now - quietSince > 1300) return mr.stop(); }
+      if (!spoke && now - started > 7000) return mr.stop();   // niets gezegd
+    }
+    if (Date.now() - started > 30000) return mr.stop();      // maximaal 30 s
+    raf = requestAnimationFrame(watch);
+  };
+
+  mr.onstop = async () => {
+    cancelAnimationFrame(raf);
+    stream.getTracks().forEach((t) => t.stop());
+    recording = null; micOn(false);
+    if (an && !spoke) { typeCaption(""); return; }
+    const blob = new Blob(parts, { type: mr.mimeType || type || "audio/webm" });
+    const ext = /mp4|m4a/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : "webm";
+    setState("thinking"); typeCaption("Uitschrijven…", "user");
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const fd = new FormData(); fd.append("file", blob, `spraak.${ext}`);
+      const res = await fetch(FUNCTION_URL, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY }, body: fd });
+      if (res.status === 501) { whisper = false; setState("idle"); if (Rec) listenBrowser(); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
+      setState("idle");
+      if (!data.text) { typeCaption("Ik heb niets verstaan.", "user"); return; }
+      $("input").value = data.text;
+      $("stVoice").textContent = "WHISPER";
+      $("chatForm").requestSubmit();
+    } catch (err) {
+      setState("idle"); typeCaption("Spraak: " + err.message, "err");
+    }
+  };
+  recording = mr;
+  mr.start(250);
+  micOn(true);
+  watch();
+}
+
+function listenBrowser() {
+  if (!Rec) return;
   rec = new Rec();
   rec.lang = "nl-NL"; rec.interimResults = true;
   rec.onresult = (e) => {
@@ -481,21 +564,19 @@ function listen() {
     $("input").value = said; typeCaption("› " + said, "user"); bump(0.6);
   };
   rec.onend = () => {
-    rec = null; $("mic").classList.remove("on");
-    if (document.body.dataset.state === "listening") setState("idle");
+    rec = null; micOn(false);
     if ($("input").value.trim()) $("chatForm").requestSubmit();
   };
   rec.onerror = (e) => { if (e.error !== "no-speech" && e.error !== "aborted") typeCaption("Microfoon: " + e.error, "err"); };
-  $("mic").classList.add("on"); setState("listening"); sfx.listen();
-  typeCaption("Ik luister…", "user");
+  micOn(true);
   rec.start();
 }
-$("mic").onclick = () => (rec ? rec.stop() : listen());
+$("mic").onclick = () => (rec || recording ? stopListening() : listen());
 // Spatie ingedrukt houden buiten het tekstvak = praten.
 addEventListener("keydown", (e) => {
   if (e.code === "Space" && document.activeElement !== $("input") && !$("app").hidden && !e.repeat && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); listen(); }
 });
-addEventListener("keyup", (e) => { if (e.code === "Space" && rec) rec.stop(); });
+addEventListener("keyup", (e) => { if (e.code === "Space" && (rec || recording)) stopListening(); });
 
 // ---------- Vrije indeling: panelen verplaatsen, schalen en inklappen (alleen desktop) ----------
 const LAYOUT_KEY = "eco-layout-v1";
