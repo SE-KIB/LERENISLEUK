@@ -435,6 +435,17 @@ Deno.serve(async (req) => {
       await admin.auth.admin.updateUserById(userId, { app_metadata: { ...(data?.user?.app_metadata ?? {}), eco_voice_id: voice_id } });
       return json({ voiceId: voice_id });
     }
+    if (body.voice === "set") {
+      // Bestaande stem (eigen of standaard) gebruiken via haar ID; werkt ook met een gratis account.
+      const voiceId = (body.generatedVoiceId ?? "").trim();
+      if (!/^[A-Za-z0-9]{10,40}$/.test(voiceId)) return json({ error: "Ongeldige stem-ID" }, 400);
+      const r = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, { headers: { "xi-api-key": env("ELEVENLABS_API_KEY") } });
+      if (r.status === 404 || r.status === 400) return json({ error: "Deze stem-ID bestaat niet (of staat niet in 'Mijn stemmen')" }, 400);
+      const name = r.ok ? (await r.json()).name : "";
+      const { data } = await admin.auth.admin.getUserById(userId);
+      await admin.auth.admin.updateUserById(userId, { app_metadata: { ...(data?.user?.app_metadata ?? {}), eco_voice_id: voiceId } });
+      return json({ voiceId, name });
+    }
     if (body.voice === "reset") {
       const { data } = await admin.auth.admin.getUserById(userId);
       const meta = { ...(data?.user?.app_metadata ?? {}) }; delete meta.eco_voice_id;

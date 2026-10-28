@@ -762,8 +762,22 @@ $("labForm").onsubmit = async (e) => {
       $("labPreviews").append(row);
     });
   } catch (err) {
-    labMsg("Mislukt: " + err.message, "err");
+    labMsg(/paid plan|feature_not_available/i.test(err.message)
+      ? "Stemmen maken via ECO vraagt een betaald ElevenLabs-abonnement. Gebruik hieronder een stem-ID (gratis)."
+      : "Mislukt: " + err.message, "err");
   } finally { $("labGen").disabled = false; }
+};
+$("labSet").onclick = async () => {
+  const id = $("labVoiceId").value.trim();
+  if (!id) { labMsg("Plak eerst een stem-ID.", "err"); return; }
+  $("labSet").disabled = true; labMsg("STEM CONTROLEREN…");
+  try {
+    const { name } = await callFn({ voice: "set", generatedVoiceId: id });
+    premiumVoice = true;
+    labMsg(`Ingesteld${name ? ": " + name : ""}. ECO gebruikt nu deze stem.`, "ok");
+    say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
+  } catch (err) { labMsg("Mislukt: " + err.message, "err"); }
+  finally { $("labSet").disabled = false; }
 };
 $("labReset").onclick = async () => {
   try { await callFn({ voice: "reset" }); premiumVoice = true; labMsg("Standaardstem hersteld.", "ok"); }
