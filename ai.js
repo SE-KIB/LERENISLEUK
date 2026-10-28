@@ -44,33 +44,54 @@ const sfx = {
   error: () => { tone(220, 0.18, "sawtooth", 0.03); tone(170, 0.25, "sawtooth", 0.03, 0.15); },
 };
 
-// ---------- Reactor (SVG, twee keer gebruikt: login en HUD) ----------
+// ---------- Arc reactor (SVG, twee keer gebruikt: login en HUD) ----------
+// Opbouw zoals de reactor van Iron Man: metalen behuizing met bouten, tien gewikkelde koperspoelen
+// rond een fel witblauwe kern, met daaromheen draaiende HUD-ringen.
 function reactorSVG(n) {
-  const ticks = (r, n, len, w = 1, op = 1) => {
+  const P = (r, a) => `${(Math.cos(a * Math.PI / 180) * r).toFixed(2)} ${(Math.sin(a * Math.PI / 180) * r).toFixed(2)}`;
+  const arc = (r, a0, a1, cls, w, extra = "") =>
+    `<path class="${cls}" d="M${P(r, a0)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${P(r, a1)}" stroke-width="${w}" ${extra}/>`;
+  const ticks = (r, count, len, w, op) => {
     let d = "";
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2, l = i % 5 === 0 ? len * 1.8 : len;
-      d += `M${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)}L${(Math.cos(a) * (r - l)).toFixed(1)} ${(Math.sin(a) * (r - l)).toFixed(1)}`;
-    }
+    for (let i = 0; i < count; i++) { const a = (i / count) * 360, l = i % 5 ? len : len * 2; d += `M${P(r, a)}L${P(r - l, a)}`; }
     return `<path class="s" d="${d}" stroke-width="${w}" opacity="${op}"/>`;
   };
-  const arc = (r, a0, a1, w, op = 1) => {
-    const p = (a) => `${(Math.cos(a * Math.PI / 180) * r).toFixed(1)} ${(Math.sin(a * Math.PI / 180) * r).toFixed(1)}`;
-    return `<path class="s" d="M${p(a0)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p(a1)}" stroke-width="${w}" opacity="${op}"/>`;
-  };
+  let coils = "", bolts = "", spokes = "";
+  for (let i = 0; i < 10; i++) {
+    const a0 = i * 36 - 90 + 4, a1 = a0 + 28;
+    coils += arc(152, a0, a1, "coil-body", 56) + arc(152, a0 + 0.6, a1 - 0.6, "coil-wire", 50, 'stroke-dasharray="0.9 1.9"') +
+      arc(181, a0, a1, "coil-edge", 1.4) + arc(123, a0, a1, "coil-edge", 1.4);
+    spokes += `<path class="spoke" d="M${P(118, a0 - 4)}L${P(186, a0 - 4)}" stroke-width="5"/>`;
+  }
+  for (let i = 0; i < 12; i++) bolts += `<circle class="bolt" cx="${(Math.cos(i * Math.PI / 6) * 199).toFixed(2)}" cy="${(Math.sin(i * Math.PI / 6) * 199).toFixed(2)}" r="3.2"/>`;
   return `<svg viewBox="-250 -250 500 500" aria-hidden="true">
     <defs>
-      <radialGradient id="cg${n}"><stop offset="0" stop-color="#bff6ff" stop-opacity=".55"/><stop offset=".45" stop-color="#7ff3ff" stop-opacity=".45"/><stop offset=".7" stop-color="#00e1ff" stop-opacity=".25"/><stop offset="1" stop-color="#00e1ff" stop-opacity="0"/></radialGradient>
-      <radialGradient id="cga${n}"><stop offset="0" stop-color="#ffe9c2" stop-opacity=".55"/><stop offset=".45" stop-color="#ffc861" stop-opacity=".45"/><stop offset=".7" stop-color="#ffb12a" stop-opacity=".25"/><stop offset="1" stop-color="#ffb12a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="bleed${n}"><stop offset=".45" stop-color="#9ff7ff" stop-opacity=".9"/><stop offset=".75" stop-color="#00e1ff" stop-opacity=".45"/><stop offset="1" stop-color="#00e1ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="bleedA${n}"><stop offset=".45" stop-color="#ffe3ad" stop-opacity=".9"/><stop offset=".75" stop-color="#ffb12a" stop-opacity=".45"/><stop offset="1" stop-color="#ffb12a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="core${n}"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#e6fdff"/><stop offset=".75" stop-color="#7ff3ff" stop-opacity=".85"/><stop offset="1" stop-color="#00c8ff" stop-opacity=".2"/></radialGradient>
+      <linearGradient id="metal${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d808a"/><stop offset=".5" stop-color="#1c2a31"/><stop offset="1" stop-color="#55666f"/></linearGradient>
     </defs>
-    <g class="rg r1">${ticks(205, 120, 6, 1, .7)}<circle class="s" r="212" stroke-width=".6" opacity=".35"/></g>
-    <g class="rg r2">${arc(188, 0, 70, 3)}${arc(188, 85, 110, 3, .6)}${arc(188, 150, 250, 3)}${arc(188, 265, 275, 3, .6)}${arc(188, 300, 345, 3)}</g>
-    <g class="rg r3"><circle class="s" r="170" stroke-width="1" stroke-dasharray="2 5" opacity=".7"/>${arc(162, 20, 140, 1, .5)}${arc(162, 200, 320, 1, .5)}</g>
-    <g class="rg r4">${arc(145, 0, 40, 12, .45)}${arc(145, 60, 100, 12, .45)}${arc(145, 120, 160, 12, .45)}${arc(145, 180, 220, 12, .45)}${arc(145, 240, 280, 12, .45)}${arc(145, 300, 340, 12, .45)}</g>
-    <g class="rg r5">${ticks(124, 60, 5, 1.2, .8)}<circle class="s" r="126" stroke-width=".8" opacity=".6"/></g>
-    <g class="rg r6">${arc(104, 0, 100, 2)}${arc(104, 180, 280, 2)}<circle class="s" r="96" stroke-width=".6" opacity=".5"/></g>
-    <circle class="core-glow c" r="88" fill="url(#cg${n})"/><circle class="core-glow a" r="88" fill="url(#cga${n})"/>
-    <circle class="s" r="70" stroke-width="1.5" opacity=".9"/>
+    <!-- HUD-ringen -->
+    <g class="rg r1">${ticks(244, 120, 5, 1, .6)}</g>
+    <g class="rg r2">${arc(230, 0, 60, "s", 2)}${arc(230, 80, 100, "s", 2, 'opacity=".5"')}${arc(230, 140, 230, "s", 2)}${arc(230, 250, 262, "s", 2, 'opacity=".5"')}${arc(230, 290, 340, "s", 2)}</g>
+    <circle class="s" r="219" stroke-width=".6" opacity=".35" stroke-dasharray="1 4"/>
+    <!-- lichtgloed achter de spoelen -->
+    <circle class="bleed c" r="196" fill="url(#bleed${n})"/>
+    <circle class="bleed a" r="196" fill="url(#bleedA${n})"/>
+    <!-- behuizing -->
+    <circle r="199" fill="none" stroke="url(#metal${n})" stroke-width="16"/>
+    <circle r="207" fill="none" stroke="#9fb7c2" stroke-width=".8" opacity=".6"/>
+    <circle r="191" fill="none" stroke="#0b1418" stroke-width="2"/>
+    ${bolts}
+    <!-- spoelen -->
+    <g class="coils">${spokes}${coils}</g>
+    <!-- binnenring en kern -->
+    <circle r="114" fill="none" stroke="url(#metal${n})" stroke-width="12"/>
+    <circle r="107" fill="none" stroke="#bff6ff" stroke-width="1" opacity=".7"/>
+    <circle class="core" r="104" fill="url(#core${n})"/>
+    <circle r="74" fill="none" stroke="#ffffff" stroke-width="1.2" opacity=".55"/>
+    <circle r="46" fill="none" stroke="#ffffff" stroke-width="2" opacity=".35"/>
+    <g class="rg r6">${arc(90, 0, 70, "s", 1.5, 'opacity=".6"')}${arc(90, 180, 250, "s", 1.5, 'opacity=".6"')}</g>
   </svg>`;
 }
 document.querySelectorAll("[data-reactor]").forEach((el, n) => { el.innerHTML = reactorSVG(n); });
@@ -90,7 +111,7 @@ function drawViz(t) {
   const st = document.body.dataset.state;
   energyTarget = { idle: 0.06, listening: 0.45, thinking: 0.25, speaking: 0.35, error: 0.1 }[st] ?? 0.05;
   energy += (energyTarget - energy) * 0.04;
-  const w = viz.width, h = viz.height, cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.375;
+  const w = viz.width, h = viz.height, cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.41;
   vctx.clearRect(0, 0, w, h);
   const color = st === "listening" ? "255,177,42" : st === "error" ? "255,77,77" : "0,225,255";
   for (let i = 0; i < BARS; i++) {
@@ -99,7 +120,7 @@ function drawViz(t) {
     if (st === "thinking") target = 0.5 + 0.5 * Math.sin(a * 3 - t / 180);
     else target = Math.random() * (0.4 + 0.6 * Math.abs(Math.sin(a * 2 + t / 900)));
     levels[i] += (target * energy - levels[i]) * 0.25;
-    const len = 3 + levels[i] * Math.min(w, h) * 0.13;
+    const len = 3 + levels[i] * Math.min(w, h) * 0.085;
     vctx.strokeStyle = `rgba(${color},${Math.min(1, 0.3 + levels[i] * 1.6)})`;
     vctx.lineWidth = Math.max(1.5, w / 300);
     vctx.beginPath();
@@ -354,7 +375,13 @@ function unlockAudio() {
     src.connect(analyser).connect(actx.destination);
   } catch { analyser = null; }
 }
-["pointerdown", "keydown"].forEach((ev) => addEventListener(ev, unlockAudio, { once: true }));
+// iOS spreekt pas hardop als de spraak één keer binnen een tik is gestart.
+function unlockSpeech() {
+  if (!window.speechSynthesis || unlockSpeech.done) return;
+  unlockSpeech.done = true;
+  const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u);
+}
+["pointerdown", "keydown", "touchend"].forEach((ev) => addEventListener(ev, () => { unlockAudio(); unlockSpeech(); }, { once: true }));
 const freq = new Uint8Array(32);
 function voiceLevel() {
   if (!analyser || player.paused) return;
@@ -380,7 +407,7 @@ async function ttsBlob(text) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
     body: JSON.stringify({ tts: text }),
   });
-  if (res.status === 501) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
+  if (res.status === 501 || res.status === 400) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
   if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error("stem " + res.status);
   return URL.createObjectURL(await res.blob());
 }

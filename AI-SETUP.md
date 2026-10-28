@@ -18,7 +18,16 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `index.html`, `ai.js`, `ai.css` — de chatwebsite
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
-- `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Welk AI-model?
+- `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Automatisch uitrollen (aanbevolen)
+De workflow `.github/workflows/deploy-function.yml` zet de functie zelf online bij elke wijziging op `main`.
+Eenmalig, kan ook op de telefoon:
+1. Supabase → klik op je profiel (rechtsboven) → **Account preferences** → **Access Tokens** → **Generate new token**
+   (naam: `github-eco`) → kopieer de token.
+2. GitHub → repository **LERENISLEUK** → **Settings** → **Secrets and variables** → **Actions** →
+   **New repository secret** → Name `SUPABASE_ACCESS_TOKEN`, Secret = de token → **Add secret**.
+3. GitHub → **Actions** → *ECO-functie uitrollen naar Supabase* → **Run workflow** (eerste keer met de hand).
+
+## Welk AI-model?
 ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
 Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
 (standaard `gemini-flash-latest` of `claude-sonnet-5-5`).
