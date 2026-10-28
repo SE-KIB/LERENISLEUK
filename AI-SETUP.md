@@ -38,6 +38,12 @@ Met `GROQ_API_KEY` neemt de microfoonknop je stem op en laat die uitschrijven do
 (reserve: `whisper-large-v3-turbo`; instelbaar met `STT_MODEL`, taal met `STT_LANGUAGE`, standaard `nl`).
 Opnemen stopt vanzelf na ~1,3 s stilte. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
 
+## Apple-agenda (iCloud)
+1. https://account.apple.com → Inloggen en beveiliging → App-specifieke wachtwoorden → **+** → naam `ECO` → kopieer.
+2. Supabase-secrets: `ICLOUD_EMAIL` (Apple ID) en `ICLOUD_APP_PASSWORD` (het wachtwoord). Optioneel `ICLOUD_CALENDAR`
+   = naam van de agenda waarin nieuwe afspraken komen (standaard de eerste gewone agenda).
+ECO leest dan alle iCloud-agenda's (en Google als die ook gekoppeld is) en zet nieuwe afspraken in iCloud.
+
 ## Welk AI-model?
 ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
 Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`
