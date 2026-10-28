@@ -1,4 +1,5 @@
 -- Eigen AI: gesprekken, berichten en dagelijks gebruik per gebruiker.
+-- Idempotent: mag vaker draaien (de workflow deploy-function voert alle migraties uit).
 create table if not exists public.ai_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -29,10 +30,13 @@ alter table public.ai_messages enable row level security;
 alter table public.ai_usage enable row level security;
 
 -- Gebruikers zien en beheren alleen hun eigen gesprekken.
+drop policy if exists "eigen gesprekken" on public.ai_conversations;
 create policy "eigen gesprekken" on public.ai_conversations
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- Berichten lezen/verwijderen mag; schrijven gebeurt alleen via de Edge Function (service role).
+drop policy if exists "eigen berichten lezen" on public.ai_messages;
 create policy "eigen berichten lezen" on public.ai_messages
   for select using (auth.uid() = user_id);
+drop policy if exists "eigen gebruik lezen" on public.ai_usage;
 create policy "eigen gebruik lezen" on public.ai_usage
   for select using (auth.uid() = user_id);

@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ECO</title>
-<link rel="icon" href="icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/eco.svg">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -120,6 +121,11 @@
       <div class="panel grow" data-win="transcript">
         <div class="panel-h"><span>TRANSCRIPT</span><i id="convId">—</i></div>
         <div id="messages" class="log"></div>
+      </div>
+      <div class="panel profile" data-win="profiel">
+        <div class="panel-h"><span>PROFIEL</span><i id="memCount" title="Aantal feiten dat ECO over je weet">0</i></div>
+        <ul id="memList" class="mem-list"></ul>
+        <form id="memForm" class="mem-add"><input id="memInput" placeholder="Iets dat ECO moet onthouden…" maxlength="500" autocomplete="off"><button type="submit" class="chip" aria-label="Toevoegen">+</button></form>
       </div>
     </aside>
     <div id="voiceLab" class="modal" hidden>

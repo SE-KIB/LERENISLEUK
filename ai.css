@@ -294,3 +294,17 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .lab-id:focus{border-color:var(--c);box-shadow:0 0 0 1px var(--c),var(--glow)}
 select.lab-id{font-family:var(--f-body);font-size:1rem;appearance:auto}
 select.lab-id option{background:#02121a;color:var(--c2)}
+
+/* Profiel (geheugen) */
+.panel.profile{flex:0 0 auto;max-height:34%;display:flex;flex-direction:column}
+.mem-list{list-style:none;margin:0;padding:0;overflow:auto;flex:1;min-height:0;font-size:.92rem}
+.mem-list li{display:flex;gap:6px;align-items:flex-start;padding:4px 0;border-bottom:1px dashed rgba(0,225,255,.12)}
+.mem-list li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.mem-list li.empty{color:var(--muted);font-family:var(--f-mono);font-size:.72rem;border:0}
+.mem-list button{flex:none;width:20px;height:20px;padding:0;border:1px solid var(--cd);background:var(--cf);color:var(--c);font-size:.7rem;line-height:1;opacity:.6}
+.mem-list li:hover button{opacity:1}
+.mem-list button:hover{border-color:var(--red);color:var(--red)}
+.mem-add{display:flex;gap:6px;margin-top:8px}
+.mem-add input{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.4rem .55rem;color:var(--c2);font:inherit;font-size:.9rem;outline:none}
+.mem-add input:focus{border-color:var(--c)}
+@media (max-width:900px){.right{display:flex;flex-direction:column;gap:10px}.panel.profile{max-height:40vh}}
