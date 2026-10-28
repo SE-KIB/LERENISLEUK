@@ -83,6 +83,18 @@ Voorbeeld "Hé Siri, Eco" met je agenda en herinneringen erbij: voeg vóór stap
 *Zoek agenda-activiteiten* (vandaag) en *Zoek herinneringen* (niet voltooid), en zet in het `message`-veld:
 `Mijn agenda vandaag: [Agenda-activiteiten] — Open herinneringen: [Herinneringen] — Vraag: [Gedicteerde tekst]`.
 
+## Natuurlijke stem (ElevenLabs)
+1. Account op https://elevenlabs.io (gratis laag: beperkt aantal tekens per maand).
+2. *Voices* → *Voice Library*: kies een stem, bv. zoeken op "british butler", "calm narrator", "AI assistant".
+   Klik *Add to my voices* en kopieer de **Voice ID**.
+3. *Profile → API keys* → nieuwe sleutel.
+4. Supabase-secrets: `ELEVENLABS_API_KEY` en `ELEVENLABS_VOICE_ID`. Optioneel `ELEVENLABS_MODEL`
+   (standaard `eleven_multilingual_v2`, spreekt ook Nederlands).
+5. Nieuwe code van de functie plakken en deployen. Zonder deze secrets valt ECO terug op de browserstem.
+
+Let op: de echte stem van Paul Bettany (JARVIS) klonen mag niet; ElevenLabs verbiedt het klonen van
+iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
+
 ## Op de website
 - 🎙️-knop of **spatie ingedrukt houden** om te praten; antwoorden worden voorgelezen (uit te zetten).
 - Spraakherkenning werkt in Chrome, Edge en Safari.

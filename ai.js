@@ -284,7 +284,7 @@ $("chatForm").onsubmit = async (e) => {
   const text = $("input").value.trim();
   if (!text) return;
   $("input").value = ""; $("input").style.height = "auto"; $("send").disabled = true;
-  speechSynthesis?.cancel();
+  stopSpeaking();
   entry("user", text);
   typeCaption("› " + text, "user");
   setState("thinking"); sfx.send();
@@ -326,32 +326,89 @@ $("chatForm").onsubmit = async (e) => {
 };
 
 // ---------- Spraak uit ----------
+// Eerst de natuurlijke stem (ElevenLabs via de Edge Function); lukt dat niet, dan de browserstem.
+const player = new Audio();
+player.preload = "auto";
+let premiumVoice = true, analyser = null;
+// 0,1 s stilte als WAV, om de speler te ontgrendelen.
+const SILENCE = (() => {
+  const n = 800, b = new DataView(new ArrayBuffer(44 + n * 2)), w = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); b.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+  b.setUint32(24, 8000, true); b.setUint32(28, 16000, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, "data"); b.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+})();
+// iOS staat afspelen pas toe na een tik: ontgrendel de speler bij de eerste interactie.
+function unlockAudio() {
+  if (player.dataset.unlocked) return;
+  player.dataset.unlocked = "1";
+  player.src = SILENCE; player.play().catch(() => {});
+  try {
+    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    actx.resume();
+    const src = actx.createMediaElementSource(player);
+    analyser = actx.createAnalyser(); analyser.fftSize = 64;
+    src.connect(analyser).connect(actx.destination);
+  } catch { analyser = null; }
+}
+["pointerdown", "keydown"].forEach((ev) => addEventListener(ev, unlockAudio, { once: true }));
+const freq = new Uint8Array(32);
+function voiceLevel() {
+  if (!analyser || player.paused) return;
+  analyser.getByteFrequencyData(freq);
+  bump((freq.reduce((a, b) => a + b, 0) / freq.length / 255) * 0.35);
+  requestAnimationFrame(voiceLevel);
+}
+player.onplay = () => { setState("speaking"); voiceLevel(); };
+player.onended = player.onerror = () => { if (document.body.dataset.state === "speaking") setState("idle"); };
+
+async function sayPremium(text) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(FUNCTION_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ tts: text }),
+  });
+  if (res.status === 501) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
+  if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error("stem " + res.status);
+  const url = URL.createObjectURL(await res.blob());
+  player.src = url;
+  player.onloadeddata = () => URL.revokeObjectURL(url);
+  await player.play();
+}
 function pickVoice() {
   const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("nl"));
   return vs.find((v) => /xander|frank|male|man|google/i.test(v.name)) || vs[0];
 }
-function say(text) {
-  if (!$("speak").checked || !window.speechSynthesis) { if (document.body.dataset.state !== "error") setState("idle"); return; }
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(plain(text));
+function sayBrowser(text) {
+  if (!window.speechSynthesis) { setState("idle"); return; }
+  const u = new SpeechSynthesisUtterance(text);
   u.lang = "nl-NL"; u.rate = 1.04; u.pitch = 0.88;
   const v = pickVoice(); if (v) u.voice = v;
   u.onstart = () => setState("speaking");
   u.onboundary = () => bump(0.5);
   u.onend = u.onerror = () => setState("idle");
   speechSynthesis.speak(u);
-  // Sommige browsers starten niet zonder interactie: val dan terug op stand-by.
   setTimeout(() => { if (!speechSynthesis.speaking && document.body.dataset.state === "thinking") setState("idle"); }, 1500);
 }
+async function say(text) {
+  if (!$("speak").checked) { if (document.body.dataset.state !== "error") setState("idle"); return; }
+  speechSynthesis?.cancel(); player.pause();
+  const t = plain(text);
+  if (premiumVoice) {
+    try { await sayPremium(t); $("stVoice").textContent = "NATUURLIJK"; return; }
+    catch (e) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); }
+  }
+  sayBrowser(t);
+}
+function stopSpeaking() { speechSynthesis?.cancel(); player.pause(); }
 speechSynthesis?.getVoices();
-speechSynthesis?.addEventListener?.("voiceschanged", () => {});
 
 // ---------- Spraak in ----------
 let rec = null;
 if (!Rec) $("mic").hidden = true;
 function listen() {
   if (!Rec || rec) return;
-  speechSynthesis?.cancel();
+  stopSpeaking();
   rec = new Rec();
   rec.lang = "nl-NL"; rec.interimResults = true;
   rec.onresult = (e) => {
