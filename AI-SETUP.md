@@ -55,7 +55,7 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
 ## "Hé Siri, Eco" op de iPhone
 Opdrachten-app → nieuwe opdracht, naam **Eco**:
 1. *Dicteer tekst* (taal Nederlands).
-2. *Haal inhoud op van URL*: `https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/ai-chat`
+2. *Haal inhoud op van URL*: `https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/smooth-service`
    — methode **POST**; headers `x-jarvis-key` = je JARVIS_KEY, `Content-Type` = `application/json`;
    verzoekhoofdtekst JSON met veld `message` = *Gedicteerde tekst*.
 3. *Haal woordenboekwaarde op* → sleutel `reply` → *Spreek tekst uit*.
