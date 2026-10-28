@@ -1,4 +1,4 @@
-// JARVIS — frontend. Praat alleen met Supabase; de AI-sleutel staat nooit in de browser.
+// ECO — frontend. Praat alleen met Supabase; de AI-sleutel staat nooit in de browser.
 const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

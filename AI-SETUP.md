@@ -1,4 +1,4 @@
-# JARVIS — persoonlijke assistent: opzet en installatie
+# ECO — persoonlijke assistent (secrets heten nog JARVIS_…; dat is zo bedoeld): opzet en installatie
 
 ## Hoe het werkt
 ```
@@ -43,25 +43,25 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
    (`--no-verify-jwt` is nodig voor de Siri-sleutel; de functie controleert zelf de toegang.)
 6. **Live zetten:** branch samenvoegen in `main` → GitHub Pages.
 
-## "Hé Siri, Jarvis" op de iPhone
-Opdrachten-app → nieuwe opdracht, naam **Jarvis**:
+## "Hé Siri, Eco" op de iPhone
+Opdrachten-app → nieuwe opdracht, naam **Eco**:
 1. *Dicteer tekst* (taal Nederlands).
 2. *Haal inhoud op van URL*: `https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/ai-chat`
    — methode **POST**; headers `x-jarvis-key` = je JARVIS_KEY, `Content-Type` = `application/json`;
    verzoekhoofdtekst JSON met veld `message` = *Gedicteerde tekst*.
 3. *Haal woordenboekwaarde op* → sleutel `reply` → *Spreek tekst uit*.
 4. *Haal woordenboekwaarde op* → sleutel `open`; *Als* die *een waarde heeft* → *Open URL's*.
-   (Hiermee opent "Hé Siri, Jarvis, route naar Utrecht Centraal" meteen Google Maps.)
+   (Hiermee opent "Hé Siri, Eco, route naar Utrecht Centraal" meteen Google Maps.)
 
-Nu werkt "Hé Siri, Jarvis" → je vraag inspreken → JARVIS antwoordt hardop. Gesprekken zie je terug op sekibar.nl.
+Nu werkt "Hé Siri, Eco" → je vraag inspreken → ECO antwoordt hardop. Gesprekken zie je terug op sekibar.nl.
 
-## JARVIS als app op je telefoon
+## ECO als app op je telefoon
 iPhone: open sekibar.nl in **Safari** → deelknop → **Zet op beginscherm**. Android: Chrome → ⋮ → *App installeren*.
-Hij opent dan schermvullend als eigen app met JARVIS-icoon; je blijft ingelogd.
+Hij opent dan schermvullend als eigen app met ECO-icoon; je blijft ingelogd.
 Bij de eerste keer 🎙️ vraagt de telefoon toestemming voor de microfoon.
 
-## Wat JARVIS mag zien
-| Bron | Hoe | Kan JARVIS |
+## Wat ECO mag zien
+| Bron | Hoe | Kan ECO |
 |---|---|---|
 | Google Agenda | Google-koppeling (hierboven) | afspraken bekijken en maken |
 | Gmail | Google-koppeling (hierboven) | zoeken, lezen, **concepten** maken (versturen doe je zelf) |
@@ -70,7 +70,7 @@ Bij de eerste keer 🎙️ vraagt de telefoon toestemming voor de microfoon.
 
 Een website of app-snelkoppeling kan zelf **niet** in je iCloud of telefoon kijken; dat staat Apple niet toe.
 De route via de Opdrachten-app wel: die vraagt jou eenmalig toestemming en geeft de gegevens door.
-Voorbeeld "Hé Siri, Jarvis" met je agenda en herinneringen erbij: voeg vóór stap 2 toe
+Voorbeeld "Hé Siri, Eco" met je agenda en herinneringen erbij: voeg vóór stap 2 toe
 *Zoek agenda-activiteiten* (vandaag) en *Zoek herinneringen* (niet voltooid), en zet in het `message`-veld:
 `Mijn agenda vandaag: [Agenda-activiteiten] — Open herinneringen: [Herinneringen] — Vraag: [Gedicteerde tekst]`.
 
@@ -80,6 +80,6 @@ Voorbeeld "Hé Siri, Jarvis" met je agenda en herinneringen erbij: voeg vóór s
 
 ## Volgende stappen (ideeën)
 - Meer tools: weer, lampen/thermostaat (Home Assistant), notities, iCloud-agenda rechtstreeks (CalDAV met app-specifiek wachtwoord).
-- Geheugen: vaste feiten over jou die JARVIS onthoudt.
-- Betere stem: een TTS-dienst (bv. ElevenLabs) voor een echte JARVIS-stem.
-- Wake-word ("Jarvis") op een altijd-aan apparaat, bv. een Raspberry Pi.
+- Geheugen: vaste feiten over jou die ECO onthoudt.
+- Betere stem: een TTS-dienst (bv. ElevenLabs) voor een echte ECO-stem.
+- Wake-word ("Eco") op een altijd-aan apparaat, bv. een Raspberry Pi.

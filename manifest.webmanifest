@@ -1,6 +1,6 @@
 {
-  "name": "JARVIS",
-  "short_name": "JARVIS",
+  "name": "ECO",
+  "short_name": "ECO",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
