@@ -36,7 +36,27 @@ Klaar: ECO gebruikt dan eerst Groq en valt bij een storing terug op Gemini. Ande
 ## Spraakherkenning (Whisper via Groq)
 Met `GROQ_API_KEY` neemt de microfoonknop je stem op en laat die uitschrijven door `whisper-large-v3`
 (reserve: `whisper-large-v3-turbo`; instelbaar met `STT_MODEL`, taal met `STT_LANGUAGE`, standaard `nl`).
-Opnemen stopt vanzelf na ~1,3 s stilte. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
+Opnemen stopt vanzelf na ~1,3 s stilte (na een lange zin 1,1 s). De opname gaat in **één verzoek** naar de server: uitschrijven,
+nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browser. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
+
+## Snelheid en stem (hoe ECO zo snel antwoordt)
+- **Streaming:** het antwoord komt woord voor woord binnen (Groq `gpt-oss-120b`, ~500 woorden per seconde). De eerste zin gaat al naar
+  de stem terwijl de rest nog wordt geschreven; de stem zelf komt ook als stroom binnen en speelt direct af.
+- **Stem:** Gemini 3.8 Flash-Lite TTS (gratis laag, natuurlijk Nederlands, snel), daarna 3.8 Flash TTS en 2.5 als reserve
+  (instelbaar met `TTS_MODELS`). Stem en toon kies je in het Stemlab. ECO mag af en toe een kort lachje of adempauze gebruiken.
+  Met een ElevenLabs-stem gaat het ook gestreamd.
+- **Opwarmen:** bij openen van de site en bij het indrukken van de microfoon zet ECO de server alvast klaar en haalt hij weer,
+  agenda en dagrapport op, zodat de echte vraag geen wachttijd heeft.
+- **Altijd paraat:** het weer, je agenda van vandaag en morgen (met belangrijke lessen en afwijkende begintijden) en de actiepunten
+  uit het dagrapport zitten al in ECO's "huidige situatie"; daarvoor hoeft hij niets meer op te zoeken.
+- In de HUD zie je onder LATENTIE hoe snel de eerste tekst en de eerste klank kwamen, en onder SPRAAK welke stem sprak.
+
+## Slimmer: internet, rekenen, valuta en tijdzones
+- **Webzoeken:** actuele dingen (nieuws, openingstijden, prijzen, sport) zoekt ECO op via Gemini met Google Search
+  (`WEB_GEMINI_MODEL`, standaard `gemini-2.5-flash`), en anders via Groq met browser-search. Geen extra sleutel nodig.
+- **Rekenen:** exacte rekenmachine (ook procenten, machten, wortels). **Valuta:** actuele ECB-koers (bv. euro naar lira).
+  **Tijd:** hoe laat het nu ergens anders is.
+- Moeilijke vragen ("leg uit", "vergelijk", "maak een plan") krijgen automatisch iets meer denktijd.
 
 ## Apple-agenda (iCloud)
 1. https://account.apple.com → Inloggen en beveiliging → App-specifieke wachtwoorden → **+** → naam `ECO` → kopieer.
@@ -150,6 +170,8 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 
 ## Op de website
 - 🎙️-knop of **spatie ingedrukt houden** om te praten; antwoorden worden voorgelezen (uit te zetten).
+- **GESPREK** (bij BEDIENING): handsfree praten. Na elk antwoord luistert ECO vanzelf weer; zeg "stop" of "bedankt" om te pauzeren.
+  Tik tijdens het praten op de microfoon om ECO te onderbreken.
 - Spraakherkenning werkt in Chrome, Edge en Safari.
 
 ## Volgende stappen (ideeën)

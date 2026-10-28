@@ -210,6 +210,7 @@ function render(session) {
   sizeViz();
   requestAnimationFrame(initLayout);
   loadConversations();
+  warm();
   if (!$("messages").children.length) {
     const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
     typeCaption(text);
@@ -327,7 +328,9 @@ const WMO_NL = { 0: "onbewolkt", 1: "overwegend helder", 2: "half bewolkt", 3: "
 function locate() {
   if (!navigator.geolocation) { $("wxDesc").textContent = "Locatie niet beschikbaar"; return; }
   navigator.geolocation.getCurrentPosition((p) => {
+    const first = !myLoc;
     myLoc = { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) };
+    if (first) { lastWarm = 0; warm(); }
     $("wxAllow").hidden = true; loadWeather();
     clearInterval(wxTimer); wxTimer = setInterval(loadWeather, 15 * 60000);
   }, () => { $("wxDesc").textContent = "Locatie staat uit"; $("wxAllow").hidden = false; }, { maximumAge: 10 * 60000, timeout: 15000 });
@@ -422,66 +425,160 @@ function typeCaption(text, cls = "") {
   }, 22);
 }
 
-// ---------- Versturen ----------
+// ---------- Versturen (gestreamd: tekst verschijnt en wordt uitgesproken terwijl ECO nog nadenkt) ----------
 $("input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chatForm").requestSubmit(); }
 });
 $("input").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
 
+// Stemtags (<short pause>, <chuckle>) zijn voor de stem; in beeld halen we ze weg, ook een half binnengekomen tag.
+const VOCAL = /\s*<(?:short pause|long pause|chuckle|laugh|sigh|breath)>\s*/gi;
+const visible = (t) => t.replace(VOCAL, " ").replace(/<[^>\s]*(?: [^>]*)?$/, "").replace(/ {2,}/g, " ").replace(/ ([.,!?;:])/g, "$1");
+const TOOL_LABEL = {
+  agenda_bekijken: "Agenda bekijken", afspraak_maken: "Afspraak inplannen", weer: "Weer ophalen", web_zoeken: "Op internet zoeken",
+  rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
+  mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
+};
+function setCaption(text, cls = "") {
+  clearInterval(typeTimer);
+  const el = $("caption");
+  el.className = "caption " + cls;
+  el.textContent = text;
+}
+async function authHeaders(json = true) {
+  const { data: { session } } = await sb.auth.getSession();
+  return { ...(json ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY };
+}
+// Server-Sent Events lezen uit een fetch-antwoord.
+async function readEvents(res, on) {
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, i); buf = buf.slice(i + 2);
+      const data = block.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("");
+      if (data) on(JSON.parse(data));
+    }
+  }
+}
+// Opwarmen: zet de server alvast klaar (koude start, weer, agenda, dagrapport). Hooguit eens per minuut.
+let lastWarm = 0;
+async function warm() {
+  if (Date.now() - lastWarm < 60000) return;
+  lastWarm = Date.now();
+  try { fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ warm: true, loc: myLoc }) }).catch(() => {}); } catch { /* niet ingelogd */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !$("app").hidden) warm(); });
+
+let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ongeldig
+async function ask({ text = "", audio = null }) {
+  const my = ++turn;
+  const t0 = performance.now();
+  let full = "", body = null, firstText = 0, rendered = false, heardExit = false, done = null;
+  stopSpeaking();
+  speech.open = true;
+  let audioAt = 0;
+  const showLat = () => {
+    const parts = [firstText && `TEKST ${(firstText / 1000).toFixed(1)}S`, audioAt && `STEM ${(audioAt / 1000).toFixed(1)}S`].filter(Boolean);
+    if (parts.length) $("stLat").textContent = parts.join(" · ");
+  };
+  speech.onFirstAudio = (ms) => { audioAt = ms - t0; showLat(); };
+  setState("thinking"); sfx.send();
+  if (text) { entry("user", text); setCaption("› " + text, "user"); }
+  else setCaption("Uitschrijven…", "user");
+  const render = () => {
+    rendered = false;
+    if (!body || my !== turn) return;
+    const shown = visible(full);
+    body.innerHTML = md(shown);
+    setCaption(plain(shown));
+    $("messages").scrollTop = $("messages").scrollHeight;
+  };
+  try {
+    let res;
+    if (audio) {
+      const fd = new FormData();
+      fd.append("file", audio.blob, `spraak.${audio.ext}`);
+      fd.append("chat", "1");
+      if (currentConv) fd.append("conversationId", currentConv);
+      if (myLoc) { fd.append("lat", myLoc.lat); fd.append("lon", myLoc.lon); }
+      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(false), body: fd });
+      if (res.status === 501) { whisper = false; setState("idle"); if (Rec) listenBrowser(); return; }
+    } else {
+      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc, stream: true }) });
+    }
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
+    await readEvents(res, (ev) => {
+      if (my !== turn) return;
+      if (ev.t === "heard") {
+        if (!ev.text) { setState("idle"); setCaption("Ik heb niets verstaan.", "user"); speech.open = false; convoNext(false); return; }
+        entry("user", ev.text); setCaption("› " + ev.text, "user");
+        heardExit = /^(stop|stoppen|dank je( wel)?|bedankt|dat was (het|alles)|klaar|tot (straks|later|zo)|doei|later)[.!]*$/i.test(ev.text.trim());
+        $("stVoice").textContent = "WHISPER";
+      } else if (ev.t === "conv") {
+        currentConv = ev.id; $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
+      } else if (ev.t === "tool") {
+        if (!full) setCaption((TOOL_LABEL[ev.name] || "Bezig") + "…", "tool");
+      } else if (ev.t === "delta") {
+        if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; sfx.reply(); }
+        full += ev.text;
+        speech.feed(full);
+        if (!rendered) { rendered = true; requestAnimationFrame(render); }
+      } else if (ev.t === "done") {
+        done = ev;
+      } else if (ev.t === "error") {
+        throw new Error(ev.error);
+      }
+    });
+    if (my !== turn) return;
+    if (!done) { if (!full && audio) return; throw new Error("verbinding viel weg"); }
+    if (!full) full = done.reply || "";
+    if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; }
+    render();
+    speech.finish(full);
+    lastLatency = Math.round(performance.now() - t0);
+    showLat();
+    if (done.model) $("stModel").textContent = done.model.replace(/^openai\/|^gemini-|^claude-/, "").toUpperCase();
+    if (done.open) {
+      const a = document.createElement("a");
+      a.href = done.open; a.className = "action"; a.textContent = "▶ OPEN IN GOOGLE MAPS";
+      body.append(a);
+      setTimeout(() => { location.href = done.open; }, 1800); // eerst laten voorlezen, dan Maps openen
+    }
+    if (heardExit) convo.paused = true;
+    loadConversations();
+    if (done.memoryChanged) loadMemory();
+  } catch (err) {
+    if (my !== turn) return;
+    speech.open = false;
+    setState("error"); sfx.error();
+    setCaption("Storing: " + err.message, "err");
+    entry("assistant", "⚠ " + err.message);
+    setTimeout(() => document.body.dataset.state === "error" && setState("idle"), 2500);
+  }
+}
 $("chatForm").onsubmit = async (e) => {
   e.preventDefault();
   const text = $("input").value.trim();
   if (!text) return;
   $("input").value = ""; $("input").style.height = "auto"; $("send").disabled = true;
-  stopSpeaking();
-  entry("user", text);
-  typeCaption("› " + text, "user");
-  setState("thinking"); sfx.send();
-  const t = performance.now();
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    const isNew = !currentConv;
-    const res = await fetch(FUNCTION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc }),
-    });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
-    const data = await res.json();
-    lastLatency = Math.round(performance.now() - t);
-    const ai = /ai;dur=(\d+)/.exec(res.headers.get("server-timing") || "")?.[1];
-    $("stLat").textContent = ai ? `${(lastLatency / 1000).toFixed(1)}S · AI ${(ai / 1000).toFixed(1)}S` : `${(lastLatency / 1000).toFixed(1)}S`;
-    if (data.model) $("stModel").textContent = data.model.replace(/^gemini-|^claude-/, "").toUpperCase();
-    currentConv = data.conversationId;
-    $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
-    const body = entry("assistant", data.reply);
-    sfx.reply();
-    typeCaption(plain(data.reply));
-    say(data.reply);
-    if (data.open) {
-      const a = document.createElement("a");
-      a.href = data.open; a.className = "action"; a.textContent = "▶ OPEN IN GOOGLE MAPS";
-      body.append(a);
-      setTimeout(() => { location.href = data.open; }, 1800); // eerst laten voorlezen, dan Maps openen
-    }
-    if (isNew) loadConversations();
-    if (data.memoryChanged) loadMemory();
-  } catch (err) {
-    setState("error"); sfx.error();
-    typeCaption("Storing: " + err.message, "err");
-    entry("assistant", "⚠ " + err.message);
-    setTimeout(() => document.body.dataset.state === "error" && setState("idle"), 2500);
-  } finally {
+  try { await ask({ text }); } finally {
     $("send").disabled = false;
     if (matchMedia("(min-width: 901px)").matches) $("input").focus();
   }
 };
 
 // ---------- Spraak uit ----------
-// Eerst de natuurlijke stem (ElevenLabs via de Edge Function); lukt dat niet, dan de browserstem.
+// De server stuurt kale PCM (16-bit mono) terwijl de stem nog wordt gemaakt; Web Audio speelt elk stukje direct af.
+// Het eerste stuk (eerste zin) gaat al naar de stem terwijl de rest van het antwoord nog binnenkomt.
 const player = new Audio();
 player.preload = "auto";
-let premiumVoice = true, analyser = null;
+let premiumVoice = true, analyser = null, outNode = null, lastVoiceError = "", voiceGen = 0, pcmEnd = 0;
+const pcmSources = new Set();
 // 0,1 s stilte als WAV, om de speler te ontgrendelen.
 const SILENCE = (() => {
   const n = 800, b = new DataView(new ArrayBuffer(44 + n * 2)), w = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
@@ -489,18 +586,25 @@ const SILENCE = (() => {
   b.setUint32(24, 8000, true); b.setUint32(28, 16000, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, "data"); b.setUint32(40, n * 2, true);
   return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
 })();
-// iOS staat afspelen pas toe na een tik: ontgrendel de speler bij de eerste interactie.
+function audioOut() {
+  actx ||= new (window.AudioContext || window.webkitAudioContext)();
+  if (!outNode) {
+    outNode = actx.createGain();
+    try { analyser = actx.createAnalyser(); analyser.fftSize = 64; outNode.connect(analyser).connect(actx.destination); }
+    catch { analyser = null; outNode.connect(actx.destination); }
+  }
+  return outNode;
+}
+// iOS staat afspelen pas toe na een tik: ontgrendel de speler en Web Audio bij de eerste interactie.
 function unlockAudio() {
   if (player.dataset.unlocked) return;
   player.dataset.unlocked = "1";
   player.src = SILENCE; player.play().catch(() => {});
   try {
-    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    const out = audioOut();
     actx.resume();
-    const src = actx.createMediaElementSource(player);
-    analyser = actx.createAnalyser(); analyser.fftSize = 64;
-    src.connect(analyser).connect(actx.destination);
-  } catch { analyser = null; }
+    actx.createMediaElementSource(player).connect(out);
+  } catch { /* zonder visualisatie */ }
 }
 // iOS spreekt pas hardop als de spraak één keer binnen een tik is gestart.
 function unlockSpeech() {
@@ -511,82 +615,164 @@ function unlockSpeech() {
 ["pointerdown", "keydown", "touchend"].forEach((ev) => addEventListener(ev, () => { unlockAudio(); unlockSpeech(); }, { once: true }));
 const freq = new Uint8Array(32);
 function voiceLevel() {
-  if (!analyser || player.paused) return;
-  analyser.getByteFrequencyData(freq);
-  bump((freq.reduce((a, b) => a + b, 0) / freq.length / 255) * 0.35);
+  if (document.body.dataset.state !== "speaking") return;
+  if (analyser) { analyser.getByteFrequencyData(freq); bump((freq.reduce((a, b) => a + b, 0) / freq.length / 255) * 0.35); }
   requestAnimationFrame(voiceLevel);
 }
-player.onplay = () => { setState("speaking"); voiceLevel(); };
-player.onerror = () => { if (document.body.dataset.state === "speaking") setState("idle"); };
+function speakingNow() {
+  if (document.body.dataset.state !== "speaking") { setState("speaking"); voiceLevel(); }
+  if (speech.onFirstAudio) { speech.onFirstAudio(performance.now()); speech.onFirstAudio = null; }
+}
+player.onplay = speakingNow;
 
-// Snel beginnen met praten: eerste zin apart laten inspreken, de rest tegelijk ophalen en daarna afspelen.
-function chunks(text) {
-  const parts = text.match(/[^.!?…]+[.!?…]+["')\]]*\s*|[^.!?…]+$/g) || [text];
-  const first = [];
-  while (parts.length && (first.join("").length < 40 || !first.length)) first.push(parts.shift());
-  return [first.join("").trim(), parts.join("").trim()].filter(Boolean);
-}
-let voiceGen = 0, queue = [], wholeText = false, lastVoiceError = ""; // wholeText: stemdienst liever één verzoek per antwoord (Gemini)
-async function ttsBlob(text) {
-  const { data: { session } } = await sb.auth.getSession();
-  const res = await fetch(FUNCTION_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
-    body: JSON.stringify({ tts: text }),
-  });
+async function ttsFetch(text) {
+  const res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ tts: text, stream: true }) });
   if (res.status === 501 || res.status === 400) { premiumVoice = false; throw new Error("geen stem ingesteld"); }
-  if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error("stem " + res.status);
-  if ((res.headers.get("content-type") || "").includes("wav")) wholeText = true;
-  return URL.createObjectURL(await res.blob());
+  if (!res.ok || !(res.headers.get("content-type") || "").includes("audio")) throw new Error((await res.json().catch(() => ({}))).error || "stem " + res.status);
+  return res;
 }
-async function playNext(gen) {
+// Kale PCM afspelen terwijl hij binnenkomt; elk stukje sluit naadloos aan op het vorige.
+async function playPcm(res, gen) {
+  const rate = +res.headers.get("x-audio-rate") || 24000;
+  const out = audioOut();
+  if (actx.state !== "running") await actx.resume().catch(() => {});
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* oudere Safari */ }
+  const reader = res.body.getReader();
+  let carry = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (gen !== voiceGen) { reader.cancel().catch(() => {}); return; }
+    let bytes = value;
+    if (carry !== null) { const b = new Uint8Array(bytes.length + 1); b[0] = carry; b.set(bytes, 1); bytes = b; carry = null; }
+    if (bytes.length % 2) { carry = bytes[bytes.length - 1]; bytes = bytes.subarray(0, bytes.length - 1); }
+    if (!bytes.length) continue;
+    const n = bytes.length / 2, dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
+    const buf = actx.createBuffer(1, n, rate), ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = dv.getInt16(i * 2, true) / 32768;
+    const src = actx.createBufferSource();
+    src.buffer = buf; src.connect(out);
+    const lead = pcmEnd > actx.currentTime ? 0 : 0.12; // kleine buffer bij de start of na een hapering
+    const at = Math.max(actx.currentTime + lead, pcmEnd);
+    src.start(at); pcmEnd = at + buf.duration;
+    pcmSources.add(src); src.onended = () => pcmSources.delete(src);
+    speakingNow();
+  }
+}
+const pcmDone = (gen) => new Promise((r) => {
+  const check = () => (gen !== voiceGen || !actx || actx.currentTime >= pcmEnd - 0.02 ? r() : setTimeout(check, Math.min(250, (pcmEnd - actx.currentTime) * 1000 + 20)));
+  check();
+});
+async function playBlob(res, gen) {
+  await pcmDone(gen);
   if (gen !== voiceGen) return;
-  const next = queue.shift();
-  if (!next) { if (document.body.dataset.state === "speaking") setState("idle"); return; }
-  try {
-    const url = await next;
-    if (gen !== voiceGen) return;
-    player.src = url;
-    player.onloadeddata = () => URL.revokeObjectURL(url);
-    await player.play();
-  } catch (e) { console.warn("Stemdeel overgeslagen:", e.message); playNext(gen); }
-}
-player.onended = () => playNext(voiceGen);
-async function sayPremium(text) {
-  const gen = ++voiceGen;
-  queue = (wholeText ? [text] : chunks(text)).map(ttsBlob);
-  queue.forEach((p) => p.catch(() => {})); // fouten worden bij het afspelen afgehandeld
-  await queue[0]; // gooit een fout als de stem niet beschikbaar is → terugval op browserstem
-  playNext(gen);
+  const url = URL.createObjectURL(await res.blob());
+  player.src = url;
+  await new Promise((r) => { player.onended = player.onerror = r; player.play().catch(r); });
+  URL.revokeObjectURL(url);
 }
 function pickVoice() {
   const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("nl"));
   return vs.find((v) => /xander|frank|male|man|google/i.test(v.name)) || vs[0];
 }
-function sayBrowser(text) {
+function sayBrowser(text, gen) {
   $("stVoice").textContent = "BROWSER (ROBOT)"; $("stVoice").className = "warn"; $("stVoice").title = lastVoiceError || "Geen natuurlijke stem ingesteld";
-  if (!window.speechSynthesis) { setState("idle"); return; }
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "nl-NL"; u.rate = 1.04; u.pitch = 0.88;
-  const v = pickVoice(); if (v) u.voice = v;
-  u.onstart = () => setState("speaking");
-  u.onboundary = () => bump(0.5);
-  u.onend = u.onerror = () => setState("idle");
-  speechSynthesis.speak(u);
-  setTimeout(() => { if (!speechSynthesis.speaking && document.body.dataset.state === "thinking") setState("idle"); }, 1500);
+  if (!window.speechSynthesis) return Promise.resolve();
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "nl-NL"; u.rate = 1.04; u.pitch = 0.88;
+    const v = pickVoice(); if (v) u.voice = v;
+    u.onstart = speakingNow;
+    u.onboundary = () => bump(0.5);
+    u.onend = u.onerror = () => resolve();
+    if (gen !== voiceGen) return resolve();
+    speechSynthesis.speak(u);
+    setTimeout(() => { if (!speechSynthesis.speaking && !speechSynthesis.pending) resolve(); }, 2500);
+  });
 }
-async function say(text) {
+// Spreekrij voor één antwoord: feed() tijdens het binnenkomen, finish() aan het eind.
+const speech = {
+  open: false, items: [], running: false, spoken: 0, onFirstAudio: null,
+  push(text) {
+    const t = text.trim();
+    if (!t || !$("speak").checked) return;
+    const item = { text: t, res: premiumVoice ? ttsFetch(t) : null };
+    item.res?.catch(() => {}); // fouten worden bij het afspelen afgehandeld
+    this.items.push(item);
+    if (!this.running) this.run(voiceGen);
+  },
+  // Eerste zin(nen) meteen laten inspreken zodra er ~30 tekens met een zinseinde zijn; de rest aan het eind in één keer.
+  feed(full) {
+    if (this.spoken) return;
+    const m = /^[\s\S]{30,}?[.!?…](?=\s)/.exec(full);
+    if (m) { this.spoken = m[0].length; this.push(m[0]); }
+  },
+  finish(full) {
+    this.open = false;
+    const rest = full.slice(this.spoken);
+    this.spoken = full.length;
+    if (rest.trim()) this.push(rest);
+    if (!this.running && !this.items.length) this.ended(voiceGen);
+  },
+  async run(gen) {
+    this.running = true;
+    while (this.items.length && gen === voiceGen) {
+      const item = this.items.shift();
+      try {
+        if (!item.res) throw new Error(lastVoiceError || "browserstem");
+        const res = await item.res;
+        if (gen !== voiceGen) break;
+        const ct = res.headers.get("content-type") || "";
+        const v = res.headers.get("x-voice");
+        $("stVoice").textContent = (v || (ct.includes("l16") ? "NATUURLIJK" : "ELEVENLABS")).toUpperCase(); $("stVoice").className = "ok";
+        if (ct.includes("l16")) await playPcm(res, gen); else await playBlob(res, gen);
+      } catch (e) {
+        if (gen !== voiceGen) break;
+        if (item.res) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); lastVoiceError = e.message; }
+        await pcmDone(gen);
+        await sayBrowser(plain(visible(item.text)), gen);
+      }
+    }
+    this.running = false;
+    if (gen === voiceGen && !this.open) { await pcmDone(gen); this.ended(gen); }
+  },
+  ended(gen) {
+    if (gen !== voiceGen) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
+    if (document.body.dataset.state === "speaking" || document.body.dataset.state === "thinking") setState("idle");
+    convoNext(true);
+  },
+};
+// Los iets uitspreken (begroeting, Stemlab): eerste zin apart, rest erachteraan.
+function say(text) {
   if (!$("speak").checked) { if (document.body.dataset.state !== "error") setState("idle"); return; }
   stopSpeaking();
-  const t = plain(text);
-  if (premiumVoice) {
-    try { await sayPremium(t); $("stVoice").textContent = wholeText ? "GEMINI" : "ELEVENLABS"; $("stVoice").className = "ok"; return; }
-    catch (e) { console.warn("Natuurlijke stem niet beschikbaar:", e.message); lastVoiceError = e.message; }
-  }
-  sayBrowser(t);
+  speech.open = true;
+  speech.feed(text);
+  speech.finish(text);
 }
-function stopSpeaking() { voiceGen++; queue = []; speechSynthesis?.cancel(); player.pause(); }
+function stopSpeaking() {
+  voiceGen++;
+  speech.items = []; speech.running = false; speech.spoken = 0; speech.open = false; speech.onFirstAudio = null;
+  speechSynthesis?.cancel(); player.pause();
+  for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
+  pcmSources.clear(); pcmEnd = 0;
+}
 speechSynthesis?.getVoices();
+
+// ---------- Gespreksmodus: na elk antwoord vanzelf weer luisteren (handsfree) ----------
+const convo = { get on() { return $("convo")?.checked; }, paused: false };
+try { if ($("convo")) $("convo").checked = localStorage.getItem("eco-convo") === "1"; } catch { /* geen opslag */ }
+$("convo")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-convo", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  convo.paused = false;
+  if (e.target.checked && document.body.dataset.state === "idle") { unlockAudio(); listen(); }
+});
+function convoNext(answered) {
+  if (!convo.on || !whisper && !Rec) return;
+  if (convo.paused || !answered) { convo.paused = false; setCaption("Gespreksmodus wacht. Tik op de microfoon om verder te gaan.", "user"); return; }
+  setTimeout(() => { if (convo.on && document.body.dataset.state === "idle" && !rec && !recording) listen(); }, 350);
+}
 
 // ---------- Spraak in ----------
 // Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands
@@ -597,7 +783,8 @@ if (!CAN_RECORD && !Rec) $("mic").hidden = true;
 
 function listen() {
   if (rec || recording) return;
-  stopSpeaking();
+  stopSpeaking(); turn++;
+  warm();
   if (whisper) recordWhisper(); else listenBrowser();
 }
 function stopListening() {
@@ -628,9 +815,11 @@ async function recordWhisper() {
     an = ctx.createAnalyser(); an.fftSize = 512;
     ctx.createMediaStreamSource(stream).connect(an);
   } catch { an = null; }
-  // Drempel past zich aan het achtergrondgeluid aan (eerste ~0,4 s); pauzes tot 2,2 s zijn toegestaan.
+  // Drempel past zich aan het achtergrondgeluid aan (eerste ~0,4 s). Na 1,3 s stilte is de vraag klaar
+  // (na een langere zin 1,1 s); pauzes binnen een zin zijn korter dan dat.
   const buf = new Float32Array(512);
-  const SILENCE_MS = 2200, MAX_MS = 120000, NO_SPEECH_MS = 10000;
+  const MAX_MS = 120000, NO_SPEECH_MS = 8000;
+  let spokeSince = 0;
   let floor = 0, floorN = 0;
   const watch = () => {
     if (mr.state !== "recording") return;
@@ -639,11 +828,12 @@ async function recordWhisper() {
       an.getFloatTimeDomainData(buf);
       const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
       bump(Math.min(0.6, rms * 8));
-      if (now - started < 400) { floor = (floor * floorN + rms) / ++floorN; }
+      // Achtergrondniveau = laagste niveau in de eerste 0,4 s (ook als je meteen begint te praten), met een plafond.
+      if (now - started < 400) { floor = floorN++ ? Math.min(floor, rms) : rms; }
       else {
-        const threshold = Math.max(0.006, floor * 2.5);
-        if (rms > threshold) { spoke = true; quietSince = 0; }
-        else if (spoke) { quietSince ||= now; if (now - quietSince > SILENCE_MS) return mr.stop(); }
+        const threshold = Math.min(0.03, Math.max(0.006, floor * 2.5));
+        if (rms > threshold) { if (!spoke) spokeSince = now; spoke = true; quietSince = 0; }
+        else if (spoke) { quietSince ||= now; if (now - quietSince > (quietSince - spokeSince > 4000 ? 1100 : 1300)) return mr.stop(); }
         if (!spoke && now - started > NO_SPEECH_MS) return mr.stop();   // niets gezegd
       }
     }
@@ -655,25 +845,13 @@ async function recordWhisper() {
     cancelAnimationFrame(raf);
     stream.getTracks().forEach((t) => t.stop());
     recording = null; micOn(false);
-    if (an && !spoke && Date.now() - started < 1500) { typeCaption(""); return; } // per ongeluk getikt
+    if (an && !spoke) { // niets gezegd of per ongeluk getikt
+      if (convo.on) setCaption("Gespreksmodus wacht. Tik op de microfoon om verder te gaan.", "user"); else typeCaption("");
+      return;
+    }
     const blob = new Blob(parts, { type: mr.mimeType || type || "audio/webm" });
     const ext = /mp4|m4a/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : "webm";
-    setState("thinking"); typeCaption("Uitschrijven…", "user");
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      const fd = new FormData(); fd.append("file", blob, `spraak.${ext}`);
-      const res = await fetch(FUNCTION_URL, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY }, body: fd });
-      if (res.status === 501) { whisper = false; setState("idle"); if (Rec) listenBrowser(); return; }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
-      setState("idle");
-      if (!data.text) { typeCaption("Ik heb niets verstaan.", "user"); return; }
-      $("input").value = data.text;
-      $("stVoice").textContent = "WHISPER";
-      $("chatForm").requestSubmit();
-    } catch (err) {
-      setState("idle"); typeCaption("Spraak: " + err.message, "err");
-    }
+    ask({ audio: { blob, ext } }); // uitschrijven en antwoorden in één verzoek
   };
   recording = mr;
   mr.start(250);
@@ -892,7 +1070,7 @@ $("labForm").onsubmit = async (e) => {
         use.disabled = true; labMsg("STEM OPSLAAN…");
         try {
           await callFn({ voice: "save", generatedVoiceId: p.id, name: "ECO", description: $("labDesc").value });
-          premiumVoice = true; wholeText = false;
+          premiumVoice = true;
           labMsg("Opgeslagen. ECO gebruikt nu deze stem.", "ok");
           setTimeout(closeLab, 900);
           say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
@@ -938,7 +1116,7 @@ $("labSet").onclick = async () => {
   $("labSet").disabled = true; labMsg("STEM CONTROLEREN…");
   try {
     const { name } = await callFn({ voice: "set", generatedVoiceId: id });
-    premiumVoice = true; wholeText = false;
+    premiumVoice = true;
     labMsg(`Ingesteld${name ? ": " + name : ""}. ECO gebruikt nu deze stem.`, "ok");
     say("Goedenavond, Serkan. Dit is mijn nieuwe stem. Alle systemen zijn operationeel.");
   } catch (err) { labMsg("Mislukt: " + err.message, "err"); }
