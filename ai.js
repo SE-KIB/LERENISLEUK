@@ -237,7 +237,7 @@ $("loginForm").onsubmit = async (e) => {
 };
 async function logout() {
   stopSpeaking(); closeDrawer();
-  await sb.auth.signOut().catch(() => {});
+  await sb.auth.signOut({ scope: "local" }).catch(() => {}); // lokaal: werkt ook als de server weigert
   // Ook lokaal wissen, zodat afmelden altijd lukt, zelfs als de server niet bereikbaar is.
   try { Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k)); } catch { /* geen opslag */ }
   lastUserId = null; currentConv = null; $("messages").innerHTML = "";
