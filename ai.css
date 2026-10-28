@@ -279,3 +279,7 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .lab-item b{font-family:var(--f-head);font-size:.62rem;letter-spacing:.22em;color:var(--c)}
 .lab-item.playing{border-color:var(--c);box-shadow:var(--glow)}
 .lab-item div{display:flex;gap:8px}
+.lab-or{display:flex;align-items:center;gap:10px;font-family:var(--f-head);font-size:.58rem;letter-spacing:.22em;color:var(--muted)}
+.lab-or::before,.lab-or::after{content:"";flex:1;height:1px;background:var(--cd)}
+.lab-id{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.6rem .7rem;font-family:var(--f-mono);color:var(--c2);outline:none}
+.lab-id:focus{border-color:var(--c);box-shadow:0 0 0 1px var(--c),var(--glow)}
