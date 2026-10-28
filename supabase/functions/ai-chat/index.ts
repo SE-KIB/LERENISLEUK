@@ -3,7 +3,9 @@
 //          (b) header "x-jarvis-key" = JARVIS_KEY (voor de iPhone-opdracht / Siri).
 // Het model kan tools gebruiken (agenda bekijken/maken); de functie voert die uit en
 // geeft het eindantwoord als JSON terug: { conversationId, reply }.
-// Secrets: ANTHROPIC_API_KEY, ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
+// Model: Gemini (GEMINI_API_KEY) of Claude (ANTHROPIC_API_KEY); kies met AI_PROVIDER=gemini|anthropic
+//          (standaard gemini als GEMINI_API_KEY bestaat).
+// Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
 //          optioneel AI_MODEL, TIMEZONE, ALLOWED_ORIGIN.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -14,7 +16,8 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-jarvis-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const MODEL = env("AI_MODEL", "claude-sonnet-5-5");
+const PROVIDER = env("AI_PROVIDER", env("GEMINI_API_KEY") ? "gemini" : "anthropic");
+const MODEL = env("AI_MODEL", PROVIDER === "gemini" ? "gemini-flash-latest" : "claude-sonnet-5-5");
 const TZ = env("TIMEZONE", "Europe/Amsterdam");
 const ALLOWED = env("ALLOWED_EMAILS").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
 const HISTORY = 20;
@@ -183,14 +186,56 @@ async function runTool(name: string, input: Record<string, string>, actions: Act
   return { fout: "Onbekende tool" };
 }
 
-async function callModel(messages: unknown[]) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1024, system: systemPrompt(), tools: TOOLS, messages }),
-  });
-  if (!r.ok) throw new Error(`Model-fout ${r.status}: ${await r.text()}`);
-  return await r.json();
+type Turn = { role: string; content: string };
+const MAX_STEPS = 5;
+
+async function askClaude(history: Turn[], actions: Actions): Promise<string> {
+  const messages: any[] = [...history];
+  for (let i = 0; i < MAX_STEPS; i++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1024, system: systemPrompt(), tools: TOOLS, messages }),
+    });
+    if (!r.ok) throw new Error(`Claude-fout ${r.status}: ${await r.text()}`);
+    const res = await r.json();
+    messages.push({ role: "assistant", content: res.content });
+    if (res.stop_reason !== "tool_use") {
+      return res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
+    }
+    const results = [];
+    for (const b of res.content.filter((b: any) => b.type === "tool_use")) {
+      const out = await runTool(b.name, b.input, actions).catch((e) => ({ fout: String(e) }));
+      results.push({ type: "tool_result", tool_use_id: b.id, content: JSON.stringify(out) });
+    }
+    messages.push({ role: "user", content: results });
+  }
+  return "";
+}
+
+async function askGemini(history: Turn[], actions: Actions): Promise<string> {
+  const contents: any[] = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  const tools = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema })) }];
+  for (let i = 0; i < MAX_STEPS; i++) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt() }] }, contents, tools }),
+    });
+    if (!r.ok) throw new Error(`Gemini-fout ${r.status}: ${await r.text()}`);
+    const content = (await r.json()).candidates?.[0]?.content;
+    const parts: any[] = content?.parts ?? [];
+    contents.push(content ?? { role: "model", parts: [] });
+    const calls = parts.filter((p) => p.functionCall);
+    if (!calls.length) return parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("").trim();
+    const responses = [];
+    for (const { functionCall: c } of calls) {
+      const out = await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) }));
+      responses.push({ functionResponse: { name: c.name, response: { result: out } } });
+    }
+    contents.push({ role: "user", parts: responses });
+  }
+  return "";
 }
 
 Deno.serve(async (req) => {
@@ -228,25 +273,12 @@ Deno.serve(async (req) => {
 
   const { data: past } = await admin.from("ai_messages").select("role, content")
     .eq("conversation_id", convId).order("id", { ascending: false }).limit(HISTORY);
-  const messages: any[] = [...(past ?? []).reverse(), { role: "user", content: message }];
+  const history: Turn[] = [...(past ?? []).reverse(), { role: "user", content: message }];
 
-  let reply = "";
   const actions: Actions = {};
+  let reply = "";
   try {
-    for (let i = 0; i < 5; i++) {
-      const res = await callModel(messages);
-      messages.push({ role: "assistant", content: res.content });
-      if (res.stop_reason !== "tool_use") {
-        reply = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
-        break;
-      }
-      const results = [];
-      for (const b of res.content.filter((b: any) => b.type === "tool_use")) {
-        const out = await runTool(b.name, b.input, actions).catch((e) => ({ fout: String(e) }));
-        results.push({ type: "tool_result", tool_use_id: b.id, content: JSON.stringify(out) });
-      }
-      messages.push({ role: "user", content: results });
-    }
+    reply = PROVIDER === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
   } catch (e) {
     console.error(e);
     return json({ error: "Het AI-model gaf een fout. Probeer het later opnieuw." }, 502);
