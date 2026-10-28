@@ -861,7 +861,8 @@ $("labReset").onclick = async () => {
 };
 
 // ---------- Start ----------
-$("versionLogin").textContent = $("version").textContent; // PR-badge alleen zichtbaar op het inlogscherm
+$("versionLogin").textContent = $("version").textContent; // volledige PR-badge op het inlogscherm
+$("brandVer").textContent = $("version").textContent.split("|")[0].trim(); // klein "PR78" naast E.C.O.
 initStatus();
 clock(); setInterval(clock, 1000);
 readouts(); setInterval(readouts, 1400);
