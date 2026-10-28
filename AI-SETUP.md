@@ -27,6 +27,12 @@ Eenmalig, kan ook op de telefoon:
    **New repository secret** → Name `SUPABASE_ACCESS_TOKEN`, Secret = de token → **Add secret**.
 3. GitHub → **Actions** → *ECO-functie uitrollen naar Supabase* → **Run workflow** (eerste keer met de hand).
 
+## Snelste model: Groq (aanbevolen)
+1. Ga naar https://console.groq.com → inloggen (bv. met Google) → **API Keys** → **Create API Key** → kopieer.
+2. Supabase → Edge Functions → Secrets → `GROQ_API_KEY` = de sleutel → Save.
+Klaar: ECO gebruikt dan eerst Groq en valt bij een storing terug op Gemini. Ander Groq-model kiezen kan met
+`GROQ_MODEL` (komma-gescheiden, eerste die werkt wordt gebruikt).
+
 ## Welk AI-model?
 ECO werkt met **Google Gemini** (standaard zodra `GEMINI_API_KEY` bestaat) of **Claude** (`ANTHROPIC_API_KEY`).
 Wisselen: secret `AI_PROVIDER` = `gemini` of `anthropic`; ander model kiezen met `AI_MODEL`

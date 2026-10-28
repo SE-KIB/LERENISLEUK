@@ -3,8 +3,9 @@
 //          (b) header "x-jarvis-key" = JARVIS_KEY (voor de iPhone-opdracht / Siri).
 // Het model kan tools gebruiken (agenda bekijken/maken); de functie voert die uit en
 // geeft het eindantwoord als JSON terug: { conversationId, reply }.
-// Model: Gemini (GEMINI_API_KEY) of Claude (ANTHROPIC_API_KEY); kies met AI_PROVIDER=gemini|anthropic
-//          (standaard gemini als GEMINI_API_KEY bestaat).
+// Model: Groq (GROQ_API_KEY, snelst), Gemini (GEMINI_API_KEY) en/of Claude (ANTHROPIC_API_KEY).
+//          Ze worden op volgorde geprobeerd (standaard groq → gemini → anthropic, alleen met sleutel);
+//          eigen volgorde met AI_PROVIDERS=groq,gemini. Modellen: GROQ_MODEL, AI_MODEL (Gemini), CLAUDE_MODEL.
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
 //          optioneel AI_MODEL, AI_TIMEOUT_MS (standaard 10000), AI_MODEL_FALLBACKS (komma-gescheiden reservemodellen), TIMEZONE, ALLOWED_ORIGIN,
@@ -18,8 +19,12 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers": "Server-Timing",
 };
-const PROVIDER = env("AI_PROVIDER", env("GEMINI_API_KEY") ? "gemini" : "anthropic");
-const MODEL = env("AI_MODEL", PROVIDER === "gemini" ? "gemini-flash-latest" : "claude-sonnet-5-5");
+const KEYS: Record<string, string> = { groq: "GROQ_API_KEY", gemini: "GEMINI_API_KEY", anthropic: "ANTHROPIC_API_KEY" };
+const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,anthropic")
+  .split(",").map((p) => p.trim()).filter((p) => KEYS[p] && env(KEYS[p]));
+const MODEL = env("AI_MODEL", "gemini-flash-latest");            // Gemini
+const CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5");
+const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,llama-3.3-70b-versatile").split(",").map((m) => m.trim()).filter(Boolean);
 const TZ = env("TIMEZONE", "Europe/Amsterdam");
 const ALLOWED = env("ALLOWED_EMAILS").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
 const HISTORY = 20;
@@ -201,10 +206,12 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1024, system: systemPrompt(), tools: TOOLS, messages }),
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1024, system: systemPrompt(), tools: TOOLS, messages }),
+      signal: AbortSignal.timeout(CALL_TIMEOUT * 2),
     });
     if (!r.ok) throw new Error(`Claude-fout ${r.status}: ${await r.text()}`);
     const res = await r.json();
+    usedModel = CLAUDE_MODEL;
     messages.push({ role: "assistant", content: res.content });
     if (res.stop_reason !== "tool_use") {
       return res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
@@ -227,7 +234,7 @@ const thinkingIdx = new Map<string, number>();
 // Bij drukte (503/429/500) eerst kort opnieuw proberen, daarna overstappen op een reservemodel.
 const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-latest,gemini-2.5-flash").split(",").map((m) => m.trim())]
   .filter((m, i, a) => m && a.indexOf(m) === i);
-let usedModel = MODEL;
+let usedModel = "";
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Hoe lang één modelaanroep mag duren voordat we het volgende model proberen.
@@ -267,6 +274,45 @@ async function geminiCall(body: Record<string, unknown>) {
     }
   }
   throw new Error(`Gemini-fout (geen model beschikbaar): ${last}`);
+}
+
+// Groq (OpenAI-compatibele API): zeer snel. Probeert de modellen uit GROQ_MODEL op volgorde.
+async function askGroq(history: Turn[], actions: Actions): Promise<string> {
+  const tools = TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+  let last = "";
+  nextModel: for (const model of GROQ_MODELS) {
+    const messages: any[] = [{ role: "system", content: systemPrompt() }, ...history];
+    for (let step = 0; step < MAX_STEPS; step++) {
+      const t = Date.now();
+      let r: Response;
+      try {
+        r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env("GROQ_API_KEY")}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            model, messages, tools, tool_choice: "auto", max_tokens: 800, temperature: 0.6,
+            ...(model.includes("gpt-oss") ? { reasoning_effort: "low" } : {}),
+          }),
+          signal: AbortSignal.timeout(CALL_TIMEOUT),
+        });
+      } catch { attempts.push(`groq/${model}:timeout`); last = `${model} traag`; continue nextModel; }
+      attempts.push(`groq/${model}:${r.status}:${Date.now() - t}ms`);
+      if (!r.ok) { last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`; console.warn("Groq-model overgeslagen:", last); continue nextModel; }
+      const msg = (await r.json()).choices?.[0]?.message ?? {};
+      usedModel = model;
+      if (!msg.tool_calls?.length) return (msg.content ?? "").trim();
+      messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
+      const outs = await Promise.all(msg.tool_calls.map(async (tc: any) => {
+        let args = {};
+        try { args = JSON.parse(tc.function?.arguments || "{}"); } catch { /* lege argumenten */ }
+        const out = await runTool(tc.function?.name, args as Record<string, string>, actions).catch((e) => ({ fout: String(e) }));
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) };
+      }));
+      messages.push(...outs);
+    }
+    return "";
+  }
+  throw new Error(`Groq-fout: ${last}`);
 }
 
 async function askGemini(history: Turn[], actions: Actions): Promise<string> {
@@ -353,19 +399,29 @@ Deno.serve(async (req) => {
 
   const actions: Actions = {};
   attempts.length = 0;
+  let provider = "";
   let reply = "";
   try {
-    reply = PROVIDER === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
+    if (!PROVIDERS.length) throw new Error("geen AI-sleutel ingesteld (GROQ_API_KEY, GEMINI_API_KEY of ANTHROPIC_API_KEY)");
+    const errors: string[] = [];
+    for (const p of PROVIDERS) {
+      try {
+        reply = p === "groq" ? await askGroq(history, actions) : p === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
+        provider = p;
+        break;
+      } catch (e) { errors.push(String((e as Error)?.message ?? e)); console.warn(`${p} mislukt, volgende proberen`, e); }
+    }
+    if (!provider) throw new Error(errors.join(" | "));
   } catch (e) {
     console.error(e);
     // Alleen geautoriseerde gebruikers komen hier; de echte reden helpt bij het oplossen (sleutel, model, limiet).
-    const detail = String((e as Error)?.message ?? e).replace(/key=[^&\s"]+/gi, "key=***").slice(0, 300);
-    return json({ error: `Het AI-model gaf een fout (${PROVIDER}/${MODEL}): ${detail}` }, 502);
+    const detail = String((e as Error)?.message ?? e).replace(/key=[^&\s"]+/gi, "key=***").slice(0, 500);
+    return json({ error: `Het AI-model gaf een fout: ${detail}` }, 502);
   }
   reply ||= "Daar kom ik niet uit, sorry.";
 
   const tAi = Date.now();
-  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${PROVIDER === "gemini" ? usedModel : MODEL}) pogingen: ${attempts.join(", ")}`);
+  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${provider}/${usedModel}) pogingen: ${attempts.join(", ")}`);
 
   // Opslaan ná het antwoord, zodat de gebruiker er niet op hoeft te wachten.
   const save = Promise.all([
@@ -378,7 +434,7 @@ Deno.serve(async (req) => {
   const rt = (globalThis as any).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(save); else await save;
 
-  return new Response(JSON.stringify({ conversationId: convId, reply, open: actions.open ?? "", model: PROVIDER === "gemini" ? usedModel : MODEL }), {
+  return new Response(JSON.stringify({ conversationId: convId, reply, open: actions.open ?? "", model: usedModel }), {
     headers: { ...CORS, "Content-Type": "application/json", "Server-Timing": `db;dur=${tDb - t0}, ai;dur=${tAi - tDb}` },
   });
 });
