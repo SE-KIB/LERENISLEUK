@@ -16,6 +16,7 @@ const CORS = {
   "Access-Control-Allow-Origin": env("ALLOWED_ORIGIN", "https://sekibar.nl"),
   "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-jarvis-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers": "Server-Timing",
 };
 const PROVIDER = env("AI_PROVIDER", env("GEMINI_API_KEY") ? "gemini" : "anthropic");
 const MODEL = env("AI_MODEL", PROVIDER === "gemini" ? "gemini-flash-latest" : "claude-sonnet-5-5");
@@ -40,7 +41,9 @@ function systemPrompt() {
 }
 
 // ---------- Google Agenda ----------
+let gTok = { token: "", until: 0 };
 async function googleToken() {
+  if (gTok.until > Date.now()) return gTok.token; // hergebruiken zolang hij geldig is
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     body: new URLSearchParams({
@@ -49,7 +52,9 @@ async function googleToken() {
     }),
   });
   if (!r.ok) throw new Error("Google-login mislukt: " + await r.text());
-  return (await r.json()).access_token as string;
+  const j = await r.json();
+  gTok = { token: j.access_token, until: Date.now() + ((j.expires_in ?? 3600) - 120) * 1000 };
+  return gTok.token;
 }
 const CAL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 
@@ -204,36 +209,51 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
     if (res.stop_reason !== "tool_use") {
       return res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
     }
-    const results = [];
-    for (const b of res.content.filter((b: any) => b.type === "tool_use")) {
-      const out = await runTool(b.name, b.input, actions).catch((e) => ({ fout: String(e) }));
-      results.push({ type: "tool_result", tool_use_id: b.id, content: JSON.stringify(out) });
-    }
+    const results = await Promise.all(res.content.filter((b: any) => b.type === "tool_use").map(async (b: any) => ({
+      type: "tool_result", tool_use_id: b.id,
+      content: JSON.stringify(await runTool(b.name, b.input, actions).catch((e) => ({ fout: String(e) }))),
+    })));
     messages.push({ role: "user", content: results });
   }
   return "";
+}
+
+// Snelheid: "denken" uit of zo laag mogelijk. Niet elk Gemini-model kent elke instelling,
+// dus we proberen ze op volgorde en onthouden welke werkt.
+const THINKING = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
+let thinkingIdx = 0;
+
+async function geminiCall(body: Record<string, unknown>) {
+  for (;;) {
+    const thinking = THINKING[thinkingIdx];
+    const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.6 };
+    if (thinking) generationConfig.thinkingConfig = thinking;
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+      body: JSON.stringify({ ...body, generationConfig }),
+    });
+    if (r.ok) return await r.json();
+    const err = await r.text();
+    if (r.status === 400 && thinking && /think/i.test(err)) { thinkingIdx++; continue; }
+    throw new Error(`Gemini-fout ${r.status}: ${err}`);
+  }
 }
 
 async function askGemini(history: Turn[], actions: Actions): Promise<string> {
   const contents: any[] = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
   const tools = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema })) }];
   for (let i = 0; i < MAX_STEPS; i++) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: "POST",
-      headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt() }] }, contents, tools }),
-    });
-    if (!r.ok) throw new Error(`Gemini-fout ${r.status}: ${await r.text()}`);
-    const content = (await r.json()).candidates?.[0]?.content;
+    const res = await geminiCall({ systemInstruction: { parts: [{ text: systemPrompt() }] }, contents, tools });
+    const content = res.candidates?.[0]?.content;
     const parts: any[] = content?.parts ?? [];
     contents.push(content ?? { role: "model", parts: [] });
     const calls = parts.filter((p) => p.functionCall);
     if (!calls.length) return parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("").trim();
-    const responses = [];
-    for (const { functionCall: c } of calls) {
-      const out = await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) }));
-      responses.push({ functionResponse: { name: c.name, response: { result: out } } });
-    }
+    // Meerdere tools tegelijk uitvoeren in plaats van na elkaar.
+    const responses = await Promise.all(calls.map(async ({ functionCall: c }) => ({
+      functionResponse: { name: c.name, response: { result: await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) })) } },
+    })));
     contents.push({ role: "user", parts: responses });
   }
   return "";
@@ -264,11 +284,11 @@ Deno.serve(async (req) => {
     if (!env("ELEVENLABS_API_KEY") || !env("ELEVENLABS_VOICE_ID")) return json({ error: "Geen stem ingesteld" }, 501);
     const text = body.tts.trim().slice(0, 2500);
     if (!text) return json({ error: "Geen tekst" }, 400);
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${env("ELEVENLABS_VOICE_ID")}?output_format=mp3_44100_128`, {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${env("ELEVENLABS_VOICE_ID")}?output_format=mp3_44100_64&optimize_streaming_latency=2`, {
       method: "POST",
       headers: { "xi-api-key": env("ELEVENLABS_API_KEY"), "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({
-        text, model_id: env("ELEVENLABS_MODEL", "eleven_multilingual_v2"),
+        text, model_id: env("ELEVENLABS_MODEL", "eleven_flash_v2_5"),
         voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
       }),
     });
@@ -278,20 +298,24 @@ Deno.serve(async (req) => {
   const message = (body.message ?? "").trim();
   if (!message || message.length > 8000) return json({ error: "Bericht leeg of te lang" }, 400);
 
-  // Gesprek: opgegeven id, anders een nieuw gesprek.
+  const t0 = Date.now();
+  // Gesprek: bestaand gesprek controleren en geschiedenis ophalen tegelijk; nieuw gesprek heeft geen geschiedenis.
   let convId = body.conversationId;
+  let past: Turn[] = [];
   if (convId) {
-    const { data } = await admin.from("ai_conversations").select("id").eq("id", convId).eq("user_id", userId).maybeSingle();
-    if (!data) return json({ error: "Gesprek niet gevonden" }, 404);
+    const [conv, hist] = await Promise.all([
+      admin.from("ai_conversations").select("id").eq("id", convId).eq("user_id", userId).maybeSingle(),
+      admin.from("ai_messages").select("role, content").eq("conversation_id", convId).order("id", { ascending: false }).limit(HISTORY),
+    ]);
+    if (!conv.data) return json({ error: "Gesprek niet gevonden" }, 404);
+    past = (hist.data ?? []).reverse();
   } else {
     const { data } = await admin.from("ai_conversations")
       .insert({ user_id: userId, title: (key ? "🎙️ " : "") + message.slice(0, 60) }).select("id").single();
     convId = data!.id;
   }
-
-  const { data: past } = await admin.from("ai_messages").select("role, content")
-    .eq("conversation_id", convId).order("id", { ascending: false }).limit(HISTORY);
-  const history: Turn[] = [...(past ?? []).reverse(), { role: "user", content: message }];
+  const history: Turn[] = [...past, { role: "user", content: message }];
+  const tDb = Date.now();
 
   const actions: Actions = {};
   let reply = "";
@@ -303,10 +327,21 @@ Deno.serve(async (req) => {
   }
   reply ||= "Daar kom ik niet uit, sorry.";
 
-  await admin.from("ai_messages").insert([
-    { conversation_id: convId, user_id: userId, role: "user", content: message },
-    { conversation_id: convId, user_id: userId, role: "assistant", content: reply },
-  ]);
-  await admin.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
-  return json({ conversationId: convId, reply, open: actions.open ?? "" });
+  const tAi = Date.now();
+  console.log(`tijden: database ${tDb - t0} ms, model ${tAi - tDb} ms (${PROVIDER}/${MODEL})`);
+
+  // Opslaan ná het antwoord, zodat de gebruiker er niet op hoeft te wachten.
+  const save = Promise.all([
+    admin.from("ai_messages").insert([
+      { conversation_id: convId, user_id: userId, role: "user", content: message },
+      { conversation_id: convId, user_id: userId, role: "assistant", content: reply },
+    ]),
+    admin.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId),
+  ]).catch((e) => console.error("Opslaan mislukt", e));
+  const rt = (globalThis as any).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(save); else await save;
+
+  return new Response(JSON.stringify({ conversationId: convId, reply, open: actions.open ?? "" }), {
+    headers: { ...CORS, "Content-Type": "application/json", "Server-Timing": `db;dur=${tDb - t0}, ai;dur=${tAi - tDb}` },
+  });
 });
