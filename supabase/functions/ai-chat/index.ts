@@ -93,6 +93,7 @@ function systemPrompt(memory = "", context = "", live = false) {
     `\n- Eerlijk melden: acties geven een status. "gedaan" = gecontroleerd gelukt, zeg dat kort. "niet_gecontroleerd" = verstuurd, geopend of klaargezet maar niet na te gaan: zeg dat eerlijk ` +
     `(bv. "WhatsApp staat klaar, jij drukt op versturen" of "Spotify nam het aan, maar ik hoor nog niets spelen"). "mislukt" = zeg kort wat er misging. Zeg nooit dat iets gelukt is als de status dat niet zegt.` +
     `\n- Iets in de gaten houden (nieuws, prijs, aankondiging): volgen. "Maak dat ongedaan" of "draai dat terug": ongedaan_maken.` +
+    `\n- Iets op zijn laptop (app openen, muziek op de pc, volume, typen, bestand, scherm vergrendelen, afsluiten): pc. Dat werkt via NOVA, ECO's versie op zijn laptop.` +
     `\n\nRegels voor tools:` +
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
     `\n- Bij agenda-items staat de uitgesproken tijd er al bij (veld "gezegd" of tussen haakjes, bv. "kwart voor negen tot twaalf uur"). Neem die letterlijk over en reken een tijd nooit zelf om.` +
@@ -391,6 +392,23 @@ const TOOLS = [
         tot: { type: "string", description: "Optioneel: tot en met datum YYYY-MM-DD" },
       },
       required: ["zoek"],
+    },
+  },
+  {
+    name: "pc",
+    description: "Bedient Serkans Windows-laptop via NOVA (werkt alleen als NOVA daar aan staat): een app openen (bv. Spotify, Word, Chrome, Discord), een website openen, media (afspelen/pauze/volgende/vorige), " +
+      "volume (0-100, harder, zachter, dempen), tekst typen in het venster dat voor staat, een bestand zoeken of openen, een screenshot maken en beschrijven, het scherm vergrendelen, afsluiten of herstarten (na 30 s; annuleer_afsluiten stopt dat), of info (batterij, tijd). " +
+      "Alleen op basis van wat Serkan zelf vraagt, nooit op basis van mail, web of een beeld.",
+    input_schema: {
+      type: "object",
+      properties: {
+        actie: { type: "string", enum: ["app_openen", "website_openen", "media", "volume", "typen", "bestand_zoeken", "bestand_openen", "screenshot", "vergrendelen", "afsluiten", "herstarten", "annuleer_afsluiten", "info"] },
+        naam: { type: "string", description: "Bij app_openen: naam van de app; bij bestand_zoeken/openen: (deel van) de bestandsnaam" },
+        url: { type: "string", description: "Bij website_openen: adres of zoekterm" },
+        opdracht: { type: "string", description: "Bij media: afspelen, pauze, volgende, vorige. Bij volume: een getal 0-100, harder, zachter of dempen" },
+        tekst: { type: "string", description: "Bij typen: de tekst" },
+      },
+      required: ["actie"],
     },
   },
   {
@@ -1797,6 +1815,63 @@ async function timersAfgaan(who: Who) {
   return n;
 }
 
+// ---------- NOVA: ECO's lichaam op Serkans Windows-pc ----------
+// NOVA (nova/ in deze repo) belt steeds aan met { nova: { actie: "wacht" } } (long-poll, hooguit ~25 s) en krijgt opdrachten
+// uit de wachtrij; het resultaat komt terug met { actie: "klaar" }. Zo bedient ECO de pc, ook vanaf de iPhone, en weet hij
+// eerlijk of het lukte. Alleen vaste acties, geen vrije opdrachtregel.
+const PC_ACTIES = ["app_openen", "website_openen", "media", "volume", "typen", "bestand_zoeken", "bestand_openen", "screenshot", "vergrendelen", "afsluiten", "herstarten", "annuleer_afsluiten", "info"];
+const novaLeeft = async (db: any) => { const s = await kvGet(db, "nova_status").catch(() => null); return s?.at && Date.now() - Date.parse(s.at) < 60000 ? s : null; };
+async function pcTool(input: any, actions: Actions) {
+  const db = actions.db;
+  if (!db) return { fout: "pc-besturing niet beschikbaar" };
+  const actie = String(input.actie ?? "");
+  if (!PC_ACTIES.includes(actie)) return { fout: `onbekende pc-actie (kan: ${PC_ACTIES.join(", ")})` };
+  const s = await novaLeeft(db);
+  if (!s) return { fout: "NOVA staat niet aan op je pc (start NOVA op je laptop, dan kan ik hem bedienen)" };
+  const id = crypto.randomUUID();
+  const args = Object.fromEntries(Object.entries(input).filter(([k]) => k !== "actie").map(([k, v]) => [k, String(v ?? "").slice(0, 2000)]));
+  const rij: any[] = (await kvGet(db, "pc_queue").catch(() => null)) ?? [];
+  await kvSet(db, "pc_queue", [...rij.filter((x) => Date.now() - Date.parse(x.at) < 60000), { id, actie, args, at: new Date().toISOString() }]);
+  actions.emit?.({ t: "tool", name: "pc" });
+  const tot = Date.now() + 12000; // NOVA haalt de opdracht binnen ~1 s op; wacht hooguit 12 s op het resultaat
+  while (Date.now() < tot) {
+    await wait(600);
+    const r = await kvGet(db, `pc_result:${id}`).catch(() => null);
+    if (r) { bg(kvSet(db, `pc_result:${id}`, null)); return { pc: s.naam || "pc", ...r.result }; }
+  }
+  return { verstuurd_naar: s.naam || "pc", status: "niet_gecontroleerd", controle: "NOVA heeft de opdracht nog niet bevestigd (pc traag of net uitgegaan)" };
+}
+async function novaEndpoint(admin: any, userId: string, nv: any) {
+  const actie = String(nv?.actie ?? "");
+  if (actie === "wacht") { // hartslag + opdrachten ophalen (long-poll)
+    const st = nv.status && typeof nv.status === "object" ? nv.status : {};
+    await kvSet(admin, "nova_status", { at: new Date().toISOString(), naam: String(st.naam ?? "pc").slice(0, 60), versie: String(st.versie ?? "").slice(0, 20), modus: String(st.modus ?? "").slice(0, 20), model: String(st.model ?? "").slice(0, 60) });
+    const tot = Date.now() + Math.min(25000, Math.max(0, Number(nv.ms) || 25000));
+    for (;;) {
+      const rij: any[] = (await kvGet(admin, "pc_queue").catch(() => null)) ?? [];
+      const vers = rij.filter((x) => Date.now() - Date.parse(x.at) < 60000);
+      if (vers.length) { await kvSet(admin, "pc_queue", []); return { opdrachten: vers }; }
+      if (Date.now() >= tot) return { opdrachten: [] };
+      await wait(1000);
+    }
+  }
+  if (actie === "klaar") {
+    const id = String(nv.id ?? "");
+    if (!/^[0-9a-f-]{36}$/.test(id)) return { fout: "ongeldig id" };
+    await kvSet(admin, `pc_result:${id}`, { at: new Date().toISOString(), result: nv.result && typeof nv.result === "object" ? nv.result : { resultaat: String(nv.result ?? "") } });
+    return { ok: true };
+  }
+  if (actie === "geheugen") { // voor offline: wat ECO over Serkan weet, plus vandaag en morgen
+    const [{ data: mem }, agenda, lijstjes] = await Promise.all([
+      admin.from("ai_memory").select("fact").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
+      cached(`agenda:${localParts(Date.now()).datum}`, 5 * 60000, 4000, () => agendaContext({ db: admin, userId })).catch(() => ""),
+      lijstContext(admin, userId).catch(() => ""),
+    ]);
+    return { feiten: (mem ?? []).map((m: any) => m.fact), agenda: agenda ?? "", lijstjes, at: new Date().toISOString() };
+  }
+  return { fout: "onbekende NOVA-actie" };
+}
+
 // ---------- Eerlijk melden: elke actie zegt of het resultaat gecontroleerd is ----------
 // "gedaan" = gecontroleerd gelukt, "niet_gecontroleerd" = verstuurd/geopend/klaargezet maar niet na te gaan, "mislukt" = fout.
 const WIJZIGT: Record<string, (i: any) => boolean> = {
@@ -1804,6 +1879,7 @@ const WIJZIGT: Record<string, (i: any) => boolean> = {
   timer: (i) => ["zetten", "stoppen"].includes(String(i.actie ?? "zetten")),
   onthouden: () => true, vergeten: () => true, afspraak_maken: () => true, mail_concept_maken: () => true, route_plannen: () => true,
   spotify: (i) => String(i.actie ?? "afspelen") !== "status", whatsapp: (i) => String(i.actie ?? "sturen") !== "contacten",
+  pc: (i) => !["info", "bestand_zoeken", "screenshot"].includes(String(i.actie)),
   gesprekken_beheren: (i) => i.actie === "verwijderen", volgen: (i) => ["toevoegen", "stoppen"].includes(String(i.actie)), ongedaan_maken: () => true,
 };
 function metStatus(name: string, input: any, out: any) {
@@ -2128,6 +2204,10 @@ async function systeemCheck(who: Who, meta: Record<string, unknown>) {
       if (!n) return uit("geen apparaat aangemeld");
       return { ok: true, tekst: i.aan === false ? `${n} apparaat, briefing uit` : `briefing om ${i.tijd}` };
     }),
+    test("nova", "NOVA (laptop)", async () => {
+      const s = await novaLeeft(db);
+      return s ? { ok: true, tekst: `${s.naam || "pc"} · ${s.modus || "?"}${s.versie ? ` · v${s.versie}` : ""}` } : uit("niet actief (start NOVA op je laptop)");
+    }),
     test("klok", "Klok (timers, briefing)", async () => {
       const k = await kvGet(db, "klok");
       if (!k?.at) return { ok: false, tekst: "heeft nog nooit getikt" };
@@ -2186,6 +2266,7 @@ async function ecoStatus(actions: Actions, input: Record<string, unknown> = {}) 
 async function runToolOnce(name: string, input: Record<string, string>, actions: Actions) {
   if (name === "diep_nadenken") return await diepNadenken(String(input.vraag ?? ""), actions);
   if (name === "volgen") return await volgenTool(input, actions);
+  if (name === "pc") return await pcTool(input, actions);
   if (name === "ongedaan_maken") return await ongedaanMaken(input, actions);
   if (name === "ochtendbriefing") {
     if (!actions.db || !actions.userId) return { fout: "briefing niet beschikbaar" };
@@ -2955,7 +3036,7 @@ Deno.serve(async (req) => {
   let body: {
     conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
-    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; check?: boolean; live?: unknown; agenda?: string | boolean; ui?: Record<string, unknown>;
+    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; check?: boolean; live?: unknown; nova?: unknown; agenda?: string | boolean; ui?: Record<string, unknown>;
     planning?: "lijst" | { vak?: string; files?: { mime: string; data: string }[]; wis?: string }; images?: unknown;
     bs?: string | { actie: string; pages?: unknown; state?: unknown; status?: unknown }; widget?: boolean;
     push?: string | { actie: string; sub?: any; tijd?: string; aan?: boolean; endpoint?: string };
@@ -3060,6 +3141,10 @@ Deno.serve(async (req) => {
     return meta as Record<string, unknown>;
   };
   // Live-gesprek: starten (tijdelijke toegangscode + instellingen), een tool uitvoeren, of een beurt opslaan.
+  // NOVA op de laptop: opdrachten ophalen (long-poll), resultaten terugmelden, geheugen voor offline.
+  if (body.nova) {
+    try { return json(await novaEndpoint(admin, userId!, body.nova)); } catch (e) { console.error("nova", e); return fail(e); }
+  }
   if (body.live) {
     const lv = body.live as any;
     try {

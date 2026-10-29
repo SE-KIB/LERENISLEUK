@@ -1,0 +1,54 @@
+name: NOVA bouwen (Windows)
+
+# Bouwt NOVA.exe (ECO op je Windows-laptop, zie NOVA.md) bij elke wijziging in nova/, test hem op een echte Windows-machine
+# en zet hem als download klaar: https://github.com/SE-KIB/LERENISLEUK/releases/latest/download/NOVA.exe
+# In de exe zit geen enkele sleutel; de ECO-sleutel vul je zelf in bij de eerste start.
+
+on:
+  push:
+    branches: [main]
+    paths: ["nova/**", ".github/workflows/nova-build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nova-build
+  cancel-in-progress: true
+
+jobs:
+  bouwen:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pakketten installeren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r nova/requirements.txt pyinstaller==6.11.1
+      - name: Tests (op Windows)
+        working-directory: nova
+        run: python -m unittest -v test_nova
+      - name: NOVA.exe bouwen
+        working-directory: nova
+        run: pyinstaller --noconfirm --onefile --windowed --name NOVA --collect-all vosk --collect-all sounddevice --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+      - name: Zelftest van de exe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath nova\dist\NOVA.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "$env:APPDATA\NOVA\zelftest.txt"
+          if ($p.ExitCode -ne 0) { throw "zelftest faalde (code $($p.ExitCode))" }
+      - name: Als download klaarzetten
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nova-v1.0.${{ github.run_number }}
+          name: NOVA 1.0 (build ${{ github.run_number }})
+          make_latest: "true"
+          files: nova/dist/NOVA.exe
+          body: |
+            NOVA: ECO op je Windows-laptop. Download NOVA.exe en start hem; uitleg in NOVA.md.
+            Windows kan waarschuwen ("Windows heeft uw pc beschermd") omdat de exe niet ondertekend is: kies "Meer info" → "Toch uitvoeren".
