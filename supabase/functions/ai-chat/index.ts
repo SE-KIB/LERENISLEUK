@@ -1058,12 +1058,20 @@ async function planningImport(who: Who, vak: string, files: { mime: string; data
     ? { text: `Tekst en tabellen van de Brightspace-pagina:\n${new TextDecoder().decode(b64bytes(f.data)).slice(0, 60000)}` }
     : { inlineData: { mimeType: f.mime, data: f.data } })];
   let last = "";
-  for (const model of env("PLANNING_MODEL", "gemini-2.5-flash,gemini-flash-latest").split(",").map((m) => m.trim()).filter(Boolean)) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  // De functie mag hooguit ~150 s duren: Gemini krijgt een vaste denktijd en samen hooguit 135 s, zodat er altijd een antwoord komt.
+  const deadline = Date.now() + 135000;
+  const models = env("PLANNING_MODEL", "gemini-2.5-flash,gemini-flash-latest").split(",").map((m) => m.trim()).filter(Boolean);
+  for (const [i, model] of models.entries()) {
+    const rest = deadline - Date.now();
+    if (rest < 25000) { last ||= "te weinig tijd over"; break; }
+    const denken = model.includes("2.5") ? { thinkingBudget: 2048 } : { thinkingLevel: "low" };
+    const vraag = (thinking: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json", responseSchema: PLANNING_SCHEMA } }),
-      signal: AbortSignal.timeout(120000),
-    }).catch((e) => { last = String(e); return null; });
+      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json", responseSchema: PLANNING_SCHEMA, ...(thinking ? { thinkingConfig: thinking } : {}) } }),
+      signal: AbortSignal.timeout(Math.min(i === 0 ? 95000 : rest, rest - 5000)),
+    }).catch((e) => { last = `${model}: ${(e as Error)?.name === "TimeoutError" ? "te traag" : String(e)}`; return null; });
+    let r = await vraag(denken);
+    if (r?.status === 400) r = await vraag(null); // dit model kent die denk-instelling niet
     if (!r) continue;
     if (!r.ok) { last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`; console.warn("planning", last); continue; }
     const text = ((await r.json()).candidates?.[0]?.content?.parts ?? []).filter((p: any) => p.text && !p.thought).map((p: any) => p.text).join("");

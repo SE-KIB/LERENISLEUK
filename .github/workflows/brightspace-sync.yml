@@ -21,7 +21,7 @@ concurrency:
 jobs:
   bijwerken:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45  # per vak een paar korte leesrondes van Gemini
     env:
       JARVIS_KEY: ${{ secrets.JARVIS_KEY }}
     steps:
