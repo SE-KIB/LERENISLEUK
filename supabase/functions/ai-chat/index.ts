@@ -54,7 +54,9 @@ function systemPrompt(memory = "", context = "") {
     `\n- Verzin nooit afspraken, mails, weer of feiten.` +
     `\n\nRegels voor tools:` +
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
-    `\n- Noem een lestijd, lokaal of afspraak alleen als die letterlijk in de agendagegevens staat. Staat een les er niet bij, zeg dan eerlijk dat je hem niet in zijn agenda ziet; gok nooit een tijd.` +
+    `\n- Noem een lestijd, lokaal of afspraak alleen als die letterlijk in de agendagegevens staat, en zeg kort uit welke bron (de naam tussen [haken], bv. "volgens je schoolrooster"). ` +
+    `Geven twee bronnen verschillende tijden, noem ze allebei. Staat een les er niet bij, zeg dan eerlijk dat je hem niet in zijn agenda ziet; gok nooit een tijd. ` +
+    `In Brightspace zelf kun je niet inloggen; je ziet alleen de gekoppelde agenda-links.` +
     `\n- Ingesproken berichten worden automatisch uitgeschreven en kunnen verkeerd verstaan zijn. Klinkt zo'n bericht onlogisch of vreemd (een onbekende naam, iemand die zich voorstelt, een zin die nergens op slaat), ga er dan niet op in maar vraag kort of je het goed verstond.` +
     `\n- Route: roep route_plannen aan en zeg kort dat je Google Maps opent; de reistijd weet je niet.` +
     `\n- Mail versturen kan niet: je maakt alleen concepten, die Serkan zelf verstuurt.` +
@@ -390,8 +392,8 @@ function icsTime(line: string) {
   return { ms: localToUtc(y, mo, d, h, mi, zone), allDay: false, tz: zone };
 }
 const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-type RawEv = { titel?: string; loc?: string; desc?: string; cats?: string; uid?: string; start?: any; end?: any; rrule?: string; recurId?: number; ex: Set<number> };
-type Occ = { titel: string; locatie?: string; info?: string; soort?: string; ms: number; end: number; allDay: boolean; verzet?: number };
+type RawEv = { titel?: string; loc?: string; desc?: string; cats?: string; uid?: string; start?: any; end?: any; rrule?: string; recurId?: number; ex: Set<number>; ruw?: string };
+type Occ = { titel: string; locatie?: string; info?: string; soort?: string; ms: number; end: number; allDay: boolean; verzet?: number; ruw?: string };
 
 // Soort les uit titel, categorie en omschrijving (MyTimetable zet daar bv. "Type: Werkcollege").
 function lesSoort(tekst: string, brightspace: boolean) {
@@ -423,7 +425,7 @@ function expand(ev: RawEv, from: number, to: number, overridden: Set<string>, ou
   const soort = lesSoort(`${titel} ${ev.cats ?? ""} ${info ?? ""}`, brightspace);
   const push = (ms: number) => {
     if (ms < to && ms + dur > from && !ev.ex.has(ms) && (ev.recurId !== undefined || !overridden.has(`${ev.uid}|${ms}`)))
-      out.push({ titel, locatie: ev.loc, info, soort, ms, end: ms + dur, allDay: ev.start.allDay, verzet: ev.recurId !== undefined && ev.recurId !== ms ? ev.recurId : undefined });
+      out.push({ titel, locatie: ev.loc, info, soort, ms, end: ms + dur, allDay: ev.start.allDay, verzet: ev.recurId !== undefined && ev.recurId !== ms ? ev.recurId : undefined, ruw: ev.ruw + (ev.rrule ? ` RRULE:${ev.rrule}` : "") });
   };
   if (!ev.rrule) return push(ev.start.ms);
   const r = Object.fromEntries(ev.rrule.split(";").map((kv: string) => kv.split("=")));
@@ -456,7 +458,7 @@ function expand(ev: RawEv, from: number, to: number, overridden: Set<string>, ou
   }
 }
 
-function feedEvents(ics: string, from: number, to: number, brightspace = false) {
+function feedEvents(ics: string, from: number, to: number, brightspace = false, debug = false) {
   const lines = ics.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
   const raw: RawEv[] = [];
   let ev: RawEv | null = null;
@@ -470,7 +472,7 @@ function feedEvents(ics: string, from: number, to: number, brightspace = false) 
     else if (key === "DESCRIPTION") ev.desc = val;
     else if (key === "CATEGORIES") ev.cats = val;
     else if (key === "UID") ev.uid = val;
-    else if (key === "DTSTART") ev.start = icsTime(l);
+    else if (key === "DTSTART") { ev.start = icsTime(l); ev.ruw = l; }
     else if (key === "DTEND") ev.end = icsTime(l);
     else if (key === "RRULE") ev.rrule = val;
     else if (key === "RECURRENCE-ID") ev.recurId = icsTime(l).ms;
@@ -504,6 +506,7 @@ function feedEvents(ics: string, from: number, to: number, brightspace = false) 
       ...(normaal !== null && Math.abs(p.min - normaal) >= 10 ? { afwijking: `begint ${verschil(p.min - normaal)} dan normaal (normaal ${hhmm(normaal)})` } : {}),
       ...(e.verzet ? { verzet: `verplaatst, was eerst ${fmt(e.verzet, false)}` } : {}),
       ...(e.info && !e.titel.includes(e.info) ? { info: e.info } : {}),
+      ...(debug ? { ruw: e.ruw } : {}),
     };
   });
 
@@ -523,7 +526,7 @@ function feedEvents(ics: string, from: number, to: number, brightspace = false) 
   }
   return bijzonderheden.length ? { afspraken, bijzonderheden } : afspraken;
 }
-async function feedsEvents(van: string, tot: string) {
+async function feedsEvents(van: string, tot: string, debug = false) {
   const from = new Date(van).getTime(), to = new Date(tot).getTime();
   const res: Record<string, unknown> = {};
   await Promise.all(FEEDS().map(async (f) => {
@@ -535,7 +538,7 @@ async function feedsEvents(van: string, tot: string) {
         c = { at: Date.now(), ics: await r.text() };
         feedCache.set(f.url, c);
       }
-      res[f.name] = feedEvents(c.ics, from, to, /brightspace|\/d2l\//i.test(f.name + f.url));
+      res[f.name] = feedEvents(c.ics, from, to, /brightspace|\/d2l\//i.test(f.name + f.url), debug);
     } catch (e) { res[f.name] = { fout: `agenda-link niet bereikbaar (${(e as Error).message})` }; }
   }));
   return res;
@@ -772,10 +775,10 @@ const dagStart = (offsetDays = 0) => {
   const p = localParts(Date.now()), [y, m, d] = p.datum.split("-").map(Number);
   return localToUtc(y, m - 1, d + offsetDays, 0, 0, TZ);
 };
-function eventLine(e: any) {
+function eventLine(e: any, bron = "") {
   const fmt = (v: string) => /^\d{4}-\d\d-\d\dT/.test(v ?? "") ? new Date(v).toLocaleString("nl-NL", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" }) : String(v ?? "");
   const eind = e.eind ? fmt(e.eind).replace(/^.*?(\d\d:\d\d)$/, "$1") : "";
-  return `- ${fmt(e.start)}${eind && eind !== fmt(e.start) ? `–${eind}` : ""} ${e.titel ?? ""}` +
+  return `- ${bron ? `[${bron}] ` : ""}${fmt(e.start)}${eind && eind !== fmt(e.start) ? `–${eind}` : ""} ${e.titel ?? ""}` +
     `${e.locatie ? ` (${e.locatie})` : ""}${e.soort ? ` [${e.soort}]` : ""}${e.afwijking ? ` [${e.afwijking}]` : ""}${e.verzet ? ` [${e.verzet}]` : ""}`;
 }
 async function agendaContext() {
@@ -785,7 +788,7 @@ async function agendaContext() {
   for (const [bron, v] of Object.entries(res ?? {})) {
     const list = Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : null;
     if (!list) { if (v?.fout) extra.push(`(${bron}: ${v.fout})`); continue; }
-    lines.push(...list.slice(0, 15).map(eventLine));
+    lines.push(...list.slice(0, 15).map((e: any) => eventLine(e, bron)));
     if (Array.isArray(v?.bijzonderheden)) extra.push(...v.bijzonderheden.map((b: string) => `- ${b}`));
   }
   return `Agenda vandaag en morgen:\n${lines.length ? lines.join("\n") : "- niets gepland"}` + (extra.length ? `\nBijzonderheden:\n${extra.join("\n")}` : "");
@@ -798,6 +801,15 @@ async function rapportContext() {
   if (r.datum && localParts(Date.parse(r.datum)).datum !== vandaag) return "";
   const actie = /ACTIE NODIG\s*\n([\s\S]*?)(?:\n\s*\n|\n[A-Z][A-Z ]{6,}\n|$)/.exec(r.tekst)?.[1]?.trim();
   return `Dagrapport van vandaag (mail): ${actie ? `actie nodig:\n${actie.slice(0, 600)}` : "geen actiepunten."}`;
+}
+
+async function agendaAll(van: string, tot: string, debug = false): Promise<Record<string, unknown>> {
+  const [ic, go, fe] = await Promise.all([
+    ICLOUD() ? icloudEvents(van, tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
+    env("GOOGLE_REFRESH_TOKEN") ? googleEvents(van, tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
+    FEEDS().length ? feedsEvents(van, tot, debug) : null,
+  ]);
+  return { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
 }
 
 async function runTool(name: string, input: Record<string, string>, actions: Actions) {
@@ -840,14 +852,7 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
   if (name === "agenda_bekijken" || name === "afspraak_maken") {
     if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !(name === "agenda_bekijken" && FEEDS().length))
       return { fout: "Er is nog geen agenda gekoppeld (iCloud, Google of een agenda-link)." };
-    if (name === "agenda_bekijken") {
-      const [ic, go, fe] = await Promise.all([
-        ICLOUD() ? icloudEvents(input.van, input.tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
-        env("GOOGLE_REFRESH_TOKEN") ? googleEvents(input.van, input.tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
-        FEEDS().length ? feedsEvents(input.van, input.tot) : null,
-      ]);
-      return { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
-    }
+    if (name === "agenda_bekijken") return await agendaAll(input.van, input.tot);
     if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN")) return { fout: "Afspraken maken kan alleen in iCloud of Google; de agenda-link (bv. schoolrooster) is alleen-lezen." };
     const eind = input.eind ?? new Date(new Date(input.start).getTime() + 3600_000).toISOString();
     ctxCache.delete(`agenda:${localParts(Date.now()).datum}`); // volgende vraag ziet de nieuwe afspraak meteen
@@ -1332,10 +1337,14 @@ const STT_PROMPT = "Serkan praat Nederlands met ECO, zijn persoonlijke assistent
 // Zekerheid: gemiddelde log-kans en kans op "geen spraak" (gewogen naar duur). Laag = waarschijnlijk verkeerd verstaan.
 function sttConfidence(segments: any[]) {
   if (!segments?.length) return { logprob: 0, noSpeech: 0, unsure: false };
-  let dur = 0, lp = 0, ns = 0;
-  for (const s of segments) { const d = Math.max(0.05, (s.end ?? 0) - (s.start ?? 0)); dur += d; lp += (s.avg_logprob ?? 0) * d; ns += (s.no_speech_prob ?? 0) * d; }
+  let dur = 0, lp = 0, ns = 0, cr = 0;
+  for (const s of segments) {
+    const d = Math.max(0.05, (s.end ?? 0) - (s.start ?? 0));
+    dur += d; lp += (s.avg_logprob ?? 0) * d; ns += (s.no_speech_prob ?? 0) * d; cr = Math.max(cr, s.compression_ratio ?? 0);
+  }
   const logprob = lp / dur, noSpeech = ns / dur;
-  return { logprob, noSpeech, unsure: logprob < Number(env("STT_MIN_LOGPROB", "-0.7")) || (noSpeech > 0.5 && logprob < -0.4) };
+  // compression_ratio > 2.4 = Whisper herhaalt zichzelf (bekend teken van verzonnen tekst)
+  return { logprob, noSpeech, unsure: logprob < Number(env("STT_MIN_LOGPROB", "-0.7")) || (noSpeech > 0.5 && logprob < -0.4) || cr > 2.4 };
 }
 async function transcribe(file: File, prompt = "") {
   let last = "";
@@ -1364,6 +1373,18 @@ async function transcribe(file: File, prompt = "") {
 }
 // Whisper verzint soms tekst bij stilte; zulke zinnen tellen als "niets gezegd".
 const WHISPER_GHOST = /amara\.org|^ondertitel(ing|d)?\b.{0,40}\b(door|met)\b|^(bedankt|dank je wel) voor het (kijken|luisteren)[.!\s]*$|^thanks for watching[.!\s]*$|^[.…\s]*$/i;
+// "Speel muziek af. Klaar. Speel muziek af. Klaar." → één keer: Whisper herhaalt soms de hele opname.
+function dedupe(t: string) {
+  const parts = t.match(/[^.!?]+[.!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
+  for (let n = Math.floor(parts.length / 2); n >= 1; n--) {
+    if (parts.length % n) continue;
+    const unit = parts.slice(0, n).join(" ").toLowerCase();
+    let same = true;
+    for (let i = n; i < parts.length && same; i += n) same = parts.slice(i, i + n).join(" ").toLowerCase() === unit;
+    if (same && parts.length / n > 1) return parts.slice(0, n).join(" ");
+  }
+  return t;
+}
 const isGhost = (t: string) => (t.length < 90 && WHISPER_GHOST.test(t)) || /persoonlijke assistent, over zijn agenda|De Haagse Hogeschool \(HHS\), Brightspace/i.test(t);
 
 Deno.serve(async (req) => {
@@ -1402,7 +1423,7 @@ Deno.serve(async (req) => {
       const t = Date.now();
       const vak = await cached(`vocab:${localParts(Date.now()).datum}`, 6 * 3600000, 250, vocab);
       const heard = transcribe(file, vak ? `${STT_PROMPT} Vakken: ${vak}.` : STT_PROMPT).then(({ text, unsure, logprob, noSpeech }) => {
-        const said = isGhost(text) ? "" : text;
+        const said = isGhost(text) ? "" : dedupe(text);
         emit({ t: "heard", text: said, unsure: !!(said && unsure), q: { logprob: +logprob.toFixed(2), noSpeech: +noSpeech.toFixed(2) }, ms: Date.now() - t });
         return said && unsure ? "" : said; // onzeker verstaan: niet raden, de browser vraagt om herhaling
       });
@@ -1414,9 +1435,18 @@ Deno.serve(async (req) => {
   let body: {
     conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
-    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean;
+    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; agenda?: string | boolean;
   };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
+
+  // ROOSTER-paneel: alle agenda's van één dag, per bron, met de ruwe tijd uit de link (ter controle).
+  if (body.agenda) {
+    const dag = /^\d{4}-\d{2}-\d{2}$/.test(String(body.agenda)) ? String(body.agenda) : localParts(Date.now()).datum;
+    const [y, m, d] = dag.split("-").map(Number);
+    const van = new Date(localToUtc(y, m - 1, d, 0, 0, TZ)).toISOString(), tot = new Date(localToUtc(y, m - 1, d + 1, 0, 0, TZ)).toISOString();
+    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !FEEDS().length) return json({ dag, bronnen: {}, fout: "Nog geen agenda gekoppeld" });
+    return json({ dag, bronnen: await agendaAll(van, tot, true) });
+  }
 
   // Opwarmen: de browser roept dit aan bij openen en bij het indrukken van de microfoon.
   // Vult de caches (weer, agenda, dagrapport) zodat de echte vraag direct antwoord krijgt.

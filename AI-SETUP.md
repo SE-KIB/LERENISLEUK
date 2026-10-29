@@ -36,6 +36,9 @@ Klaar: ECO gebruikt dan eerst Groq en valt bij een storing terug op Gemini. Ande
 ## Spraakherkenning (Whisper via Groq)
 Met `GROQ_API_KEY` neemt de microfoonknop je stem op en laat die uitschrijven door `whisper-large-v3`
 (reserve: `whisper-large-v3-turbo`; instelbaar met `STT_MODEL`, taal met `STT_LANGUAGE`, standaard `nl`).
+Whisper krijgt een woordenlijst mee met je vaknamen uit het rooster, zodat hij die goed verstaat. Twijfelt hij (lage zekerheid,
+of hij herhaalt zichzelf), dan vraagt ECO om het nog eens te zeggen in plaats van te gokken; drempel instelbaar met `STT_MIN_LOGPROB`
+(standaard -0.7). Tik op je eigen bericht in het transcript om een verkeerd verstane zin te verbeteren.
 Opnemen stopt vanzelf na ~1,3 s stilte (na een lange zin 1,1 s). De opname gaat in **één verzoek** naar de server: uitschrijven,
 nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browser. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
 
@@ -76,7 +79,11 @@ ECO leest deze agenda's mee (alleen-lezen; herhalingen worden uitgevouwen). Houd
 2. Supabase-secret `AGENDA_FEEDS` aanvullen met een komma: `School|https://mytimetable…,Brightspace|https://…feed.ics?token=…`
    (de naam moet "Brightspace" bevatten, dan herkent ECO de items als opdrachten en deadlines).
 ECO ziet daarna wat docenten in de Brightspace-agenda zetten. Lesplanning die alleen als document in een cursus staat,
-kan ECO niet lezen (daarvoor zou hij met jouw schoolaccount moeten inloggen).
+kan ECO niet lezen: Brightspace zit achter je HHS-login met tweestapsverificatie, en je schoolwachtwoord in ECO bewaren
+is onveilig. ECO noemt bij een lestijd altijd de bron ("volgens je schoolrooster"); geven twee bronnen iets anders, dan noemt hij beide.
+
+**Controleren wat ECO ziet:** het paneel **ROOSTER** (onder het transcript) toont per dag alle afspraken per bron. Houd je vinger
+of muis op een les om de ruwe tijd uit de link te zien. Wijkt die af van Brightspace/MyTimetable, stuur dan een screenshot van beide.
 
 Wat ECO met het rooster doet: bij elke les kijkt hij of het een **belangrijke** les is (toets, tentamen, presentatie,
 deadline, verplicht), **zelfstudie**, of **vervalt**, en of de les **eerder of later** begint dan normaal (vergeleken met
