@@ -1,0 +1,47 @@
+name: Brightspace bijwerken
+
+# Elke ochtend: opent met de bewaarde Brightspace-sessie de ingestelde Rooster-pagina's (ROOSTER → + PAGINA in ECO)
+# en laat ECO er de lesplanning van maken. Gratis: GitHub Actions + Playwright + Gemini (gratis laag).
+# De sessie zet je één keer in ECO via SESSIE UPLOADEN (zie AI-SETUP.md). Verlopen? Dan meldt ECO dat.
+# Deze repo is openbaar en dus ook de logs: het script print alleen aantallen, nooit inhoud of links.
+# Vereist repository-secret JARVIS_KEY (dezelfde waarde als het Supabase-secret JARVIS_KEY).
+
+on:
+  schedule:
+    - cron: "20 5 * * *"   # 06:20 (winter) / 07:20 (zomer) Nederlandse tijd
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brightspace
+  cancel-in-progress: false
+
+jobs:
+  bijwerken:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JARVIS_KEY: ${{ secrets.JARVIS_KEY }}
+    steps:
+      - name: Controleren of de sleutel is ingesteld
+        id: check
+        run: |
+          if [ -z "$JARVIS_KEY" ]; then echo "::warning::Repository-secret JARVIS_KEY ontbreekt; Brightspace niet bijgewerkt."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ok == 'true'
+        with:
+          node-version: 22
+
+      - name: Browser installeren
+        if: steps.check.outputs.ok == 'true'
+        run: cd scripts/brightspace && npm ci --silent && npx playwright install --with-deps chromium > /dev/null
+
+      - name: Rooster-pagina's ophalen en planning bijwerken
+        if: steps.check.outputs.ok == 'true'
+        run: node scripts/brightspace/sync.mjs

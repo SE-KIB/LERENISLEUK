@@ -18,7 +18,8 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `index.html`, `ai.js`, `ai.css` — de chatwebsite
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
-- `supabase/migrations/20261029_memory.sql` en `20261030_planning.sql` — geheugen en geïmporteerde lesplanning (draaien automatisch)
+- `supabase/migrations/20261029_memory.sql`, `20261030_planning.sql`, `20261031_kv.sql` — geheugen, lesplanning en server-opslag (draaien automatisch)
+- `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
 - `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Automatisch uitrollen (aanbevolen)
 De workflow `.github/workflows/deploy-function.yml` zet de functie zelf online bij elke wijziging op `main`.
 Eenmalig, kan ook op de telefoon:
@@ -90,6 +91,21 @@ Maak er screenshots van (op de iPhone liefst in de breedte, of op de computer; e
 en kies in ECO bij **ROOSTER → + PLANNING** de bestanden en het vak. Gemini leest alle weken uit, ook rode afwijkende tijden,
 zelfstudie, toetsen en inleverdata. Die planning is daarna **leidend**: de roosterles van dat vak op die dag wordt doorgestreept.
 Opnieuw uploaden vervangt alleen de dagen die op de nieuwe screenshots staan. Wissen kan met ✕ naast de vaknaam.
+
+**Brightspace automatisch bijwerken (gratis):** elke ochtend om 06:20 opent GitHub Actions met Playwright je Rooster-pagina's
+in Brightspace en zet ECO de planning bij (zelfde import als + PLANNING). Eenmalig instellen:
+1. **Sleutel:** verzin een lange geheime tekst. Zet hem in Supabase als secret `JARVIS_KEY` én in GitHub → repository
+   **LERENISLEUK** → Settings → Secrets and variables → Actions → **New repository secret** `JARVIS_KEY` (dezelfde waarde).
+2. **Pagina's:** open in Brightspace de Rooster-pagina van een vak, kopieer het adres, en kies in ECO **ROOSTER → + PAGINA**.
+3. **Sessie (één keer, op een computer):** installeer Node.js (nodejs.org) en typ in een terminal
+   `npx playwright@1.63.0 codegen --save-storage=brightspace.json https://brightspace.hhs.nl`
+   Log in het venster dat opent in (HHS + tweestapsverificatie, kies "Aangemeld blijven"), wacht tot je je Brightspace-startpagina
+   ziet en sluit dan het browservenster. Upload het bestand `brightspace.json` in ECO met **ROOSTER → SESSIE UPLOADEN**.
+4. Meteen proberen: GitHub → **Actions** → *Brightspace bijwerken* → **Run workflow**. Het resultaat zie je in ECO bij BRIGHTSPACE.
+Verloopt de sessie, dan zegt ECO dat; herhaal dan stap 3. Je wachtwoord wordt nergens bewaard; de sessie staat alleen in je
+eigen Supabase-database (niet in GitHub). De GitHub-logs zijn openbaar, maar tonen alleen aantallen. Stoppen: haal de pagina's weg
+(✕) of meld je in je HHS/Microsoft-account overal af.
+`JARVIS_USER_ID` hoeft niet meer: zonder die secret gebruikt ECO het account uit `ALLOWED_EMAILS`.
 
 **Controleren wat ECO ziet:** het paneel **ROOSTER** (onder het transcript) toont per dag alle afspraken per bron. Houd je vinger
 of muis op een les om de ruwe tijd uit de link te zien. Wijkt die af van Brightspace/MyTimetable, stuur dan een screenshot van beide.

@@ -475,7 +475,52 @@ $("rsFile").onchange = async (e) => {
   finally { $("rsAdd").disabled = false; }
 };
 
-function startRooster() { loadRooster(); loadVakken(); clearInterval(rsTimer); rsTimer = setInterval(() => { if (document.visibilityState === "visible") loadRooster(); }, 10 * 60000); }
+// Brightspace-koppeling: status, Rooster-pagina's (worden elke ochtend door GitHub Actions opgehaald) en sessie uploaden.
+let bsPages = [];
+async function loadBs() {
+  try {
+    const info = await callFn({ bs: "info" });
+    bsPages = info.pages || [];
+    const st = info.status, el = $("bsStatus");
+    const when = st?.at ? new Date(st.at).toLocaleString("nl-NL", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "";
+    el.textContent = !info.gekoppeld ? "niet gekoppeld" : st ? `${st.ok ? "✓" : "⚠"} ${st.tekst}${when ? ` · ${when}` : ""}` : "✓ gekoppeld";
+    el.className = info.gekoppeld && st?.ok !== false ? "ok" : "warn";
+    $("bsPages").replaceChildren(...bsPages.map((p, i) => {
+      const chip = document.createElement("span");
+      chip.className = "vak"; chip.title = "Rooster-pagina in Brightspace"; chip.textContent = p.vak;
+      const del = document.createElement("button");
+      del.type = "button"; del.textContent = "✕"; del.setAttribute("aria-label", `Pagina ${p.vak} weghalen`);
+      del.onclick = async () => { await callFn({ bs: { actie: "pages", pages: bsPages.filter((_, j) => j !== i) } }).catch(() => {}); loadBs(); };
+      chip.append(del);
+      return chip;
+    }));
+  } catch { $("bsStatus").textContent = "niet beschikbaar"; }
+}
+$("bsPage").onclick = async () => {
+  const vak = (prompt("Voor welk vak is deze Rooster-pagina?") || "").trim();
+  if (!vak) return;
+  const url = (prompt("Plak de link van de Rooster-pagina in Brightspace (open de pagina en kopieer het adres):") || "").trim();
+  if (!url) return;
+  try {
+    const r = await callFn({ bs: { actie: "pages", pages: [...bsPages, { vak, url }] } });
+    if (r.pages.length === bsPages.length) alert("Die link wordt niet herkend: hij moet beginnen met https://brightspace.hhs.nl/");
+  } catch (err) { alert("Opslaan mislukt: " + err.message); }
+  loadBs();
+};
+$("bsUpload").onclick = () => $("bsFile").click();
+$("bsFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const state = JSON.parse(await file.text());
+    await callFn({ bs: { actie: "save", state } });
+    sfx.reply();
+  } catch (err) { alert("Sessie uploaden mislukt: " + err.message); }
+  loadBs();
+};
+
+function startRooster() { loadRooster(); loadVakken(); loadBs(); clearInterval(rsTimer); rsTimer = setInterval(() => { if (document.visibilityState === "visible") loadRooster(); }, 10 * 60000); }
 
 // ---------- Geheugen (PROFIEL) ----------
 async function loadMemory() {

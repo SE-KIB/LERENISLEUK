@@ -817,6 +817,8 @@ async function agendaContext(who?: Who) {
     lines.push(...list.slice(0, 15).map((e: any) => eventLine(e, bron)));
     if (Array.isArray(v?.bijzonderheden)) extra.push(...v.bijzonderheden.map((b: string) => `- ${b}`));
   }
+  const bs = who ? await kvGet(who.db, "bs_status").catch(() => null) : null;
+  if (bs && bs.ok === false && bs.tekst) extra.push(`- Brightspace-koppeling werkt niet (${bs.tekst}); de planning kan verouderd zijn. Zeg dat erbij als je een lestijd noemt.`);
   return `Agenda vandaag en morgen:\n${lines.length ? lines.join("\n") : "- niets gepland"}` + (extra.length ? `\nBijzonderheden:\n${extra.join("\n")}` : "");
 }
 async function rapportContext() {
@@ -918,7 +920,9 @@ async function planningImport(who: Who, vak: string, files: { mime: string; data
     `4) soort: les (college, werkcollege, practicum, gastcollege, vragenuur, feedbacksessie), zelfstudie (zelfstudie, groepswerk, oefeningen zonder docent), toets, deadline (inleveren), vervalt, overig. ` +
     `5) Inleverdeadlines zonder tijd krijgen start en eind null. 6) opmerking: docentnaam of bijzonderheid, bv. "afwijkende tijd". ` +
     `7) Verzin niets: wat je niet goed kunt lezen of wat buiten beeld valt laat je weg. Zelfde activiteit op meerdere screenshots maar één keer.`;
-  const parts: any[] = [{ text: instructie }, ...files.map((f) => ({ inlineData: { mimeType: f.mime, data: f.data } }))];
+  const parts: any[] = [{ text: instructie }, ...files.map((f) => f.mime === "text/plain"
+    ? { text: `Tekst en tabellen van de Brightspace-pagina:\n${new TextDecoder().decode(b64bytes(f.data)).slice(0, 60000)}` }
+    : { inlineData: { mimeType: f.mime, data: f.data } })];
   let last = "";
   for (const model of env("PLANNING_MODEL", "gemini-2.5-flash,gemini-flash-latest").split(",").map((m) => m.trim()).filter(Boolean)) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -1350,6 +1354,22 @@ async function authUser(admin: any, token: string): Promise<{ userId?: string; r
   return { userId: user.id };
 }
 const metaCache = new Map<string, { at: number; meta: Record<string, unknown> }>();
+// Wie is "de gebruiker" bij de x-jarvis-key (Siri, Brightspace-robot)? JARVIS_USER_ID, of het account uit ALLOWED_EMAILS.
+let keyUser = "";
+async function keyUserId(admin: any) {
+  if (env("JARVIS_USER_ID")) return env("JARVIS_USER_ID");
+  if (!keyUser && ALLOWED.length) {
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    keyUser = data?.users?.find((u: any) => ALLOWED.includes((u.email ?? "").toLowerCase()))?.id ?? "";
+  }
+  return keyUser;
+}
+// Kleine sleutelwaarde-opslag (tabel ai_kv, alleen voor de server).
+const kvGet = async (db: any, key: string) => (await db.from("ai_kv").select("value").eq("key", key).maybeSingle()).data?.value ?? null;
+const kvSet = async (db: any, key: string, value: unknown) => {
+  const { error } = await db.from("ai_kv").upsert({ key, value, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+};
 
 // ---------- Gesprek: context verzamelen, model aanroepen, opslaan ----------
 type ChatIn = { userId: string; convId?: string; message: string | Promise<string>; loc?: { lat?: number; lon?: number }; viaKey: boolean; emit?: Emit; spoken?: boolean };
@@ -1535,7 +1555,7 @@ Deno.serve(async (req) => {
   let userId: string | null = null, reason = "";
   const key = req.headers.get("x-jarvis-key");
   if (key && env("JARVIS_KEY") && key === env("JARVIS_KEY")) {
-    userId = env("JARVIS_USER_ID") || null;
+    userId = await keyUserId(admin) || null;
     if (!userId) reason = "JARVIS_USER_ID ontbreekt in de secrets";
   } else {
     const a = await authUser(admin, (req.headers.get("Authorization") ?? "").replace(/^Bearer /, ""));
@@ -1576,6 +1596,7 @@ Deno.serve(async (req) => {
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
     loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; agenda?: string | boolean;
     planning?: "lijst" | { vak?: string; files?: { mime: string; data: string }[]; wis?: string };
+    bs?: string | { actie: string; pages?: unknown; state?: unknown; status?: unknown };
   };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 
@@ -1585,6 +1606,48 @@ Deno.serve(async (req) => {
     const [y, m, d] = dag.split("-").map(Number);
     const van = new Date(localToUtc(y, m - 1, d, 0, 0, TZ)).toISOString(), tot = new Date(localToUtc(y, m - 1, d + 1, 0, 0, TZ)).toISOString();
     return json({ dag, bronnen: await agendaAll(van, tot, true, { db: admin, userId }) });
+  }
+
+  // Brightspace-koppeling (gratis, via GitHub Actions + Playwright):
+  //   browser (ingelogd): { bs: "info" } en { bs: { actie: "pages", pages: [{ vak, url }] } }
+  //   browser of robot: { bs: { actie: "save", state } } (sessie uploaden / ververste cookies)
+  //   robot (x-jarvis-key): { bs: "get" } → sessie + pagina's, { bs: { actie: "status", status } }
+  if (body.bs) {
+    const bs = body.bs as any, actie = typeof bs === "string" ? bs : bs.actie;
+    const HOST = env("BRIGHTSPACE_HOST", "brightspace.hhs.nl");
+    try {
+      if (actie === "info") {
+        const [status, pages, state] = await Promise.all([kvGet(admin, "bs_status"), kvGet(admin, "bs_pages"), kvGet(admin, "bs_state")]);
+        return json({ status: status ?? null, pages: pages ?? [], gekoppeld: !!state?.cookies?.length });
+      }
+      if (actie === "pages") {
+        const pages = (Array.isArray(bs.pages) ? bs.pages : []).map((p: any) => ({ vak: String(p?.vak ?? "").trim().slice(0, 120), url: String(p?.url ?? "").trim() }))
+          .filter((p: any) => p.vak && (() => { try { const u = new URL(p.url); return u.protocol === "https:" && u.hostname === HOST; } catch { return false; } })()).slice(0, 15);
+        await kvSet(admin, "bs_pages", pages);
+        return json({ pages });
+      }
+      // Sessie opslaan: de robot (ververste cookies) of jij zelf via SESSIE UPLOADEN (bestand van playwright codegen --save-storage).
+      if (actie === "save") {
+        const st = bs.state;
+        if (!Array.isArray(st?.cookies) || !st.cookies.length || JSON.stringify(st).length > 400_000) return json({ error: "Ongeldig sessiebestand" }, 400);
+        if (!st.cookies.some((c: any) => String(c?.domain ?? "").replace(/^\./, "").endsWith(HOST))) return json({ error: `Geen Brightspace-cookies (${HOST}) in dit bestand; log eerst in en sluit dan het venster` }, 400);
+        await kvSet(admin, "bs_state", { cookies: st.cookies, origins: Array.isArray(st.origins) ? st.origins : [] });
+        if (!viaKey) await kvSet(admin, "bs_status", { ok: true, tekst: "sessie geüpload; bijwerken volgt bij de volgende ochtendronde", at: new Date().toISOString() });
+        return json({ ok: true });
+      }
+      if (!viaKey) return json({ error: "Alleen voor de Brightspace-robot" }, 403);
+      if (actie === "get") {
+        const [state, pages] = await Promise.all([kvGet(admin, "bs_state"), kvGet(admin, "bs_pages")]);
+        return json({ state: state ?? null, pages: pages ?? [], host: HOST });
+      }
+      if (actie === "status") {
+        const st = bs.status ?? {};
+        const status = { ok: !!st.ok, tekst: String(st.tekst ?? "").slice(0, 300), ...(st.link ? { link: String(st.link).slice(0, 500), tot: String(st.tot ?? "") } : {}), at: new Date().toISOString() };
+        await kvSet(admin, "bs_status", status);
+        return json({ ok: true });
+      }
+      return json({ error: "Onbekende Brightspace-actie" }, 400);
+    } catch (e) { console.error("brightspace", e); return fail(e); }
   }
 
   // Lesplanning: importeren (screenshots/PDF), lijst van vakken, of een vak wissen.
@@ -1603,7 +1666,7 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
       const vak = String(pl.vak ?? "").trim().slice(0, 120);
-      const files = (Array.isArray(pl.files) ? pl.files : []).filter((f: any) => /^(image\/(png|jpeg|webp|heic|heif)|application\/pdf)$/.test(f?.mime) && typeof f.data === "string").slice(0, 8);
+      const files = (Array.isArray(pl.files) ? pl.files : []).filter((f: any) => /^(image\/(png|jpeg|webp|heic|heif)|application\/pdf|text\/plain)$/.test(f?.mime) && typeof f.data === "string").slice(0, 10);
       if (!vak) return json({ error: "Geef de naam van het vak" }, 400);
       if (!files.length) return json({ error: "Geen afbeelding of PDF ontvangen" }, 400);
       if (!env("GEMINI_API_KEY")) return json({ error: "GEMINI_API_KEY ontbreekt" }, 501);
