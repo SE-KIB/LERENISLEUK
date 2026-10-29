@@ -5,8 +5,9 @@
 //            { message } zonder stream → JSON { conversationId, reply } (Siri);
 //            multipart audio ("file") met veld "chat" → uitschrijven + antwoorden in één gestreamd verzoek;
 //            { tts, stream: true } → kale PCM-audio; { warm: true } → caches vullen.
-// Model: Groq (GROQ_API_KEY, snelst, gestreamd), Gemini (GEMINI_API_KEY) en/of Claude (ANTHROPIC_API_KEY),
-//          op volgorde (standaard groq → gemini → anthropic); eigen volgorde met AI_PROVIDERS. Modellen: GROQ_MODEL, AI_MODEL, CLAUDE_MODEL.
+// Model: helemaal gratis met Groq (GROQ_API_KEY, snelst) en Gemini (GEMINI_API_KEY), allebei gestreamd. Gewone vragen gaan
+//          eerst naar Groq; denkwerk en foto's naar de slimme baan (Gemini met denktijd, SMART_MODEL). Claude (ANTHROPIC_API_KEY,
+//          betaald) is optioneel. Volgorde met AI_PROVIDERS (standaard groq → gemini → anthropic). Modellen: GROQ_MODEL, AI_MODEL, CLAUDE_MODEL.
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, ICLOUD_EMAIL, ICLOUD_APP_PASSWORD, AGENDA_FEEDS,
 //          GMAIL_EMAIL + GMAIL_APP_PASSWORD (dagrapport), optioneel AI_TIMEOUT_MS, AI_MODEL_FALLBACKS, TIMEZONE, ALLOWED_ORIGIN,
@@ -26,8 +27,12 @@ const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,ant
 const MODEL = env("AI_MODEL", "gemini-flash-latest");            // Gemini
 const CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5");
 const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim()).filter(Boolean);
-// Snelle route: korte, eenvoudige vragen eerst naar het kleinere model (~1000 tokens/s i.p.v. ~500). Leeg = uit.
-const GROQ_FAST = env("GROQ_FAST_MODEL", "openai/gpt-oss-20b").trim();
+// Snelle route: korte vragen eerst naar een kleiner model (bv. openai/gpt-oss-20b). Standaard uit: 120b is veel slimmer en nauwelijks trager.
+const GROQ_FAST = env("GROQ_FAST_MODEL", "").trim();
+// Slimme baan (gratis laag): denkwerk en foto's gaan naar Gemini, die eerst echt nadenkt. Leeg = uit.
+const SMART_MODELS = env("SMART_MODEL", "gemini-3.8-flash,gemini-3.6-flash,gemini-2.5-flash").split(",").map((m) => m.trim()).filter(Boolean);
+const SMART = SMART_MODELS.length > 0 && !!env("GEMINI_API_KEY");
+const SMART_TIMEOUT = Number(env("SMART_TIMEOUT_MS", "30000")); // denken duurt even: zo lang wachten op het eerste woord
 const TZ = env("TIMEZONE", "Europe/Amsterdam");
 const ALLOWED = env("ALLOWED_EMAILS").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
 const HISTORY = 20;
@@ -73,6 +78,7 @@ function systemPrompt(memory = "", context = "") {
     `\n- Bedenk eerst wat hij echt bedoelt en wat hij nu nodig heeft; geef dan het beste, concrete antwoord. Twijfel je, zeg dat eerlijk in één zin in plaats van iets te verzinnen.` +
     `\n- Gebruik tools uit jezelf zodra dat het antwoord beter maakt, zonder het aan te kondigen of toestemming te vragen.` +
     `\n- Actuele feiten (nieuws, prijzen, openingstijden, sport, recente gebeurtenissen, alles waarvan je niet zeker bent): web_zoeken. Exacte berekeningen: rekenen. Wisselkoersen: valuta. Tijd elders: tijd.` +
+    `\n- Moeilijke vraag (wiskunde, natuurkunde, een redenering in meerdere stappen, een lastige schoolopdracht of afweging): gebruik diep_nadenken als je die tool hebt, en vertel daarna het antwoord kort in spreektaal.` +
     `\n- Verzin nooit afspraken, mails, weer of feiten.` +
     `\n\nRegels voor tools:` +
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
@@ -373,7 +379,19 @@ const TOOLS = [
       required: ["zoek"],
     },
   },
+  {
+    name: "diep_nadenken",
+    description: "Laat een slimmer model met veel denktijd een moeilijke vraag uitwerken: wiskunde, natuurkunde, een redenering in meerdere stappen, een lastige schoolopdracht of een afweging. " +
+      "Niet voor gewone vragen, agenda, weer of actuele feiten (daarvoor web_zoeken). Geef de volledige vraag mee met alle gegevens; vertel daarna het antwoord kort in spreektaal.",
+    input_schema: {
+      type: "object",
+      properties: { vraag: { type: "string", description: "De volledige vraag met alle gegevens die nodig zijn" } },
+      required: ["vraag"],
+    },
+  },
 ];
+// diep_nadenken is er alleen voor Groq: Gemini en Claude denken zelf al na, en zonder Gemini-sleutel kan het niet.
+const toolsFor = (provider: string) => TOOLS.filter((t) => t.name !== "diep_nadenken" || (provider === "groq" && SMART));
 
 // Acties die de app/iPhone na het antwoord uitvoert (bv. een Maps-link openen).
 // Plus context van het verzoek (gebruiker, database, geheugen) voor tools die die nodig hebben.
@@ -1745,7 +1763,10 @@ async function ecoStatus(actions: Actions) {
   const m = meta as Record<string, unknown>;
   return {
     wie: "ECO, de persoonlijke assistent van Serkan op sekibar.nl (Supabase Edge Function + Groq/Gemini).",
-    modellen: { eerste_keuze: PROVIDERS[0] ?? "geen", snel: GROQ_FAST || "uit", slim: GROQ_MODELS[0], reserve: PROVIDERS.slice(1), dit_antwoord: actions.model ?? "" },
+    modellen: {
+      eerste_keuze: PROVIDERS[0] ?? "geen", snel: GROQ_FAST || "uit", gewone_vragen: GROQ_MODELS[0],
+      denkwerk_en_fotos: SMART ? `${SMART_MODELS[0]} (denkt eerst na, gratis laag)` : "uit", reserve: PROVIDERS.slice(1), dit_antwoord: actions.model ?? "",
+    },
     stem: m.eco_tts === "elevenlabs" ? "ElevenLabs (eigen stem)" : `Gemini TTS, stem ${(m.eco_gemini_voice as string) || "Charon"}`,
     spraakherkenning: env("GROQ_API_KEY") ? "Whisper large-v3 (Groq)" : "browser",
     koppelingen: {
@@ -1764,6 +1785,7 @@ async function ecoStatus(actions: Actions) {
 }
 
 async function runToolOnce(name: string, input: Record<string, string>, actions: Actions) {
+  if (name === "diep_nadenken") return await diepNadenken(String(input.vraag ?? ""), actions);
   if (name === "ochtendbriefing") {
     if (!actions.db || !actions.userId) return { fout: "briefing niet beschikbaar" };
     const who = { db: actions.db, userId: actions.userId };
@@ -1903,7 +1925,7 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1024, system: systemPrompt(actions.memory, actions.context), tools: TOOLS, messages }),
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1024, system: systemPrompt(actions.memory, actions.context), tools: toolsFor("anthropic"), messages }),
       signal: AbortSignal.timeout(CALL_TIMEOUT * 2),
     });
     if (!r.ok) throw new Error(`Claude-fout ${r.status}: ${await r.text()}`);
@@ -1922,55 +1944,90 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
   return "";
 }
 
-// Snelheid: "denken" uit of zo laag mogelijk. Niet elk Gemini-model kent elke instelling,
-// dus we proberen ze op volgorde en onthouden welke werkt.
-// Gemini 2.5 kent thinkingBudget, Gemini 3 kent thinkingLevel; per model onthouden welke werkt.
-const THINKING = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
+// Gemini denkt na op een vaste stand: "low" (reserve), "medium" (slimme baan) of "high" (diep_nadenken).
+// Gemini 3 kent thinkingLevel, Gemini 2.5 kent thinkingBudget; we proberen ze op volgorde en onthouden per model welke werkt.
+type Level = "low" | "medium" | "high";
+const BUDGET: Record<Level, number> = { low: 1024, medium: 4096, high: 12288 };
+const thinkingOpts = (model: string, level: Level) =>
+  model.includes("2.5") ? [{ thinkingBudget: BUDGET[level] }, { thinkingLevel: level }, null] : [{ thinkingLevel: level }, { thinkingBudget: BUDGET[level] }, null];
 const thinkingIdx = new Map<string, number>();
+// Quotum op (429)? Dan dat model een minuut overslaan in plaats van elke vraag opnieuw te proberen.
+const geminiRust = new Map<string, number>();
 
-// Bij drukte (503/429/500) eerst kort opnieuw proberen, daarna overstappen op een reservemodel.
+// Reserve bij een Groq-storing: bij drukte (500/503) eerst kort opnieuw proberen, daarna het volgende model.
 const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-latest,gemini-2.5-flash").split(",").map((m) => m.trim())]
   .filter((m, i, a) => m && a.indexOf(m) === i);
 
-async function geminiCall(body: Record<string, unknown>, actions: Actions) {
-  let last = "";
-  nextModel: for (const model of GEMINI_MODELS) {
-    let busyRetry = true;
-    for (;;) {
-      const ti = thinkingIdx.get(model) ?? 0;
-      const thinking = THINKING[ti];
-      const generationConfig: Record<string, unknown> = { maxOutputTokens: 800, temperature: 0.7 };
-      if (thinking) generationConfig.thinkingConfig = thinking;
-      const t = Date.now();
-      let r: Response;
-      try {
-        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: "POST",
-          headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-          body: JSON.stringify({ ...body, generationConfig }),
-          signal: AbortSignal.timeout(CALL_TIMEOUT),
-        });
-      } catch {
-        actions.attempts.push(`${model}:timeout`);
-        last = `${model} gaf binnen ${CALL_TIMEOUT / 1000}s geen antwoord`;
-        continue nextModel; // traag → meteen naar het volgende model
+// Eén gestreamde Gemini-ronde. Tekst gaat via onText meteen door; alle delen komen ongewijzigd terug,
+// ook functie-aanroepen en de thoughtSignature die Gemini 3 in de volgende ronde terug wil zien.
+async function geminiRound(model: string, payload: Record<string, unknown>, o: { level: Level; timeout: number }, actions: Actions, onText: (t: string) => void) {
+  if ((geminiRust.get(model) ?? 0) > Date.now()) { actions.attempts.push(`${model}:rust`); throw new Error(`${model} quotum op (even rust)`); }
+  let busyRetry = true;
+  for (;;) {
+    const opts = thinkingOpts(model, o.level), ti = Math.min(thinkingIdx.get(model) ?? 0, opts.length - 1);
+    const ctrl = new AbortController();
+    let timer = setTimeout(() => ctrl.abort(), o.timeout);
+    const t = Date.now();
+    let first = 0;
+    const parts: any[] = [];
+    try {
+      const r = await fetch(`${GL}/models/${model}:streamGenerateContent?alt=sse`, {
+        method: "POST",
+        headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+        body: JSON.stringify({ ...payload, generationConfig: { maxOutputTokens: o.level === "low" ? 4096 : 16384, temperature: 0.7, ...(opts[ti] ? { thinkingConfig: opts[ti] } : {}) } }),
+        signal: ctrl.signal,
+      });
+      if (!r.ok) {
+        const fout = (await r.text()).slice(0, 200);
+        actions.attempts.push(`${model}:${r.status}:${Date.now() - t}ms`);
+        if (r.status === 400 && ti < opts.length - 1) { thinkingIdx.set(model, ti + 1); continue; } // andere denk-instelling
+        if ([500, 503].includes(r.status) && busyRetry) { busyRetry = false; await wait(500); continue; }
+        if (r.status === 429) geminiRust.set(model, Date.now() + 60000);
+        throw new Error(`${model} ${r.status}: ${fout}`); // 429 (quotum op), 404 of nog steeds druk → volgende model
       }
-      actions.attempts.push(`${model}:${r.status}:${JSON.stringify(thinking)}:${Date.now() - t}ms`);
-      if (r.ok) { actions.model = model; return await r.json(); }
-      last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
-      if (r.status === 400 && ti < THINKING.length - 1) { thinkingIdx.set(model, ti + 1); continue; } // andere denk-instelling
-      if ([429, 500, 503].includes(r.status) && busyRetry) { busyRetry = false; await wait(500); continue; }
-      console.warn("Gemini-model overgeslagen:", last);
-      continue nextModel; // 400 zonder uitweg, 404, of nog steeds druk → volgende model
-    }
+      for await (const data of sseData(r.body!, () => {
+        if (!first) first = Date.now() - t;
+        clearTimeout(timer); timer = setTimeout(() => ctrl.abort(), 20000); // stilte midden in de stroom
+      })) {
+        const j = JSON.parse(data);
+        if (j.error) throw new Error(j.error.message ?? JSON.stringify(j.error));
+        for (const p of j.candidates?.[0]?.content?.parts ?? []) {
+          parts.push(p);
+          if (p.text && !p.thought) onText(p.text);
+        }
+      }
+    } catch (e) {
+      if (ctrl.signal.aborted) { actions.attempts.push(`${model}:te traag:${Date.now() - t}ms`); throw new Error(`${model} te traag`); }
+      throw e;
+    } finally { clearTimeout(timer); }
+    actions.attempts.push(`${model}:${first}ms/${Date.now() - t}ms`);
+    return parts;
   }
-  throw new Error(`Gemini-fout (geen model beschikbaar): ${last}`);
+}
+
+// Moeilijke vraag uitbesteden aan Gemini met veel denktijd (gratis laag); het snelle model vertelt het antwoord daarna kort.
+async function diepNadenken(vraag: string, actions: Actions) {
+  if (!vraag.trim()) return { fout: "geen vraag meegegeven" };
+  if (!SMART) return { fout: "diep nadenken kan niet: GEMINI_API_KEY ontbreekt" };
+  const instructie = `Werk de vraag zorgvuldig en stap voor stap uit en controleer je antwoord. Antwoord in het Nederlands: eerst het antwoord zelf, ` +
+    `daarna kort de belangrijkste stappen, zonder opmaak. Vandaag is ${localParts(Date.now()).datum}. Weet je iets niet zeker, zeg dat.`;
+  let last = "";
+  for (const model of SMART_MODELS) {
+    let tekst = "";
+    try {
+      await geminiRound(model, { systemInstruction: { parts: [{ text: instructie }] }, contents: [{ role: "user", parts: [{ text: vraag.slice(0, 8000) }] }] },
+        { level: "high", timeout: SMART_TIMEOUT }, actions, (t) => { tekst += t; });
+      if (tekst.trim()) return { antwoord: tekst.trim(), model };
+      last = `${model} gaf een leeg antwoord`;
+    } catch (e) { last = String((e as Error)?.message ?? e); }
+  }
+  return { fout: `diep nadenken lukte niet: ${last.slice(0, 150)}` };
 }
 
 // Groq (OpenAI-compatibele API): zeer snel en gestreamd. Tekst gaat woord voor woord door naar de browser,
 // tool-aanroepen worden onderweg verzameld en daarna (tegelijk) uitgevoerd.
 async function askGroq(history: Turn[], actions: Actions): Promise<string> {
-  const tools = TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+  const tools = toolsFor("groq").map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
   let last = "";
   const models = actions.fast && GROQ_FAST ? [GROQ_FAST, ...GROQ_MODELS.filter((m) => m !== GROQ_FAST)] : GROQ_MODELS;
   nextModel: for (const model of models) {
@@ -2043,30 +2100,58 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
   throw new Error(`Groq-fout: ${last}`);
 }
 
-async function askGemini(history: Turn[], actions: Actions): Promise<string> {
-  const contents: any[] = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
-  if (actions.images?.length) contents[contents.length - 1].parts.unshift(...actions.images.map((f) => ({ inlineData: { mimeType: f.mime, data: f.data } })));
-  const tools = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema })) }];
-  for (let i = 0; i < MAX_STEPS; i++) {
-    const res = await geminiCall({ systemInstruction: { parts: [{ text: systemPrompt(actions.memory, actions.context) }] }, contents, tools }, actions);
-    const content = res.candidates?.[0]?.content;
-    const parts: any[] = content?.parts ?? [];
-    contents.push(content ?? { role: "model", parts: [] });
-    const calls = parts.filter((p) => p.functionCall);
-    if (!calls.length) return parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("").trim();
-    // Meerdere tools tegelijk uitvoeren in plaats van na elkaar.
-    const responses = await Promise.all(calls.map(async ({ functionCall: c }) => {
-      actions.emit?.({ t: "tool", name: c.name });
-      return { functionResponse: { name: c.name, response: { result: await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) })) } } };
-    }));
-    contents.push({ role: "user", parts: responses });
+// Gemini met tools, gestreamd: tekst gaat woord voor woord door naar de browser, tool-aanroepen worden daarna (tegelijk) uitgevoerd.
+// Gebruikt voor de slimme baan (denken "medium") en als reserve bij een Groq-storing (denken "low").
+async function askGemini(history: Turn[], actions: Actions, o: { models: string[]; level: Level; timeout: number }): Promise<string> {
+  const start: any[] = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  if (actions.images?.length) start[start.length - 1].parts.unshift(...actions.images.map((f) => ({ inlineData: { mimeType: f.mime, data: f.data } })));
+  const payload = {
+    systemInstruction: { parts: [{ text: systemPrompt(actions.memory, actions.context) }] },
+    tools: [{ functionDeclarations: toolsFor("gemini").map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema })) }],
+  };
+  let last = "";
+  nextModel: for (const model of o.models) {
+    const contents = [...start];
+    let said = ""; // al naar de browser gestuurd; kan niet meer terug
+    for (let step = 0; step < MAX_STEPS; step++) {
+      let parts: any[];
+      try {
+        parts = await geminiRound(model, { ...payload, contents }, o, actions, (t) => {
+          actions.firstAt ??= Date.now(); said += t; actions.emit?.({ t: "delta", text: t });
+        });
+      } catch (e) {
+        last = String((e as Error)?.message ?? e);
+        console.warn("Gemini-model overgeslagen:", last);
+        if (said) return said.trim(); // halverwege: houden wat er al staat
+        continue nextModel;
+      }
+      actions.model = model;
+      const calls = parts.filter((p) => p.functionCall);
+      if (!calls.length) {
+        if (said.trim()) return said.trim();
+        last = `${model} gaf een leeg antwoord`; console.warn(last);
+        continue nextModel;
+      }
+      contents.push({ role: "model", parts });
+      const responses = await Promise.all(calls.map(async ({ functionCall: c }) => {
+        actions.emit?.({ t: "tool", name: c.name });
+        const result = await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) }));
+        return { functionResponse: { ...(c.id ? { id: c.id } : {}), name: c.name, response: { result } } };
+      }));
+      contents.push({ role: "user", parts: responses });
+      if (said && !/\s$/.test(said)) { said += " "; actions.emit?.({ t: "delta", text: " " }); }
+    }
+    if (said.trim()) return said.trim();
+    last = `${model} kwam na ${MAX_STEPS} stappen niet tot een antwoord`;
   }
-  return "";
+  throw new Error(`Gemini-fout: ${last}`);
 }
 
-// Moeilijke vragen krijgen iets meer denktijd; gewone vragen blijven razendsnel.
+// Denkwerk gaat naar de slimme baan; gewone vragen en snelle opdrachten (lijstje, timer, muziek) blijven razendsnel.
+const SNELLE_OPDRACHT = /lijst|boodschappen|noteer|timer|wekker|herinner|afspraak|agenda|speel|spotify|muziek|whatsapp|\bstuur\b/i; // ook in samenstellingen ("boodschappenlijst")
+const DENKWERK = /\b(waarom|leg .*uit|uitleg|hoe werkt|verschil tussen|vergelijk|stappenplan|plan(?:nen|ning)? voor|analyse|bereken|reken .*uit|uitrekenen|formule|los .*op|oplossen|bewijs|afgeleide|integraal|vergelijking|samenvat|schrijf|essay|verbeter|vertaal|huiswerk|opdracht|tentamen|oefenvragen|overhoor|advies|raad .*aan|wat zou jij|code|programmeer)/i;
 const effortFor = (msg: string) =>
-  msg.length > 220 || /\b(waarom|leg .*uit|uitleg|hoe werkt|vergelijk|stappenplan|plan(?:nen|ning)? voor|analyse|bereken|bewijs|samenvat|schrijf|essay|code|programmeer)/i.test(msg) ? "medium" : "low";
+  msg.length > 220 || (DENKWERK.test(msg) && !SNELLE_OPDRACHT.test(msg)) ? "medium" : "low";
 
 // ---------- Stem (TTS) ----------
 // Gemini 3.8 TTS via de Interactions API (streaming PCM, 24 kHz mono); Gemini 2.5 via generateContent als reserve.
@@ -2281,11 +2366,17 @@ async function chat(admin: any, inp: ChatIn) {
   // Met foto's: alleen modellen die kunnen kijken (Gemini, Claude); Groq kan dat niet.
   const providers = fotos.length ? PROVIDERS.filter((p) => p !== "groq") : PROVIDERS;
   if (!providers.length) throw new Error("foto's bekijken kan alleen met GEMINI_API_KEY of ANTHROPIC_API_KEY");
-  for (const p of providers) {
+  // Denkwerk en foto's eerst naar de slimme baan (Gemini die eerst nadenkt); gewone vragen eerst naar het snelste model.
+  const lanes = [...(SMART && (actions.effort === "medium" || fotos.length) ? ["slim"] : []), ...providers];
+  for (const p of lanes) {
     try {
-      if (p === "groq") reply = await askGroq(history, actions);
+      if (p === "slim") {
+        inp.emit?.({ t: "tool", name: "nadenken" });
+        reply = await askGemini(history, actions, { models: SMART_MODELS, level: "medium", timeout: SMART_TIMEOUT });
+      } else if (p === "groq") reply = await askGroq(history, actions);
+      else if (p === "gemini") reply = await askGemini(history, actions, { models: GEMINI_MODELS, level: "low", timeout: CALL_TIMEOUT });
       else {
-        reply = p === "gemini" ? await askGemini(history, actions) : await askClaude(history, actions);
+        reply = await askClaude(history, actions);
         if (reply) inp.emit?.({ t: "delta", text: reply });
       }
       if (!reply) throw new Error(`${p} gaf een leeg antwoord`);

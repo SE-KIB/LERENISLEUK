@@ -868,6 +868,7 @@ const TOOL_LABEL = {
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
   mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
   lijst: "Lijstje bijwerken", timer: "Timer zetten", spotify: "Spotify", whatsapp: "WhatsApp klaarzetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
+  nadenken: "Nadenken", diep_nadenken: "Diep nadenken", archief_zoeken: "Archief doorzoeken",
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
