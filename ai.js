@@ -1607,7 +1607,8 @@ async function liveStart(firstText = "", vanzelf = false) {
     await liveConnect();
     await liveMic(live.stream, actx);
     live.idle = setInterval(liveIdle, 5000);
-    live.meter = setInterval(liveMeter, 300);
+    live.meter = setInterval(liveMeter, 100);
+    $("micMeter").hidden = false;
     setTimeout(liveMicWatch, 2500); // hoort ECO echt iets? Zo niet: andere microfoon
     setState("listening"); sfx.listen();
     $("stVoice").textContent = "LIVE"; $("stVoice").className = "ok";
@@ -1680,14 +1681,15 @@ async function ingebouwdeMic() {
 async function liveMic(stream, ctx) {
   const src = ctx.createMediaStreamSource(stream), stap = ctx.sampleRate / 16000, stil = ctx.createGain();
   stil.gain.value = 0; stil.connect(ctx.destination);
-  live.mic = { frames: 0, piek: 0, niveau: 0, ctx };
+  live.mic = { frames: 0, piek: 0, rms: 0, ctx, poort: "", bytes: 0, sentAt: 0, hoortAt: live.mic?.hoortAt || 0, pk: -90, rate: 0, lastBytes: 0, lastAt: Date.now() };
   let carry = new Float32Array(0), t = 0, pending = new Int16Array(1280), n = 0;
   let echo = 0, burst = 0, luid = 0, openTot = 0;
   const frames = (f) => {
     if (!live.ready) return;
-    let ruw = 0;
-    for (let i = 0; i < f.length; i++) { const a = Math.abs(f[i]); if (a > ruw) ruw = a; }
-    live.mic.frames += f.length; live.mic.piek = Math.max(live.mic.piek, ruw); live.mic.niveau = Math.max(ruw, live.mic.niveau * 0.9);
+    let ruw = 0, som = 0;
+    for (let i = 0; i < f.length; i++) { const a = Math.abs(f[i]); som += a * a; if (a > ruw) ruw = a; }
+    const rms = Math.sqrt(som / f.length), m = live.mic;
+    m.frames += f.length; m.piek = Math.max(m.piek, ruw); m.rms = Math.max(rms, m.rms * 0.92); // snel omhoog, rustig omlaag
     // Praat ECO zelf? Leer eerst hoe hard zijn eigen echo binnenkomt en stuur alleen stem die daar duidelijk bovenuit komt;
     // de rest gaat als stilte, zodat hij zichzelf niet onderbreekt of tegen zichzelf gaat praten.
     if (pcmSources.size) {
@@ -1697,15 +1699,20 @@ async function liveMic(stream, ctx) {
       if (nu - burst < 500) echo = Math.max(echo, rms);
       else if (rms > Math.min(0.15, Math.max(0.02, echo * 2.6))) { luid += dt; if (luid > 150) openTot = nu + 800; }
       else { luid = Math.max(0, luid - dt * 0.6); echo = Math.max(rms, echo * 0.997); }
+      live.mic.poort = nu >= openTot ? "dicht" : "open";
       if (nu >= openTot) f = new Float32Array(f.length);
-    } else burst = 0;
+    } else { burst = 0; live.mic.poort = ""; }
     const data = new Float32Array(carry.length + f.length); data.set(carry); data.set(f, carry.length);
     let piek = 0;
     for (; t + 1 < data.length; t += stap) {
       const i = t | 0, v = Math.max(-1, Math.min(1, data[i] + (data[i + 1] - data[i]) * (t - i)));
       piek = Math.max(piek, Math.abs(v));
       pending[n++] = v * 32767;
-      if (n === pending.length) { liveSend({ realtimeInput: { audio: { data: b64Bytes(new Uint8Array(pending.buffer)), mimeType: "audio/pcm;rate=16000" } } }); n = 0; }
+      if (n === pending.length) {
+        liveSend({ realtimeInput: { audio: { data: b64Bytes(new Uint8Array(pending.buffer)), mimeType: "audio/pcm;rate=16000" } } });
+        if (live.ws?.readyState === 1) { live.mic.bytes += pending.byteLength; live.mic.sentAt = Date.now(); }
+        n = 0;
+      }
     }
     const keep = Math.floor(t); carry = data.slice(keep); t -= keep;
     if (document.body.dataset.state === "listening") bump(Math.min(0.5, piek * 0.8));
@@ -1747,6 +1754,7 @@ async function liveMicWatch() {
         live.stream = await liveGetMic(ander);
         await liveMic(live.stream, actx);
         try { localStorage.setItem("eco-mic", ander); } catch { /* geen opslag */ }
+        live.micReden = `${naam} gaf ${fout}`;
         setCaption(`${naam} geeft geen geluid (${fout}); ik gebruik nu ${micNaam()}. Praat maar.`, "user");
         return void setTimeout(liveMicWatch, 2500);
       }
@@ -1766,11 +1774,33 @@ async function liveMicWatch() {
   liveStop(`Ik krijg geen geluid van je microfoon (${naam}: ${fout}). Ben je met Bluetooth verbonden, bv. in de auto? Die microfoon werkt vaak alleen bij bellen; zet Bluetooth even uit of gebruik oortjes. Ik probeer het nu op de gewone manier.`, true);
   setTimeout(() => listen(), 800);
 }
-// Niveaumeter bij SYSTEEMSTATUS → SPRAAK: zie je hem bewegen als je praat, dan hoort ECO je.
+// Microfoonmeter onder de ondertitel (ook op de telefoon zichtbaar) en bij SYSTEEMSTATUS → SPRAAK:
+// welke microfoon, hoe hard in dB (streepje = grens voor stem), wat ECO hoort en of het geluid echt naar Gemini gaat.
+const dbTekst = (db) => (db <= -89 ? "−∞" : String(Math.round(db)).replace("-", "−")) + " dB";
 function liveMeter() {
   if (!live.on || !live.mic) return;
-  const n = Math.min(5, Math.round(Math.sqrt(live.mic.niveau) * 9));
-  $("stVoice").textContent = `LIVE ${"▮".repeat(n)}${"▯".repeat(5 - n)}`;
+  const m = live.mic, nu = Date.now();
+  const db = m.rms > 3e-5 ? Math.max(-90, 20 * Math.log10(m.rms)) : -90;
+  m.pk = Math.max(db, m.pk - 0.8); // piek blijft even staan
+  const pct = (d) => `${Math.max(0, Math.min(100, ((d + 60) / 60) * 100))}%`;
+  const dt = Math.max(0.05, (nu - m.lastAt) / 1000);
+  m.rate = m.rate * 0.7 + ((m.bytes - m.lastBytes) / 1024 / dt) * 0.3; m.lastBytes = m.bytes; m.lastAt = nu;
+  const [tekst, kl] = !m.frames ? ["GEEN AUDIO", "bad"]
+    : m.poort === "dicht" ? ["ECO PRAAT · praat harder om te onderbreken", "warn"]
+    : m.poort === "open" ? ["JE ONDERBREEKT ECO", "ok"]
+    : nu - m.hoortAt < 2500 ? ["ECO VERSTAAT JE", "ok"]
+    : db > -40 ? ["STEM", "ok"]
+    : db > -55 ? ["ACHTERGRONDGELUID", "dim"]
+    : m.piek < 2e-4 ? ["ALLEEN STILTE · microfoon dicht?", "bad"]
+    : ["STIL · praat maar", "dim"];
+  $("mmName").textContent = `🎙 ${micNaam()}${live.micReden ? ` (${live.micReden})` : ""}`;
+  $("mmState").textContent = tekst; $("mmState").className = kl;
+  $("mmFill").style.width = pct(db); $("mmFill").className = kl;
+  $("mmPeak").style.left = pct(m.pk);
+  $("mmDb").textContent = `NIVEAU ${dbTekst(db)} · PIEK ${dbTekst(m.pk)}`;
+  $("mmSend").textContent = !live.ready ? "verbinden…" : nu - m.sentAt < 1000 ? `→ GEMINI ${m.rate.toFixed(0)} kB/s` : "→ GEMINI wacht op geluid";
+  $("mmSend").className = live.ready && nu - m.sentAt < 1000 ? "ok" : "warn";
+  $("stVoice").textContent = `LIVE ${dbTekst(db)}`; $("stVoice").className = kl === "bad" ? "bad" : "ok";
   $("stVoice").title = `Microfoon: ${micNaam()}`;
 }
 
@@ -1791,6 +1821,7 @@ function liveMessage(msg) {
 }
 function liveUser(t) {
   live.userText += t;
+  if (live.mic) live.mic.hoortAt = Date.now();
   if (isStop(live.userText)) { const u = live.userText; live.userText = ""; entry("user", u.trim()); return stopLuisteren("Oké, ik stop. Tik op de microfoon als je me weer nodig hebt."); }
   live.userEl ||= entry("user", "");
   live.userEl.textContent = live.userText.trim();
@@ -1902,6 +1933,7 @@ function liveStop(msg = "", fout = false) {
   const { userText, ecoText } = live;
   live.on = false; live.ready = false;
   clearInterval(live.idle); clearInterval(live.meter);
+  $("micMeter").hidden = true;
   try { live.ws?.close(1000); } catch { /* al dicht */ }
   liveMicLos();
   for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
