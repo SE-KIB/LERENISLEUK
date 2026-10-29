@@ -1,10 +1,13 @@
 // ECO-widget voor Scriptable (gratis app, App Store). Toont je volgende lessen (de Brightspace-planning gaat voor),
 // het weer met een tip, deadlines en actiepunten uit het dagrapport. Tik op de widget om ECO te openen.
 // Formaten: klein, middel, groot op het beginscherm, en rechthoekig/rond/inline op het vergrendelscherm.
-// Installeren: zie AI-SETUP.md ("iPhone-widget"). De sleutel (JARVIS_KEY) staat veilig in de iOS-sleutelhanger.
-const ECO_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/smooth-service";
+// Installeren: zie AI-SETUP.md ("iPhone-widget"). Inloggen met je ECO-account (zelfde als sekibar.nl); alleen de
+// inlogsessie wordt bewaard in de iOS-sleutelhanger, je wachtwoord niet. Een JARVIS_KEY kan ook (optioneel).
+const SUPABASE_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co";
+const ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9"; // openbare sleutel, staat ook in de website
+const ECO_URL = `${SUPABASE_URL}/functions/v1/smooth-service`;
 const SITE = "https://sekibar.nl";
-const KEY_NAME = "eco-jarvis-key";
+const KEY_NAME = "eco-jarvis-key", SESSION_NAME = "eco-sessie";
 const C = {
   bg: new Color("#01070c"), bg2: new Color("#04263a"), cyan: new Color("#00e1ff"), text: new Color("#e9fdff"),
   muted: new Color("#7aa3ae"), amber: new Color("#ffb24a"), red: new Color("#ff6b6b"),
@@ -12,27 +15,45 @@ const C = {
 const fm = FileManager.local();
 const cachePath = fm.joinPath(fm.documentsDirectory(), "eco-widget-cache.json");
 
-async function getKey(ask) {
-  if (!ask && Keychain.contains(KEY_NAME)) return Keychain.get(KEY_NAME);
-  if (!config.runsInApp) return null;
+// Inloggen met e-mail + wachtwoord (één keer, in de app); daarna alleen de sessie verversen.
+async function authCall(grant, body) {
+  const r = new Request(`${SUPABASE_URL}/auth/v1/token?grant_type=${grant}`);
+  r.method = "POST";
+  r.headers = { "content-type": "application/json", apikey: ANON_KEY };
+  r.body = JSON.stringify(body);
+  const j = await r.loadJSON();
+  if (!j || !j.access_token) throw new Error(j && (j.error_description || j.msg || j.error) ? (j.error_description || j.msg || j.error) : "inloggen mislukt");
+  Keychain.set(SESSION_NAME, JSON.stringify({ access: j.access_token, refresh: j.refresh_token, exp: Date.now() + ((j.expires_in || 3600) - 120) * 1000 }));
+  return j.access_token;
+}
+async function login() {
   const a = new Alert();
-  a.title = "ECO-sleutel";
-  a.message = "Plak je JARVIS_KEY (dezelfde geheime tekst als in Supabase).";
-  a.addSecureTextField("JARVIS_KEY", "");
-  a.addAction("Opslaan");
+  a.title = "Inloggen bij ECO";
+  a.message = "Zelfde e-mail en wachtwoord als op sekibar.nl. Je wachtwoord wordt niet bewaard, alleen de inlogsessie.";
+  a.addTextField("E-mail", "");
+  a.addSecureTextField("Wachtwoord", "");
+  a.addAction("Inloggen");
   a.addCancelAction("Annuleren");
   if ((await a.present()) === -1) return null;
-  const k = a.textFieldValue(0).trim();
-  if (!k) return null;
-  Keychain.set(KEY_NAME, k);
-  return k;
+  return await authCall("password", { email: a.textFieldValue(0).trim(), password: a.textFieldValue(1) });
+}
+// Geeft { auth: headers } of null. Volgorde: JARVIS_KEY (als je die ooit instelde), anders je sessie.
+async function getAuth(forceLogin) {
+  if (!forceLogin && Keychain.contains(KEY_NAME)) return { "x-jarvis-key": Keychain.get(KEY_NAME) };
+  let token = null;
+  if (!forceLogin && Keychain.contains(SESSION_NAME)) {
+    const ses = JSON.parse(Keychain.get(SESSION_NAME));
+    token = ses.exp > Date.now() ? ses.access : await authCall("refresh_token", { refresh_token: ses.refresh }).catch(() => null);
+  }
+  if (!token && config.runsInApp) token = await login();
+  return token ? { Authorization: `Bearer ${token}`, apikey: ANON_KEY } : null;
 }
 
-async function loadData(key) {
+async function loadData(auth) {
   try {
     const r = new Request(ECO_URL);
     r.method = "POST";
-    r.headers = { "content-type": "application/json", "x-jarvis-key": key };
+    r.headers = { "content-type": "application/json", ...auth };
     r.body = JSON.stringify({ widget: true });
     r.timeoutInterval = 20;
     const j = await r.loadJSON();
@@ -176,22 +197,24 @@ function build(family, data) {
 
 // Start
 const fam = config.widgetFamily || "medium";
-let key = await getKey(false);
 if (config.runsInApp) {
+  const ingelogd = Keychain.contains(SESSION_NAME) || Keychain.contains(KEY_NAME);
   const menu = new Alert();
   menu.title = "ECO-widget";
-  menu.message = key ? "Sleutel staat ingesteld." : "Nog geen sleutel ingesteld.";
-  ["Voorbeeld klein", "Voorbeeld middel", "Voorbeeld groot", "Sleutel wijzigen"].forEach((t) => menu.addAction(t));
+  menu.message = ingelogd ? "Je bent ingelogd." : "Log eerst in met je ECO-account.";
+  ["Voorbeeld klein", "Voorbeeld middel", "Voorbeeld groot", "Opnieuw inloggen"].forEach((t) => menu.addAction(t));
   menu.addCancelAction("Klaar");
   const choice = await menu.present();
-  if (choice === 3 || !key) key = await getKey(true);
-  if (key && choice >= 0 && choice <= 2) {
-    const data = await loadData(key);
+  let auth = null;
+  try { auth = await getAuth(choice === 3 || !ingelogd); } catch (e) { const f = new Alert(); f.title = "Inloggen mislukt"; f.message = String(e.message || e); f.addAction("OK"); await f.present(); }
+  if (auth && choice >= 0 && choice <= 2) {
+    const data = await loadData(auth);
     const w = build(["small", "medium", "large"][choice], data);
     await [w.presentSmall.bind(w), w.presentMedium.bind(w), w.presentLarge.bind(w)][choice]();
   }
 } else {
-  const data = key ? await loadData(key) : { fout: "Open de app Scriptable en tik op dit script om je sleutel in te stellen." };
+  const auth = await getAuth(false).catch(() => null);
+  const data = auth ? await loadData(auth) : { fout: "Open de app Scriptable en tik op het script ECO om in te loggen." };
   Script.setWidget(build(fam, data));
 }
 Script.complete();
