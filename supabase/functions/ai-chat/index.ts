@@ -26,6 +26,8 @@ const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,ant
 const MODEL = env("AI_MODEL", "gemini-flash-latest");            // Gemini
 const CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5");
 const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim()).filter(Boolean);
+// Snelle route: korte, eenvoudige vragen eerst naar het kleinere model (~1000 tokens/s i.p.v. ~500). Leeg = uit.
+const GROQ_FAST = env("GROQ_FAST_MODEL", "openai/gpt-oss-20b").trim();
 const TZ = env("TIMEZONE", "Europe/Amsterdam");
 const ALLOWED = env("ALLOWED_EMAILS").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
 const HISTORY = 20;
@@ -248,6 +250,7 @@ const TOOLS = [
 type Actions = {
   open?: string; userId?: string; db?: any; memory?: string; memoryChanged?: boolean; context?: string; loc?: Loc | null;
   emit?: (ev: Record<string, unknown>) => void; attempts: string[]; effort?: string; model?: string; toolMemo?: Map<string, unknown>;
+  fast?: boolean; firstAt?: number;
 };
 
 // ---------- iCloud-agenda (CalDAV) ----------
@@ -1210,7 +1213,8 @@ async function geminiCall(body: Record<string, unknown>, actions: Actions) {
 async function askGroq(history: Turn[], actions: Actions): Promise<string> {
   const tools = TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
   let last = "";
-  nextModel: for (const model of GROQ_MODELS) {
+  const models = actions.fast && GROQ_FAST ? [GROQ_FAST, ...GROQ_MODELS.filter((m) => m !== GROQ_FAST)] : GROQ_MODELS;
+  nextModel: for (const model of models) {
     const messages: any[] = [{ role: "system", content: systemPrompt(actions.memory, actions.context) }, ...history];
     let said = ""; // al naar de browser gestuurd; kan niet meer terug
     for (let step = 0; step < MAX_STEPS; step++) {
@@ -1238,7 +1242,7 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
           const j = JSON.parse(data);
           if (j.error) throw new Error(j.error.message ?? JSON.stringify(j.error));
           const d = j.choices?.[0]?.delta ?? {};
-          if (d.content) { text += d.content; said += d.content; actions.emit?.({ t: "delta", text: d.content }); }
+          if (d.content) { actions.firstAt ??= Date.now(); text += d.content; said += d.content; actions.emit?.({ t: "delta", text: d.content }); }
           for (const tc of d.tool_calls ?? []) {
             const c = calls[tc.index ?? 0] ??= { id: "", type: "function", function: { name: "", arguments: "" } };
             if (tc.id) c.id = tc.id;
@@ -1465,9 +1469,13 @@ async function chat(admin: any, inp: ChatIn) {
     }
     return sent ?? known ?? null;
   });
+  const typed = typeof inp.message === "string" ? inp.message.trim() : "";
+  const newConvP = !inp.convId && typed && typed.length <= 8000
+    ? admin.from("ai_conversations").insert({ user_id: userId, title: (inp.viaKey ? "🎙️ " : "") + typed.slice(0, 60) }).select("id").single()
+    : null;
   const ctxP = Promise.all([
     locP.then((loc) => loc ? cached(`wx:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`, 10 * 60000, 700, () => weather(loc)) : null),
-    cached(`agenda:${localParts(Date.now()).datum}`, 5 * 60000, 1500, () => agendaContext({ db: admin, userId })),
+    cached(`agenda:${localParts(Date.now()).datum}`, 5 * 60000, 900, () => agendaContext({ db: admin, userId })),
     cached(`rapport:${localParts(Date.now()).datum}`, 20 * 60000, 400, rapportContext),
   ]);
   const [message, hist, { data: mem }, loc, [wx, agenda, rapport]] = await Promise.all([inp.message, histP, memP, locP, ctxP]);
@@ -1477,7 +1485,7 @@ async function chat(admin: any, inp: ChatIn) {
   if (text.length > 8000) throw Object.assign(new Error("Bericht te lang"), { status: 400 });
   let convId = inp.convId;
   if (!convId) {
-    const { data } = await admin.from("ai_conversations").insert({ user_id: userId, title: (inp.viaKey ? "🎙️ " : "") + text.slice(0, 60) }).select("id").single();
+    const { data } = await (newConvP ?? admin.from("ai_conversations").insert({ user_id: userId, title: (inp.viaKey ? "🎙️ " : "") + text.slice(0, 60) }).select("id").single());
     convId = data!.id as string;
   }
   inp.emit?.({ t: "conv", id: convId });
@@ -1486,6 +1494,7 @@ async function chat(admin: any, inp: ChatIn) {
 
   const actions: Actions = {
     userId, db: admin, loc, emit: inp.emit, attempts: [], effort: effortFor(text), toolMemo: new Map(),
+    fast: effortFor(text) === "low" && text.length <= 200,
     memory: (mem ?? []).map((m: any) => `- ${m.fact}`).join("\n"),
     context: [
       wx ? wxLine(wx) : "Locatie en weer onbekend.",
@@ -1515,7 +1524,7 @@ async function chat(admin: any, inp: ChatIn) {
   }
   reply ||= "Daar kom ik niet uit, sorry.";
   const tAi = Date.now();
-  console.log(`tijden: context ${tDb - t0} ms, model ${tAi - tDb} ms (${provider}/${actions.model}, ${actions.effort}) pogingen: ${actions.attempts.join(", ")}`);
+  console.log(`tijden: context ${tDb - t0} ms, eerste woord ${actions.firstAt ? actions.firstAt - tDb : "?"} ms, model ${tAi - tDb} ms (${provider}/${actions.model}, ${actions.effort}${actions.fast ? ", snel" : ""}) pogingen: ${actions.attempts.join(", ")}`);
 
   // Opslaan ná het antwoord (zonder stemtags), zodat de gebruiker er niet op hoeft te wachten.
   const clean = stripTags(reply);
@@ -1526,7 +1535,7 @@ async function chat(admin: any, inp: ChatIn) {
     ]),
     admin.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId),
   ]).catch((e) => console.error("Opslaan mislukt", e)));
-  return { conversationId: convId, message: text, reply, clean, open: actions.open ?? "", model: actions.model ?? "", memoryChanged: !!actions.memoryChanged, ms: { context: tDb - t0, ai: tAi - tDb } };
+  return { conversationId: convId, message: text, reply, clean, open: actions.open ?? "", model: actions.model ?? "", memoryChanged: !!actions.memoryChanged, ms: { context: tDb - t0, ai: tAi - tDb, first: actions.firstAt ? actions.firstAt - tDb : null } };
 }
 
 // Antwoord als stroom van Server-Sent Events: conv, heard, tool, delta, done of error.

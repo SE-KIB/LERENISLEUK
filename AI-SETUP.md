@@ -46,7 +46,10 @@ Opnemen stopt vanzelf na ~1,3 s stilte (na een lange zin 1,1 s). De opname gaat 
 nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browser. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
 
 ## Snelheid en stem (hoe ECO zo snel antwoordt)
-- **Streaming:** het antwoord komt woord voor woord binnen (Groq `gpt-oss-120b`, ~500 woorden per seconde). De eerste zin gaat al naar
+- **Snelle route:** korte, eenvoudige vragen gaan eerst naar `gpt-oss-20b` (~1000 tokens per seconde), moeilijke vragen
+  ("leg uit", "maak een plan", lange berichten) naar `gpt-oss-120b` met meer denktijd. Valt het snelle model uit, dan neemt 120b over.
+  Uitzetten of ander model: secret `GROQ_FAST_MODEL` (leeg = uit). Groq onthoudt het vaste begin van de prompt (promptcache).
+- **Streaming:** het antwoord komt woord voor woord binnen. De eerste zin gaat al naar
   de stem terwijl de rest nog wordt geschreven; de stem zelf komt ook als stroom binnen en speelt direct af.
 - **Stem:** Gemini 3.8 Flash-Lite TTS (gratis laag, natuurlijk Nederlands, snel), daarna 3.8 Flash TTS en 2.5 als reserve
   (instelbaar met `TTS_MODELS`). Stem en toon kies je in het Stemlab. ECO mag af en toe een kort lachje of adempauze gebruiken.
@@ -55,7 +58,8 @@ nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browse
   agenda en dagrapport op, zodat de echte vraag geen wachttijd heeft.
 - **Altijd paraat:** het weer, je agenda van vandaag en morgen (met belangrijke lessen en afwijkende begintijden) en de actiepunten
   uit het dagrapport zitten al in ECO's "huidige situatie"; daarvoor hoeft hij niets meer op te zoeken.
-- In de HUD zie je onder LATENTIE hoe snel de eerste tekst en de eerste klank kwamen, en onder SPRAAK welke stem sprak.
+- In de HUD zie je onder LATENTIE hoe snel de eerste tekst kwam (met tussen haakjes hoe lang het model zelf deed) en de eerste klank,
+  en onder SPRAAK welke stem sprak.
 
 ## Slimmer: internet, rekenen, valuta en tijdzones
 - **Webzoeken:** actuele dingen (nieuws, openingstijden, prijzen, sport) zoekt ECO op via Gemini met Google Search
