@@ -955,6 +955,71 @@ async function planningImport(who: Who, vak: string, files: { mime: string; data
   throw Object.assign(new Error(`Planning lezen lukte niet: ${last}`), { status: 502 });
 }
 
+// ---------- iPhone-widget (Scriptable): volgende lessen, weer met tip, actiepunten ----------
+function eventMs(v: unknown, labels: Map<string, string>) {
+  const t = String(v ?? "");
+  if (/^\d{4}-\d\d-\d\dT/.test(t)) return Date.parse(t);
+  let m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)/.exec(t); // iCloud, lokaal
+  if (m) return localToUtc(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], TZ);
+  m = /^(\d{1,2})-(\d{1,2})-(\d{4}) (\d\d):(\d\d)/.exec(t); // iCloud, uit UTC omgezet
+  if (m) return localToUtc(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], TZ);
+  m = /^(.+?), (\d{1,2}):(\d\d)$/.exec(t); // schoolrooster en planning: "do 29 okt, 08:45"
+  if (m && labels.has(m[1])) { const [y, mo, d] = labels.get(m[1])!.split("-").map(Number); return localToUtc(y, mo - 1, d, +m[2], +m[3], TZ); }
+  return null;
+}
+function weatherTip(w: any) {
+  const rain = Math.max(0, ...(w.komende_uren ?? []).slice(0, 2).map((u: any) => u.regenkans ?? 0));
+  const feel = w.nu?.gevoel ?? 15;
+  if (rain >= 50) return "Neem een paraplu mee";
+  if (feel <= 5) return "Warme jas aan";
+  if (feel <= 12) return "Trek een jas aan";
+  if (feel >= 25) return "Lekker warm, drink genoeg";
+  if ((w.nu?.uv ?? 0) >= 6) return "Smeer je in";
+  return "";
+}
+async function widgetData(admin: any, userId: string, meta: Record<string, unknown>) {
+  const who = { db: admin, userId }, now = Date.now();
+  const today = localParts(now).datum, tomorrow = localParts(dagStart(1) + 12 * 3600000).datum;
+  const labels = new Map([[dagLabel(today), today], [dagLabel(tomorrow), tomorrow]]);
+  const loc = meta.eco_loc as Loc | undefined;
+  const [res, wx, rapport, bs] = await Promise.all([
+    agendaAll(new Date(dagStart(0)).toISOString(), new Date(dagStart(2)).toISOString(), false, who).catch(() => ({})),
+    loc ? cached(`wx:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`, 10 * 60000, 3000, () => weather(loc)) : null,
+    cached(`rapport:${today}`, 20 * 60000, 0, rapportContext),
+    kvGet(admin, "bs_status").catch(() => null),
+  ]);
+  const items: any[] = [], deadlines: string[] = [];
+  for (const [bron, v] of Object.entries(res as Record<string, any>)) {
+    const list = Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : [];
+    for (const e of list) {
+      if (e.vervangen) continue; // de Brightspace-planning gaat voor
+      const start = eventMs(e.start, labels), end = eventMs(e.eind, labels);
+      if (start === null) { // hele dag: alleen belangrijke dingen (deadlines, toetsen)
+        if (/belangrijk|deadline|toets/.test(e.soort ?? "")) deadlines.push(`${String(e.start).startsWith(dagLabel(today)) ? "Vandaag" : "Morgen"}: ${e.titel}`);
+        continue;
+      }
+      if ((end ?? start + 3600000) < now) continue;
+      const dag = localParts(start).datum === today ? "vandaag" : "morgen";
+      items.push({
+        titel: String(e.titel ?? "").replace(/^\(vervallen\)\s*/, ""), tijd: `${timeOf(e.start)}${e.eind ? `–${timeOf(e.eind)}` : ""}`,
+        gezegd: e.gezegd ?? "", locatie: e.locatie ?? "", soort: e.soort ?? "", afwijking: e.afwijking ?? "", bron, dag, start, nu: start <= now,
+      });
+    }
+  }
+  items.sort((a, b) => a.start - b.start);
+  const actie = typeof rapport === "string" && /actie nodig:/i.test(rapport)
+    ? rapport.split(/actie nodig:\s*/i)[1].split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 3).map((l) => l.slice(0, 90)) : [];
+  return {
+    tijd: new Date(now).toISOString(),
+    items: items.slice(0, 6).map(({ start: _s, ...i }) => i),
+    deadlines: deadlines.slice(0, 3),
+    weer: wx ? { plaats: wx.plaats, temp: wx.nu.temp, gevoel: wx.nu.gevoel, omschrijving: wx.nu.omschrijving,
+      regen: Math.max(0, ...wx.komende_uren.slice(0, 2).map((u: any) => u.regenkans ?? 0)), max: wx.dagen?.[0]?.max, min: wx.dagen?.[0]?.min, tip: weatherTip(wx) } : null,
+    actie,
+    melding: bs && bs.ok === false && bs.tekst ? `Brightspace: ${bs.tekst}` : "",
+  };
+}
+
 async function runTool(name: string, input: Record<string, string>, actions: Actions) {
   const memo = actions.toolMemo, key = `${name}:${JSON.stringify(input ?? {})}`;
   if (memo?.has(key)) return memo.get(key);
@@ -1596,7 +1661,7 @@ Deno.serve(async (req) => {
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
     loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; agenda?: string | boolean;
     planning?: "lijst" | { vak?: string; files?: { mime: string; data: string }[]; wis?: string };
-    bs?: string | { actie: string; pages?: unknown; state?: unknown; status?: unknown };
+    bs?: string | { actie: string; pages?: unknown; state?: unknown; status?: unknown }; widget?: boolean;
   };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 
@@ -1703,6 +1768,11 @@ Deno.serve(async (req) => {
     await admin.auth.admin.updateUserById(userId!, { app_metadata: meta });
     metaCache.set(userId!, { at: Date.now(), meta });
   };
+
+  // iPhone-widget (Scriptable): compact overzicht. Werkt met de x-jarvis-key of een ingelogde sessie.
+  if (body.widget) {
+    try { return json(await widgetData(admin, userId, await getMeta())); } catch (e) { console.error("widget", e); return fail(e); }
+  }
 
   // Stemlab (gratis): Gemini-stem kiezen met eigen toon.
   if (body.voice === "gemini") {

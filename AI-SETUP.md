@@ -20,6 +20,7 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
 - `supabase/migrations/20261029_memory.sql`, `20261030_planning.sql`, `20261031_kv.sql` — geheugen, lesplanning en server-opslag (draaien automatisch)
 - `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
+- `widget/eco-widget.js` + `widget/installeer.js` — iPhone-widget voor Scriptable
 - `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Automatisch uitrollen (aanbevolen)
 De workflow `.github/workflows/deploy-function.yml` zet de functie zelf online bij elke wijziging op `main`.
 Eenmalig, kan ook op de telefoon:
@@ -187,6 +188,18 @@ De route via de Opdrachten-app wel: die vraagt jou eenmalig toestemming en geeft
 Voorbeeld "Hé Siri, Eco" met je agenda en herinneringen erbij: voeg vóór stap 2 toe
 *Zoek agenda-activiteiten* (vandaag) en *Zoek herinneringen* (niet voltooid), en zet in het `message`-veld:
 `Mijn agenda vandaag: [Agenda-activiteiten] — Open herinneringen: [Herinneringen] — Vraag: [Gedicteerde tekst]`.
+
+## iPhone-widget (gratis, met Scriptable)
+Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip
+("Neem een paraplu mee"), deadlines en actiepunten uit het dagrapport. Tik erop om ECO te openen. Ververst ongeveer elk kwartier.
+1. Zorg dat het Supabase-secret `JARVIS_KEY` bestaat (een lange geheime tekst; dezelfde als voor Brightspace en Siri).
+2. Installeer **Scriptable** uit de App Store (gratis).
+3. Open Scriptable → **+** → plak de inhoud van https://sekibar.nl/widget/installeer.js → tik **▶**. Er verschijnt een script **ECO**.
+4. Open het script **ECO** → **Sleutel wijzigen** → plak je `JARVIS_KEY`. Hij wordt bewaard in de iOS-sleutelhanger, niet in het script.
+   Met **Voorbeeld middel** zie je meteen hoe hij eruitziet.
+5. Beginscherm: houd ingedrukt → **+** → Scriptable → kies klein, middel of groot → tik op de widget → *Script*: **ECO**.
+   Vergrendelscherm: houd het vergrendelscherm ingedrukt → Pas aan → widgets → Scriptable → kies **ECO**.
+Bijwerken naar een nieuwe versie: draai het installatiescript nog een keer.
 
 ## Natuurlijke stem (ElevenLabs)
 1. Account op https://elevenlabs.io (gratis laag: beperkt aantal tekens per maand).
