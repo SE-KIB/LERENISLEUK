@@ -58,7 +58,7 @@
         <b>E.C.O.<sub id="brandVer" class="brand-ver" title="Laatst samengevoegde pull request"></sub></b>
         <span>PERSONAL INTELLIGENCE SYSTEM</span>
       </div>
-      <div class="sysline"><i class="dot"></i><span id="sysLine">ALLE SYSTEMEN OPERATIONEEL</span></div>
+      <div class="sysline" id="sysTop" title="Uitslag van de laatste systeemcheck"><i class="dot test"></i><span id="sysLine">SYSTEMEN TESTEN…</span></div>
       <div class="top-right">
         <div id="version" class="version" title="Laatst bijgewerkte pull request" hidden>PR107 | 29-10-2026 14:08</div>
         <button type="button" id="archiveBtn" class="chip only-mobile" aria-controls="leftCol" aria-expanded="false">☰ MENU</button>
@@ -82,7 +82,7 @@
       <div class="panel" data-win="status">
         <div class="panel-h"><span>SYSTEEMSTATUS</span><i id="uptime">00:00:00</i></div>
         <ul class="stats">
-          <li><span>KERN</span><b class="ok">ONLINE</b></li>
+          <li class="sys-row" id="sysRow" title="Tik voor elk onderdeel apart"><span>SYSTEMEN</span><b id="stSys">TESTEN…</b></li>
           <li><span>NETWERK</span><b id="stNet" class="ok">ONLINE</b></li>
           <li><span>ENERGIE</span><b id="stBat">—</b></li>
           <li><span>SPRAAK</span><b id="stVoice">—</b></li>
@@ -90,6 +90,10 @@
           <li><span>MODEL</span><b id="stModel">—</b></li>
           <li><span>GEBRUIKER</span><b id="stUser">—</b></li>
         </ul>
+        <div id="sysBox" class="sys-box" hidden>
+          <ul id="sysList" class="stats sys-list"></ul>
+          <button type="button" id="sysAgain" class="link">OPNIEUW TESTEN</button>
+        </div>
         <div class="meter-row"><span>ACTIVITEIT</span><b id="meterPct">0%</b></div>
         <div class="meter" title="Hoe actief ECO nu is: laag in stand-by, hoog tijdens luisteren, denken en spreken"><span id="meterFill"></span></div>
       </div>
