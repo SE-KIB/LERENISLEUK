@@ -271,7 +271,7 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
   .main-reactor{width:min(78vw,340px)}
   .readout{display:none}
   .caption{font-size:1.1rem;max-height:none}
-  .cmd{position:sticky;bottom:max(10px,env(safe-area-inset-bottom));z-index:5}
+  .cmd{position:sticky;bottom:max(10px,env(safe-area-inset-bottom));z-index:5;background:rgba(1,12,19,.97);box-shadow:0 -10px 24px rgba(1,7,12,.9)}
   .right .panel{max-height:45vh}
   .login{gap:10px}
   .login-reactor{width:min(200px,50vw)}
