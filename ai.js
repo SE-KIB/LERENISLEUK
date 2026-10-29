@@ -20,6 +20,7 @@ const STATE_LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWE
 function setState(s) {
   document.body.dataset.state = s;
   $("stateLabel").textContent = STATE_LABEL[s];
+  wakeOnState(s); // "Hé Eco" luistert alleen in stand-by, niet terwijl ECO luistert, denkt of praat
 }
 
 // ---------- Geluid (UI-tonen via Web Audio, geen bestanden) ----------
@@ -169,6 +170,7 @@ async function boot() {
   let skip = false;
   $("boot").onclick = () => { skip = true; };
   try { if (sessionStorage.getItem("eco-booted")) skip = true; } catch { /* privé-venster */ }
+  if (/luister/i.test(location.hash + location.search)) skip = true; // geopend via Siri/Hé Eco: meteen klaar
   const lines = [
     ["E.C.O. KERNEL v4.2.1 — SEKIBAR SYSTEMS", ""],
     ["Kernmodules laden", "OK"],
@@ -218,8 +220,21 @@ function render(session) {
     if (justLoggedIn) { sfx.open(); say(text); }
   }
   justLoggedIn = false;
-  if (matchMedia("(min-width: 901px)").matches) $("input").focus();
+  // Geopend met sekibar.nl/#luister (Siri-opdracht "Start Eco" of "Hé Eco"): meteen luisteren.
+  if (/luister/i.test(location.hash + location.search)) {
+    history.replaceState(null, "", location.pathname);
+    autoListen();
+  } else if (matchMedia("(min-width: 901px)").matches) $("input").focus();
 }
+function autoListen() {
+  setCaption("Ik luister…", "user");
+  setTimeout(() => {
+    listen();
+    // Wil de browser eerst een tik (iOS), toon dan een grote knop.
+    setTimeout(() => { if (!recording && !rec) $("tapTalk").hidden = false; }, 1800);
+  }, 400);
+}
+$("tapTalk").onclick = () => { $("tapTalk").hidden = true; unlockAudio(); unlockSpeech(); listen(); };
 let lastUserId;
 sb.auth.onAuthStateChange((_e, session) => {
   if ((session?.user.id ?? null) === lastUserId) return; // tokenverversing negeren
@@ -1032,6 +1047,61 @@ function convoNext(answered) {
   setTimeout(() => { if (convo.on && document.body.dataset.state === "idle" && !rec && !recording) listen(); }, 350);
 }
 
+// ---------- "Hé Eco": wekwoord zolang ECO open staat (spraakherkenning van de browser) ----------
+// Zegt je "Hé Eco" (of "hey echo", "oké eco"), dan luistert ECO met Whisper naar je vraag. Zeg je alles in één adem
+// ("Hé Eco, hoe laat begint water?"), dan gaat de rest meteen als vraag naar ECO.
+var wakeRec = null, wakeTimer = null, wakeFails = 0;
+const WAKE = /(?:^|\b)(?:h[eé]+[jy]?|hoi|hallo|ok[eé]?|yo)[\s,!.]*(?:eco|echo|ecco|eko|ekko|ego|eggo)\b[\s,!.]*(.*)$/i;
+const wakeOn = () => !!(Rec && $("wake")?.checked && !$("app").hidden && document.visibilityState === "visible");
+function wakeOnState(s) {
+  clearTimeout(wakeTimer);
+  if (s === "idle") wakeTimer = setTimeout(wakeStart, 700); else wakeStop();
+}
+function wakeStart() {
+  document.body.dataset.wake = wakeOn() ? "on" : "off";
+  if (!wakeOn() || wakeRec || rec || recording || document.body.dataset.state !== "idle") return;
+  const r = new Rec();
+  r.lang = "nl-NL"; r.continuous = true; r.interimResults = false;
+  r.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const m = WAKE.exec(e.results[i][0].transcript.trim());
+      if (m) { wakeFails = 0; wakeHit(m[1].trim()); return; }
+    }
+  };
+  r.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      $("wake").checked = false; document.body.dataset.wake = "off";
+      setCaption("Hé Eco heeft toegang tot de microfoon nodig.", "err");
+    } else if (e.error !== "no-speech" && e.error !== "aborted") wakeFails++;
+  };
+  r.onend = () => {
+    if (wakeRec !== r) return;
+    wakeRec = null;
+    clearTimeout(wakeTimer);
+    wakeTimer = setTimeout(wakeStart, Math.min(8000, 300 + wakeFails * 1500)); // blijven luisteren, rustiger na fouten
+  };
+  try { r.start(); wakeRec = r; } catch { /* al bezig */ }
+}
+function wakeStop() {
+  clearTimeout(wakeTimer);
+  const r = wakeRec; wakeRec = null;
+  try { r?.abort(); } catch { /* al gestopt */ }
+}
+function wakeHit(rest) {
+  wakeStop();
+  sfx.listen();
+  if (rest.replace(/[^a-zà-ÿ0-9]/gi, "").length > 3) { setCaption("› " + rest, "user"); ask({ text: rest }); }
+  else listen();
+}
+if (!Rec && $("wakeSwitch")) $("wakeSwitch").hidden = true;
+try { if ($("wake")) $("wake").checked = localStorage.getItem("eco-wake") === "1"; } catch { /* geen opslag */ }
+$("wake")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-wake", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  if (e.target.checked) { unlockAudio(); wakeStart(); setCaption("Zeg \"Hé Eco\" als je iets wilt vragen.", "user"); }
+  else { wakeStop(); document.body.dataset.wake = "off"; }
+});
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeStart(); else wakeStop(); });
+
 // ---------- Spraak in ----------
 // Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands
 // veel beter. Stopt vanzelf na een korte stilte. Terugval: de spraakherkenning van de browser.
@@ -1041,6 +1111,7 @@ if (!CAN_RECORD && !Rec) $("mic").hidden = true;
 
 function listen() {
   if (rec || recording) return;
+  wakeStop(); $("tapTalk").hidden = true;
   stopSpeaking(); turn++;
   warm();
   if (whisper) recordWhisper(); else listenBrowser();

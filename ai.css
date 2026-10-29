@@ -395,3 +395,9 @@ select.lab-id option{background:#02121a;color:var(--c2)}
   .right .panel.collapsed>.panel-h{margin-bottom:0;border-bottom:0;padding-bottom:0}
 }
 @media (max-width:900px) and (prefers-reduced-motion:reduce){.left,.scrim{transition:none}}
+
+/* "Tik om te praten" als ECO via Siri/Hé Eco opent maar de microfoon eerst een tik nodig heeft */
+.tap-talk{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:35;
+  padding:16px 22px;border:1px solid var(--c);background:rgba(0,30,45,.92);color:var(--c2);font-family:var(--f-head);font-size:.8rem;
+  letter-spacing:.2em;box-shadow:var(--glow);animation:pulse 1.4s ease-in-out infinite}
+body[data-wake="on"] #stateLabel::after{content:" · HÉ ECO";color:var(--muted)}
