@@ -186,10 +186,18 @@ function build(family, data) {
     if (data.weer.regen >= 30) txt(right, `${data.weer.regen}% regen`, 10, C.muted);
     if (data.weer.tip) { right.addSpacer(3); txt(right, data.weer.tip, 10, C.amber, { lines: 2, min: 0.8 }); }
   }
-  const extra = [...(data.deadlines || []).map((d) => `⚑ ${d}`), ...(family === "large" ? (data.actie || []).map((a) => `✉ ${a}`) : []), ...(data.melding ? [`⚠ ${data.melding}`] : [])];
+  // Lopende timer: telt live af op het beginscherm.
+  if (data.timer && new Date(data.timer.eind) > new Date()) {
+    right.addSpacer(4);
+    txt(right, `⏱ ${data.timer.label}`, 10, C.muted, { lines: 1, min: 0.8 });
+    const d = right.addDate(new Date(data.timer.eind));
+    d.applyTimerStyle(); d.font = Font.boldMonospacedSystemFont(14); d.textColor = C.cyan;
+  }
+  const extra = [...(data.deadlines || []).map((d) => `⚑ ${d}`), ...(family === "large" ? (data.actie || []).map((a) => `✉ ${a}`) : []),
+    ...(family === "large" ? (data.taken || []).map((t) => `☐ ${t}`) : []), ...(data.melding ? [`⚠ ${data.melding}`] : [])];
   if (extra.length) {
     w.addSpacer(family === "large" ? 8 : 4);
-    extra.slice(0, family === "large" ? 5 : 1).forEach((e) => txt(w, e, family === "large" ? 11 : 10, C.amber, { lines: 1, min: 0.8 }));
+    extra.slice(0, family === "large" ? 6 : 1).forEach((e) => txt(w, e, family === "large" ? 11 : 10, e.startsWith("☐") ? C.text : C.amber, { lines: 1, min: 0.8 }));
   }
   w.addSpacer();
   return w;

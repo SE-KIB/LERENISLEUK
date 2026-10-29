@@ -1,4 +1,4 @@
--- ECO-klok: de database roept de functie elke 5 minuten aan (ochtendbriefing + pushmelding, caches warm).
+-- ECO-klok: de database roept de functie elke 30 seconden aan (timers, ochtendbriefing + pushmelding, caches warm).
 -- De cron-sleutel wordt hier willekeurig gemaakt en staat alleen in ai_kv (geen policies: browser kan er niet bij).
 -- Idempotent: de sleutel blijft bestaan en cron.schedule met dezelfde naam werkt de taak bij.
 create extension if not exists pg_cron with schema pg_catalog;
@@ -10,7 +10,7 @@ on conflict (key) do nothing;
 
 select cron.schedule(
   'eco-tick',
-  '*/5 * * * *',
+  '30 seconds',
   $job$
   select net.http_post(
     url := 'https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/smooth-service',

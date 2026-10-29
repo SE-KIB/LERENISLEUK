@@ -30,8 +30,8 @@ function setState(s) {
 
 // ---------- Geluid (UI-tonen via Web Audio, geen bestanden) ----------
 let actx = null;
-function tone(freq, dur = 0.07, type = "sine", vol = 0.035, delay = 0) {
-  if (!$("sfx").checked) return;
+function tone(freq, dur = 0.07, type = "sine", vol = 0.035, delay = 0, force = false) {
+  if (!$("sfx").checked && !force) return;
   try {
     actx ||= new (window.AudioContext || window.webkitAudioContext)();
     const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
@@ -48,6 +48,8 @@ const sfx = {
   listen: () => tone(1240, 0.09, "sine", 0.04),
   reply: () => { tone(1040, 0.06); tone(780, 0.1, "sine", 0.03, 0.06); },
   error: () => { tone(220, 0.18, "sawtooth", 0.03); tone(170, 0.25, "sawtooth", 0.03, 0.15); },
+  // Wekker (ook als GELUID uit staat): vier keer een dubbele piep.
+  alarm: () => { for (let i = 0; i < 4; i++) { tone(1320, 0.12, "square", 0.05, i * 0.7, true); tone(1760, 0.16, "square", 0.05, i * 0.7 + 0.16, true); } },
 };
 
 // ---------- Arc reactor (SVG, twee keer gebruikt: login en HUD) ----------
@@ -221,6 +223,8 @@ function render(session) {
   loadConversations();
   warm();
   startRooster();
+  loadLists();
+  loadTimers();
   setTimeout(loadPush, 1500);
   const briefingNu = /briefing/i.test(location.hash);
   if (!$("messages").children.length && !briefingNu) {
@@ -349,6 +353,129 @@ for (const p of document.querySelectorAll(".right .panel[data-win]")) {
     on ? collapsed.add(p.dataset.win) : collapsed.delete(p.dataset.win);
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsed])); } catch { /* geen opslag */ }
   });
+}
+
+// ---------- Lijstjes (taken, boodschappen, notities) ----------
+const lijstNaam = (t) => t.trim().toLowerCase().replace(/^(de|het|mijn)\s+/, "").replace(/\s*lijst(je)?$/, "").trim().slice(0, 60);
+async function loadLists() {
+  const sinds = new Date(Date.now() - 12 * 3600000).toISOString(); // afgevinkt: nog even zichtbaar (terugzetten met een tik)
+  const { data, error } = await sb.from("ai_items").select("id,lijst,tekst,klaar").or(`klaar.eq.false,klaar_at.gt."${sinds}"`).order("created_at").limit(300);
+  const list = $("lsList");
+  list.innerHTML = "";
+  if (error) { list.innerHTML = `<li class="empty">LIJSTJES WORDEN INGESTELD…</li>`; $("lsCount").textContent = "—"; return; }
+  $("lsCount").textContent = String(data.filter((x) => !x.klaar).length);
+  if (!data.length) { list.innerHTML = `<li class="empty">LEEG · ZEG BV. "ZET MELK OP MIJN BOODSCHAPPENLIJST"</li>`; return; }
+  const per = new Map();
+  for (const it of data) (per.get(it.lijst) ?? per.set(it.lijst, []).get(it.lijst)).push(it);
+  const namen = [...per.keys()].sort((a, b) => (a === "taken" ? -1 : b === "taken" ? 1 : a.localeCompare(b)));
+  for (const naam of namen) {
+    const items = per.get(naam);
+    const h = document.createElement("li");
+    h.className = "ls-h"; h.innerHTML = `<span></span> <i>${items.filter((x) => !x.klaar).length}</i>`;
+    h.firstChild.textContent = naam.toUpperCase();
+    list.append(h);
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.className = it.klaar ? "done" : "";
+      li.innerHTML = `<label><input type="checkbox"><span></span></label><button type="button" title="Verwijderen" aria-label="Verwijderen">✕</button>`;
+      li.querySelector("span").textContent = it.tekst;
+      const cb = li.querySelector("input");
+      cb.checked = it.klaar;
+      cb.onchange = async () => {
+        li.classList.toggle("done", cb.checked); sfx.tick();
+        const { error: e } = await sb.from("ai_items").update({ klaar: cb.checked, klaar_at: cb.checked ? new Date().toISOString() : null }).eq("id", it.id);
+        if (e) { typeCaption("Bijwerken mislukt: " + e.message, "err"); loadLists(); return; }
+        $("lsCount").textContent = String($("lsList").querySelectorAll("li:not(.ls-h):not(.done)").length);
+      };
+      li.querySelector("button").onclick = async () => {
+        const { error: e } = await sb.from("ai_items").delete().eq("id", it.id);
+        if (e) { typeCaption("Verwijderen mislukt: " + e.message, "err"); return; }
+        sfx.tick(); loadLists();
+      };
+      list.append(li);
+    }
+  }
+}
+// "boodschappen: melk, brood" → twee punten op de boodschappenlijst; zonder naam op "taken".
+$("lsForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const raw = $("lsInput").value.trim();
+  if (!raw || !currentUserId) return;
+  const m = /^([\p{L} ]{2,24}):\s*(.+)$/u.exec(raw);
+  const lijst = m ? lijstNaam(m[1]) || "taken" : "taken";
+  const items = (m ? m[2].split(/\s*,\s*/) : [raw]).map((t) => t.trim().slice(0, 500)).filter(Boolean);
+  const { error } = await sb.from("ai_items").insert(items.map((tekst) => ({ user_id: currentUserId, lijst, tekst })));
+  if (error) { typeCaption("Toevoegen mislukt: " + error.message, "err"); return; }
+  $("lsInput").value = ""; sfx.tick(); loadLists();
+};
+
+// ---------- Timers en herinneringen ----------
+let timers = [], timerLoop = null;
+const duurTekst = (sec) => sec < 90 ? `${Math.round(sec)} seconden` : sec < 5400 ? `${Math.round(sec / 60)} minuten` : `${Math.floor(sec / 3600)} uur${Math.round(sec % 3600 / 60) ? ` en ${Math.round(sec % 3600 / 60)} minuten` : ""}`;
+const klokTijd = (ms) => new Date(ms).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
+async function loadTimers() {
+  const { data, error } = await sb.from("ai_timers").select("id,label,soort,eind,duur_sec").eq("status", "loopt").order("eind").limit(20);
+  if (error || !Array.isArray(data)) return;
+  const now = Date.now();
+  timers = [];
+  for (const t of data) {
+    const end = Date.parse(t.eind);
+    if (now - end > 60000) { // ging af terwijl ECO dicht was (en de klok miste hem): stil afronden en kort melden
+      sb.from("ai_timers").update({ status: "klaar" }).eq("id", t.id).eq("status", "loopt").then(() => {});
+      typeCaption(`⏰ ${t.label || (t.soort === "herinnering" ? "Herinnering" : "Timer")} ging af om ${klokTijd(end)}.`);
+      continue;
+    }
+    timers.push({ ...t, end });
+  }
+  renderTimers();
+}
+function renderTimers() {
+  const box = $("timers");
+  box.innerHTML = "";
+  if (!timers.length) { clearInterval(timerLoop); timerLoop = null; return; }
+  for (const t of timers) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "timer-chip"; b.title = `Gaat af om ${klokTijd(t.end)} · tik om te stoppen`;
+    b.innerHTML = `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" class="tr-bg"/><circle cx="18" cy="18" r="15" class="tr-fg"/></svg><b></b><span></span>`;
+    b.querySelector("span").textContent = (t.label || (t.soort === "herinnering" ? `om ${klokTijd(t.end)}` : "timer")).toUpperCase();
+    b.onclick = () => stopTimer(t);
+    t.el = b; box.append(b);
+  }
+  tickTimers();
+  timerLoop ||= setInterval(tickTimers, 250);
+}
+const fmtLeft = (ms) => {
+  const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
+};
+function tickTimers() {
+  const now = Date.now();
+  for (const t of [...timers]) {
+    const left = t.end - now, total = Math.max(1, (t.duur_sec || 60) * 1000);
+    if (t.el) {
+      t.el.querySelector("b").textContent = fmtLeft(left);
+      t.el.querySelector(".tr-fg").style.strokeDashoffset = String(94.25 * (1 - Math.max(0, Math.min(1, left / total))));
+      t.el.classList.toggle("soon", left < 60000);
+    }
+    if (left <= 0) timerDone(t);
+  }
+}
+async function stopTimer(t) {
+  timers = timers.filter((x) => x !== t); renderTimers(); sfx.tick();
+  await sb.from("ai_timers").update({ status: "gestopt" }).eq("id", t.id);
+  typeCaption(`Timer ${t.label ? `voor ${t.label} ` : ""}gestopt.`);
+}
+async function timerDone(t) {
+  timers = timers.filter((x) => x !== t); renderTimers();
+  const tekst = t.soort === "herinnering" ? `Herinnering: ${t.label || "het is tijd"}.` : t.label ? `Je timer voor ${t.label} is klaar.` : `Je timer van ${duurTekst(t.duur_sec || 60)} is klaar.`;
+  sfx.alarm();
+  typeCaption("⏰ " + tekst);
+  if ($("speak").checked && document.body.dataset.state === "idle") setTimeout(() => say(tekst), 2900);
+  // Afvinken op de server, zodat de klok geen dubbele melding stuurt. Lukte dat en staat ECO op de achtergrond: zelf een melding.
+  const { data } = await sb.from("ai_timers").update({ status: "klaar" }).eq("id", t.id).eq("status", "loopt").select("id");
+  if (data?.length && document.hidden && window.Notification?.permission === "granted") {
+    navigator.serviceWorker?.getRegistration().then((r) => r?.showNotification(`⏰ ${t.label || "ECO"}`, { body: tekst, tag: `eco-timer-${t.id}`, icon: "icons/icon-192.png" })).catch(() => {});
+  }
 }
 
 // ---------- Archief ----------
@@ -701,6 +828,7 @@ const TOOL_LABEL = {
   agenda_bekijken: "Agenda bekijken", afspraak_maken: "Afspraak inplannen", weer: "Weer ophalen", web_zoeken: "Op internet zoeken",
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
   mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
+  lijst: "Lijstje bijwerken", timer: "Timer zetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
@@ -735,7 +863,7 @@ async function warm() {
   lastWarm = Date.now();
   try { fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ warm: true, loc: myLoc }) }).catch(() => {}); } catch { /* niet ingelogd */ }
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !$("app").hidden) warm(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !$("app").hidden) { warm(); loadTimers(); loadLists(); } });
 $("input").addEventListener("focus", warm); // je gaat typen: server alvast klaarzetten
 
 let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ongeldig
@@ -752,6 +880,8 @@ function applyUi(ev, afterDone) {
   else if (ev.onderdeel === "menu") setDrawer(true);
   else if (ev.onderdeel === "nieuw_gesprek") afterDone.push(() => $("newChat").click());
   else if (ev.onderdeel === "archief") afterDone.push(() => loadConversations());
+  else if (ev.onderdeel === "lijstjes") loadLists();
+  else if (ev.onderdeel === "timer" || ev.onderdeel === "timers") loadTimers();
 }
 async function ask({ text = "", audio = null }) {
   const my = ++turn;
@@ -1310,7 +1440,9 @@ function clamp(w) {
 }
 function initLayout() {
   if (!DESKTOP.matches || hud.hidden || hud.classList.contains("free")) return;
-  const saved = loadLayout(), base = hud.getBoundingClientRect();
+  let saved = loadLayout();
+  const base = hud.getBoundingClientRect();
+  if (wins.some((w) => !saved[w.dataset.win])) saved = {}; // nieuw paneel (bv. LIJSTJES): standaardindeling, anders overlapt het
   // Startposities = de standaardindeling zoals de grid die nu toont.
   const measured = new Map(wins.map((w) => {
     const r = w.getBoundingClientRect();
