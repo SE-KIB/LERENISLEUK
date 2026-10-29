@@ -8,6 +8,7 @@ export async function eco(body) {
     method: "POST",
     headers: { "content-type": "application/json", "x-jarvis-key": process.env.JARVIS_KEY },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(170000), // de functie stopt zelf na ~150 s
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`ECO ${r.status}: ${String(j.error ?? "").slice(0, 200)}`);

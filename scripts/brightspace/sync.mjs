@@ -35,7 +35,7 @@ async function capture(page) {
 }
 
 let klaar = 0;
-const fouten = [];
+const fouten = [], deels = [];
 for (const p of pages) {
   const page = await ctx.newPage();
   try {
@@ -49,9 +49,19 @@ for (const p of pages) {
     }
     const files = await capture(page);
     if (!files.length) throw new Error("pagina leeg");
-    const r = await eco({ planning: { vak: p.vak, files } });
+    // In kleine stukjes, zodat elke aanroep ruim binnen de tijdslimiet van de server blijft: eerst de tekst (snel en volledig),
+    // daarna elke screenshot apart (rode afwijkende tijden, opmaak). Elk stuk vervangt alleen de dagen die erin staan.
+    const tekst = files.filter((f) => f.mime === "text/plain"), shots = files.filter((f) => f.mime !== "text/plain");
+    let gelukt = 0;
+    const stapFouten = [];
+    for (const deel of [tekst, ...shots.map((f) => [f])].filter((d) => d.length)) {
+      try { await eco({ planning: { vak: p.vak, files: deel } }); gelukt++; }
+      catch (e) { stapFouten.push(String(e.message).split("\n")[0]); }
+    }
+    if (!gelukt) throw new Error(stapFouten[0] || "niets gelezen");
+    if (stapFouten.length) deels.push(`${p.vak}: ${stapFouten.length} van ${gelukt + stapFouten.length} delen niet gelezen`);
     klaar++;
-    console.log(`Vak ${klaar}/${pages.length}: ${r.aantal} activiteiten.`);
+    console.log(`Vak ${klaar}/${pages.length}: ${gelukt} van ${gelukt + stapFouten.length} delen gelezen.`);
   } catch (e) {
     fouten.push(`${p.vak}: ${String(e.message).split("\n")[0].replace(/https?:\/\/\S+/g, "(link)").slice(0, 120)}`);
     console.log(`Vak ${klaar + fouten.length}/${pages.length} mislukt.`);
@@ -60,4 +70,4 @@ for (const p of pages) {
 // Ververste cookies terugzetten, zodat de koppeling zo lang mogelijk geldig blijft.
 await eco({ bs: { actie: "save", state: await ctx.storageState() } }).catch(() => {});
 await browser.close();
-await status(fouten.length === 0, fouten.length ? `bijgewerkt, maar: ${fouten.join("; ")}` : `${klaar} vak${klaar === 1 ? "" : "ken"} bijgewerkt`);
+await status(fouten.length === 0, fouten.length ? `bijgewerkt, maar: ${[...fouten, ...deels].join("; ")}` : `${klaar} vak${klaar === 1 ? "" : "ken"} bijgewerkt${deels.length ? ` (${deels.join("; ")})` : ""}`);
