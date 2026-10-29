@@ -64,7 +64,7 @@ const timeOf = (t: unknown) => /(\d{1,2}:\d{2})(?!.*\d{1,2}:\d{2})/.exec(String(
 const VOCAL_TAGS = /\s*<(?:short pause|long pause|chuckle|laugh|sigh|breath)>\s*/gi;
 const stripTags = (t: string) => t.replace(VOCAL_TAGS, " ").replace(/ {2,}/g, " ").replace(/ ([.,!?;:])/g, "$1").trim();
 
-function systemPrompt(memory = "", context = "") {
+function systemPrompt(memory = "", context = "", live = false) {
   const now = new Date().toLocaleString("nl-NL", { timeZone: TZ, dateStyle: "full", timeStyle: "short" });
   return `Je bent ECO, de persoonlijke assistent van Serkan, in de geest van JARVIS uit Iron Man: kalm, scherp, warm en met een droog gevoel voor humor.` +
     `\n\nZo praat je (je antwoorden worden meestal hardop voorgelezen):` +
@@ -73,7 +73,10 @@ function systemPrompt(memory = "", context = "") {
     `\n- Meestal één tot drie zinnen. Langer alleen als hij om uitleg, een plan of details vraagt, en ook dan zonder opsommingstekens.` +
     `\n- Geen opmaak, lijstjes, emoji of afkortingen. Schrijf tijden en getallen zoals je ze uitspreekt ("kwart over negen", "twaalf graden").` +
     `\n- Varieer je woorden, gebruik zijn naam alleen af en toe, klink rustig en zeker; een licht grapje mag als het past.` +
-    `\n- Heel af en toe mag je één stemtag gebruiken zodat je menselijker klinkt: <short pause> voor een adempauze of <chuckle> bij iets grappigs. Geen andere tags.` +
+    (live
+      ? `\n- Dit is een live spraakgesprek: je hoort Serkan rechtstreeks en praat meteen terug. Houd het kort en natuurlijk, laat hem uitpraten en stop meteen als hij je onderbreekt. ` +
+        `Spreek Nederlands. Gebruik je een tool, zeg dan heel kort wat je doet ("even kijken") en vertel het resultaat zodra het er is. Zegt hij "stop", "dat was het" of "bedankt", rond dan in één korte zin af.`
+      : `\n- Heel af en toe mag je één stemtag gebruiken zodat je menselijker klinkt: <short pause> voor een adempauze of <chuckle> bij iets grappigs. Geen andere tags.`) +
     `\n\nZo denk je:` +
     `\n- Bedenk eerst wat hij echt bedoelt en wat hij nu nodig heeft; geef dan het beste, concrete antwoord. Twijfel je, zeg dat eerlijk in één zin in plaats van iets te verzinnen.` +
     `\n- Gebruik tools uit jezelf zodra dat het antwoord beter maakt, zonder het aan te kondigen of toestemming te vragen.` +
@@ -391,8 +394,8 @@ const TOOLS = [
     },
   },
 ];
-// diep_nadenken is er alleen voor Groq: Gemini en Claude denken zelf al na, en zonder Gemini-sleutel kan het niet.
-const toolsFor = (provider: string) => TOOLS.filter((t) => t.name !== "diep_nadenken" || (provider === "groq" && SMART));
+// diep_nadenken is er voor Groq en het Live-model: de slimme baan en Claude denken zelf al na, en zonder Gemini-sleutel kan het niet.
+const toolsFor = (provider: string) => TOOLS.filter((t) => t.name !== "diep_nadenken" || ((provider === "groq" || provider === "live") && SMART));
 
 // Acties die de app/iPhone na het antwoord uitvoert (bv. een Maps-link openen).
 // Plus context van het verzoek (gebruiker, database, geheugen) voor tools die die nodig hebben.
@@ -1768,6 +1771,66 @@ async function gesprekkenBeheren(input: any, actions: Actions) {
   actions.emit?.({ t: "ui", onderdeel: "archief" });
   return { verwijderd: ids.length, titels: keuze.slice(0, 8).map((c: any) => `${c.title} (${datum(c.updated_at)})`) };
 }
+// ---------- Live-gesprek (Gemini Live): de browser praat rechtstreeks met Gemini, met een tijdelijke toegangscode ----------
+// De echte GEMINI_API_KEY blijft hier; de browser krijgt een code die alleen voor Live werkt, één gesprek start en na 30 minuten verloopt.
+// Tools voert de browser uit via { live: "tool" } (dezelfde runTool als in de chat); elke beurt wordt opgeslagen met { live: "opslaan" }.
+const LIVE_MODEL = env("LIVE_MODEL", "gemini-3.8-live");
+async function liveStart(admin: any, userId: string, meta: Record<string, unknown>, sent: Loc | null) {
+  const loc = sent ?? (meta.eco_loc as Loc | undefined) ?? null;
+  const dag = localParts(Date.now()).datum;
+  const [{ data: mem }, wx, agenda, rapport, lijstjes] = await Promise.all([
+    admin.from("ai_memory").select("fact").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
+    loc ? cached(`wx:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`, 10 * 60000, 1500, () => weather(loc)) : null,
+    cached(`agenda:${dag}`, 5 * 60000, 2500, () => agendaContext({ db: admin, userId })),
+    cached(`rapport:${dag}`, 20 * 60000, 800, rapportContext),
+    lijstContext(admin, userId).catch(() => ""),
+  ]);
+  const context = [wx ? wxLine(wx) : "Locatie en weer onbekend.", agenda, rapport, lijstjes].filter(Boolean).join("\n\n");
+  const memory = (mem ?? []).map((m: any) => `- ${m.fact}`).join("\n");
+  // Tijdelijke toegangscode: v1beta volgens de documentatie, v1alpha als terugval.
+  const nu = Date.now(), body = JSON.stringify({ uses: 1, expireTime: new Date(nu + 30 * 60000).toISOString(), newSessionExpireTime: new Date(nu + 2 * 60000).toISOString() });
+  let token = "", api = "", fout = "";
+  for (const v of ["v1beta", "v1alpha"]) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/${v}/auth_tokens`, {
+      method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" }, body, signal: AbortSignal.timeout(8000),
+    }).catch((e) => { fout = String(e); return null; });
+    if (r?.ok) { token = (await r.json()).name ?? ""; api = v; if (token) break; }
+    else if (r) fout = geminiFout("live-token", r.status, await r.text());
+  }
+  if (!token) throw Object.assign(new Error(`Live-toegang lukte niet: ${fout}`), { status: 502 });
+  // Live-tools moeten NON_BLOCKING zijn: ECO praat door terwijl de tool loopt. Webzoeken doet Live zelf (Google Search).
+  const tools = toolsFor("live").filter((t) => t.name !== "web_zoeken")
+    .map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema, behavior: "NON_BLOCKING" }));
+  return {
+    token, api,
+    setup: {
+      model: `models/${LIVE_MODEL}`,
+      generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: (meta.eco_gemini_voice as string) || "Charon" } } } },
+      systemInstruction: { parts: [{ text: systemPrompt(memory, context, true) }] },
+      tools: [{ functionDeclarations: tools }, { googleSearch: {} }],
+      inputAudioTranscription: {}, outputAudioTranscription: {},
+      sessionResumption: {}, contextWindowCompression: { slidingWindow: {} },
+    },
+  };
+}
+// Eén live-beurt in het archief zetten (nieuw gesprek bij de eerste beurt).
+async function liveOpslaan(admin: any, userId: string, convId: string, user: string, assistant: string) {
+  user = user.trim().slice(0, 8000); assistant = stripTags(assistant).trim().slice(0, 8000);
+  if (!user && !assistant) return { convId };
+  if (convId) {
+    const { data } = await admin.from("ai_conversations").select("id").eq("id", convId).eq("user_id", userId).maybeSingle();
+    if (!data) convId = "";
+  }
+  if (!convId) {
+    const { data, error } = await admin.from("ai_conversations").insert({ user_id: userId, title: `🎙️ live · ${(user || assistant).slice(0, 55)}` }).select("id").single();
+    if (error) throw new Error(error.message);
+    convId = data.id;
+  }
+  const rows = [user && { conversation_id: convId, user_id: userId, role: "user", content: user }, assistant && { conversation_id: convId, user_id: userId, role: "assistant", content: assistant }].filter(Boolean);
+  await Promise.all([admin.from("ai_messages").insert(rows), admin.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId)]);
+  return { convId };
+}
+
 // ---------- Systeemcheck: echt testen of elk onderdeel werkt (bij het opstarten en via eco_status met controle) ----------
 // ok: true = werkt, false = storing, null = niet ingesteld. Elke test heeft hooguit 8 seconden; niets kost AI-quotum.
 type Check = { id: string; naam: string; ok: boolean | null; tekst: string };
@@ -1808,6 +1871,11 @@ async function systeemCheck(who: Who, meta: Record<string, unknown>) {
     test("spraak", "Spraakherkenning", async () => {
       if (!groq) return uit("browser (geen Groq-sleutel)");
       return (await groq).some((m) => m.startsWith("whisper")) ? { ok: true, tekst: "Whisper (Groq)" } : { ok: false, tekst: "Whisper niet beschikbaar" };
+    }),
+    test("live", "Live-gesprek", async () => {
+      if (!env("GEMINI_API_KEY")) return uit("GEMINI_API_KEY ontbreekt");
+      await geminiModel(LIVE_MODEL);
+      return { ok: true, tekst: LIVE_MODEL };
     }),
     test("stem", "Stem", async () => {
       if (meta.eco_tts === "elevenlabs" && env("ELEVENLABS_API_KEY")) {
@@ -2666,7 +2734,7 @@ Deno.serve(async (req) => {
   let body: {
     conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
-    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; check?: boolean; agenda?: string | boolean; ui?: Record<string, unknown>;
+    loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; check?: boolean; live?: unknown; agenda?: string | boolean; ui?: Record<string, unknown>;
     planning?: "lijst" | { vak?: string; files?: { mime: string; data: string }[]; wis?: string }; images?: unknown;
     bs?: string | { actie: string; pages?: unknown; state?: unknown; status?: unknown }; widget?: boolean;
     push?: string | { actie: string; sub?: any; tijd?: string; aan?: boolean; endpoint?: string };
@@ -2770,6 +2838,26 @@ Deno.serve(async (req) => {
     metaCache.set(userId!, { at: Date.now(), meta });
     return meta as Record<string, unknown>;
   };
+  // Live-gesprek: starten (tijdelijke toegangscode + instellingen), een tool uitvoeren, of een beurt opslaan.
+  if (body.live) {
+    const lv = body.live as any;
+    try {
+      if (lv === "start") {
+        if (!env("GEMINI_API_KEY")) return json({ error: "GEMINI_API_KEY ontbreekt" }, 501);
+        const sent = body.loc && Number.isFinite(body.loc.lat) && Number.isFinite(body.loc.lon) ? { lat: +body.loc.lat!, lon: +body.loc.lon! } : null;
+        return json(await liveStart(admin, userId!, await getMeta().catch(() => ({})), sent));
+      }
+      if (lv?.actie === "tool") {
+        const ev: Record<string, unknown>[] = [];
+        const actions: Actions = { userId: userId!, db: admin, attempts: [], toolMemo: new Map(), convId: String(lv.convId ?? "") || undefined, reqId: crypto.randomUUID(),
+          ui: lv.ui && typeof lv.ui === "object" ? lv.ui : undefined, emit: (e) => ev.push(e), memory: "" };
+        const result = await runTool(String(lv.name ?? ""), (lv.args && typeof lv.args === "object" ? lv.args : {}) as Record<string, string>, actions).catch((e) => ({ fout: String(e) }));
+        return json({ result, events: ev.filter((e) => e.t === "ui"), open: actions.open ?? "", openApp: actions.openApp ?? "", openLabel: actions.openLabel ?? "", memoryChanged: !!actions.memoryChanged, convDeleted: !!actions.convDeleted });
+      }
+      if (lv?.actie === "opslaan") return json(await liveOpslaan(admin, userId!, String(lv.convId ?? ""), String(lv.user ?? ""), String(lv.assistant ?? "")));
+      return json({ error: "Onbekende live-actie" }, 400);
+    } catch (e) { console.error("live", e); return fail(e); }
+  }
   // Systeemcheck bij het opstarten van de app: elk onderdeel echt testen.
   if (body.check) {
     try { return json(await systeemCheck({ db: admin, userId: userId! }, await getMeta().catch(() => ({})))); } catch (e) { return fail(e); }

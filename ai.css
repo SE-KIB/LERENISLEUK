@@ -203,6 +203,7 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .mic:hover{background:rgba(0,225,255,.2)}
 .mic.on{border-color:var(--amber);background:rgba(255,177,42,.18);box-shadow:0 0 16px rgba(255,177,42,.6);animation:ping 1s infinite}
 .mic.on svg{fill:var(--amber)}
+.mic.live{border-color:#5dffb0;background:rgba(93,255,176,.16);box-shadow:0 0 18px rgba(93,255,176,.55);animation:ping 1.6s infinite}.mic.live svg{fill:#5dffb0}
 .mic.cam{width:38px;height:38px;margin-bottom:2px}
 .mic.cam.has{border-color:#5dffb0;background:rgba(93,255,176,.14)}
 .mic.cam.has svg{fill:#5dffb0}

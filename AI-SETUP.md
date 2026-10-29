@@ -287,6 +287,24 @@ Gemini (gratis) kijkt ernaar. In het archief bewaart ECO alleen "📷 foto" bij 
 Vraag "weet je nog wat je zei over Tokio?" of "waar hadden we het vorige week over mijn verslag?": ECO zoekt in al je
 eerdere gesprekken en vat het samen met de datum. In het menu staat bij ARCHIEF ook een zoekveld (zoekt in titels én tekst).
 
+## Live-gesprek (realtime, zoals JARVIS) — gratis
+Staat **LIVE** aan (BEDIENING, standaard aan), dan praat je realtime met ECO via **Gemini 3.8 Live** (gratis laag): hij hoort je
+stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en je kunt hem altijd onderbreken.
+- **Starten:** ECO openen (beginscherm, "Hé Siri, start Eco" of "Hé Eco") of op de microfoon tikken. Op de iPhone is soms één tik
+  nodig voordat geluid mag (regel van Apple); dan verschijnt de knop *TIK OM LIVE TE PRATEN*.
+- **Stoppen:** zeg "stop", "oké stop maar", "dat was het" of "bedankt", of tik op de groene microfoon. Na een minuut stilte hangt
+  ECO vanzelf op (spaart batterij en quotum). "Stop de muziek" of "bedankt, hoe laat is het?" stopt het gesprek niet.
+- **Wat ECO weet en kan:** zijn karakter, wat hij over je onthoudt, je agenda van vandaag en morgen (Brightspace gaat voor), het weer
+  en je lijstjes. Tools werken tijdens het gesprek (timer, lijstjes, agenda, Spotify, WhatsApp, diep nadenken, …); ECO praat
+  ondertussen door. Actuele dingen zoekt hij op met Google Search. Elke beurt komt in het archief ("🎙️ live · …").
+- **Typen** tijdens een live gesprek: ECO antwoordt hardop in hetzelfde gesprek. Met een foto gaat de vraag via de gewone weg.
+- **Veilig:** de echte `GEMINI_API_KEY` blijft op de server; de app krijgt per gesprek een tijdelijke code die alleen voor Live
+  werkt en na 30 minuten verloopt. Elke ~10 minuten verbindt ECO ongemerkt opnieuw (sessiehervatting).
+- **Echo:** zonder oortjes kan de microfoon ECO's eigen stem horen. ECO laat tijdens zijn eigen stem alleen geluid door dat duidelijk
+  harder is dan zijn echo; met oortjes werkt het het best.
+- **Terugval:** lukt Live niet (quotum op, storing), dan zegt ECO dat en werkt hij tien minuten op de gewone manier (Whisper +
+  Groq/Gemini + stem). Model instelbaar met secret `LIVE_MODEL` (standaard `gemini-3.8-live`); de systeemcheck test het.
+
 ## Onderbreken
 Staat **ONDERBREKEN** aan (BEDIENING, standaard aan), dan luistert ECO mee terwijl hij praat. Begin je te praten, dan stopt hij
 meteen en neemt hij je vraag op. Tikken op de microfoon werkt ook altijd. Op de iPhone klinkt ECO wat zachter zolang hij meeluistert
@@ -345,7 +363,9 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 - 🎙️-knop of **spatie ingedrukt houden** om te praten; antwoorden worden voorgelezen (uit te zetten).
 - **Mobiel:** swipe van links naar rechts (of tik ☰ MENU) voor archief, bediening, weer en status; swipe terug of tik ernaast om te
   sluiten. Tik op een paneeltitel (TRANSCRIPT, ROOSTER, PROFIEL) om het in of uit te klappen.
-- **GESPREK** (bij BEDIENING): handsfree praten. Na elk antwoord luistert ECO vanzelf weer; zeg "stop" of "bedankt" om te pauzeren.
+- **GESPREK** (bij BEDIENING): handsfree praten zonder Live. Na elk antwoord luistert ECO vanzelf weer; zeg "stop", "oké stop maar" of
+  "dat was het" en hij stopt meteen (ook "Hé Eco" luistert dan niet meer mee tot je weer op de microfoon tikt). Hoort ECO zichzelf
+  terug via de speaker, dan antwoordt hij daar niet op maar wacht hij.
   Tik tijdens het praten op de microfoon om ECO te onderbreken.
 - Spraakherkenning werkt in Chrome, Edge en Safari.
 
