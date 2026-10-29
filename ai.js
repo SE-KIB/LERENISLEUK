@@ -1609,6 +1609,7 @@ async function liveStart(firstText = "", vanzelf = false) {
     live.idle = setInterval(liveIdle, 5000);
     live.meter = setInterval(liveMeter, 100);
     $("micMeter").hidden = false;
+    $("zieBtn").hidden = false;
     setTimeout(liveMicWatch, 2500); // hoort ECO echt iets? Zo niet: andere microfoon
     setState("listening"); sfx.listen();
     $("stVoice").textContent = "LIVE"; $("stVoice").className = "ok";
@@ -1871,7 +1872,7 @@ function liveTurnDone() {
 // Een minuut niets gezegd en niets te horen: ophangen (spaart batterij en het gratis quotum).
 function liveIdle() {
   if (!live.on || pcmSources.size) return;
-  if (Date.now() - live.lastActivity > 60000) liveStop("Live gesprek gepauzeerd na een minuut stilte. Tik op de microfoon om verder te praten.");
+  if (Date.now() - live.lastActivity > (live.zie ? 180000 : 60000)) liveStop("Live gesprek gepauzeerd na een tijd stilte. Tik op de microfoon om verder te praten.");
 }
 
 // Tools: de server voert ze uit; ECO praat ondertussen door (NON_BLOCKING) en vertelt het resultaat zodra het er is.
@@ -1934,6 +1935,7 @@ function liveStop(msg = "", fout = false) {
   live.on = false; live.ready = false;
   clearInterval(live.idle); clearInterval(live.meter);
   $("micMeter").hidden = true;
+  zieStop(); $("zieBtn").hidden = true;
   try { live.ws?.close(1000); } catch { /* al dicht */ }
   liveMicLos();
   for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
@@ -1946,6 +1948,46 @@ function liveStop(msg = "", fout = false) {
   if (msg) setCaption(msg, fout ? "err" : "user");
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && live.on) liveStop(); });
+
+// ---------- Meekijken in Live: je scherm (computer) of camera (telefoon), ongeveer één beeld per seconde naar Gemini ----------
+// Starten kan alleen met een tik (de browser vraagt toestemming); "stop delen" in de browser of nog een tik stopt het.
+async function zieStart() {
+  if (!live.ready) return;
+  if (live.zie) return zieStop("ECO kijkt niet meer mee.");
+  const scherm = !!navigator.mediaDevices?.getDisplayMedia && !matchMedia("(pointer: coarse)").matches;
+  try {
+    const stream = scherm
+      ? await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 2 }, audio: false })
+      : await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: false });
+    if (!live.ready) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const video = $("ziePreview"), canvas = document.createElement("canvas"), c2 = canvas.getContext("2d");
+    video.srcObject = stream; video.hidden = false;
+    await video.play().catch(() => {});
+    live.zie = { stream, soort: scherm ? "scherm" : "camera", beelden: 0, timer: setInterval(() => {
+      if (!live.ready || !video.videoWidth) return;
+      const k = Math.min(1, 768 / Math.max(video.videoWidth, video.videoHeight)); // klein genoeg voor snelheid, groot genoeg om tekst te lezen
+      canvas.width = Math.round(video.videoWidth * k); canvas.height = Math.round(video.videoHeight * k);
+      c2.drawImage(video, 0, 0, canvas.width, canvas.height);
+      liveSend({ realtimeInput: { video: { data: canvas.toDataURL("image/jpeg", 0.6).split(",")[1], mimeType: "image/jpeg" } } });
+      live.zie.beelden++;
+    }, 1000) };
+    stream.getVideoTracks()[0].addEventListener("ended", () => zieStop("ECO kijkt niet meer mee."));
+    $("zieBtn").classList.add("aan");
+    live.lastActivity = Date.now();
+    setCaption(scherm ? "👁 ECO kijkt mee op je scherm. Vraag maar: wat zie je?" : "👁 ECO kijkt mee met je camera. Vraag maar: wat zie je?", "user");
+  } catch (e) { setCaption(`Meekijken lukte niet (${e.name === "NotAllowedError" ? "geen toestemming" : e.message}).`, "err"); }
+}
+function zieStop(msg = "") {
+  const z = live.zie;
+  if (!z) return;
+  live.zie = null;
+  clearInterval(z.timer);
+  z.stream.getTracks().forEach((t) => t.stop());
+  $("ziePreview").srcObject = null; $("ziePreview").hidden = true;
+  $("zieBtn").classList.remove("aan");
+  if (msg && live.on) setCaption(msg, "user");
+}
+$("zieBtn").onclick = zieStart;
 
 // ---------- Microfoon kiezen en testen (BEDIENING) ----------
 // De keuze geldt voor Live, Whisper en onderbreken. TEST laat acht seconden zien of ECO je echt hoort.
