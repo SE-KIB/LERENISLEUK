@@ -40,13 +40,24 @@ jobs:
         run: |
           Copy-Item ..\ai.css ui\ai.css
           Set-Content ui\build.txt "${{ github.run_number }}"  # NOVA vergelijkt dit nummer om zichzelf bij te werken
-          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+          # Piper (Nederlandse stem): alleen de uitspraakregels van espeak-ng mee, niet de Arabische/Hebreeuwse modellen
+          $piper = python -c "import os, piper; print(os.path.dirname(piper.__file__))"
+          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --add-data "$piper\espeak-ng-data;piper\espeak-ng-data" --hidden-import piper.espeakbridge --collect-binaries onnxruntime --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+          "NOVA.exe: {0:N0} MB" -f ((Get-Item dist\NOVA.exe).Length / 1MB)
       - name: Zelftest van de exe
         shell: pwsh
         run: |
+          # De Nederlandse stem alvast neerzetten (zoals NOVA zelf doet als hij online is), zodat de zelftest echt een zin maakt
+          $stem = "$env:APPDATA\NOVA\stem"
+          New-Item -ItemType Directory -Force $stem | Out-Null
+          foreach ($ext in ".onnx.json", ".onnx") {
+            Invoke-WebRequest "https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium$ext" -OutFile "$stem\nl_BE-nathalie-medium$ext"
+          }
           $p = Start-Process -FilePath nova\dist\NOVA.exe -ArgumentList "--selftest" -Wait -PassThru
-          Get-Content "$env:APPDATA\NOVA\zelftest.txt"
+          $rapport = Get-Content "$env:APPDATA\NOVA\zelftest.txt"
+          $rapport
           if ($p.ExitCode -ne 0) { throw "zelftest faalde (code $($p.ExitCode))" }
+          if (-not ($rapport -match "^OK +Nederlandse stem \(Piper\): nl_BE-nathalie-medium")) { throw "de Nederlandse stem (Piper) werkt niet in de exe" }
       - name: Proef met venster (opent de ECO-HUD?)
         shell: pwsh
         run: |

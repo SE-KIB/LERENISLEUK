@@ -38,6 +38,8 @@ class NovaApp:
         self.conv = None
         self.bezig = False
         self.spreek_slot = threading.Lock()
+        self.stem_info = None  # (welke stem sprak, waarom de betere stem niet lukte), voor SYSTEEMSTATUS
+        self.stem_gemeld = ""
 
     def start(self):
         self.brug.start()
@@ -58,15 +60,28 @@ class NovaApp:
     def status_info(self):
         return {"naam": self.cfg["naam"], "versie": self.versie(), "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"]}
 
+    def stem_status(self):
+        """Welke stem NOVA gebruikt: de laatste die echt sprak (met de reden als hij terugviel), anders de stem die nu aan de beurt is."""
+        if self.stem_info:
+            naam, reden = self.stem_info
+            return {"stem": naam, "stem_reden": reden, "stem_soort": "bad" if naam.startswith("GEEN") else "warn" if reden else "ok"}
+        import nova_stem as stem
+        if self.brug.online:
+            return {"stem": "GEMINI (ECO)", "stem_reden": "", "stem_soort": "ok"}
+        if stem.piper_klaar():
+            return {"stem": "PIPER (NATHALIE)", "stem_reden": "", "stem_soort": "ok"}
+        return {"stem": "NOG NIET GEDOWNLOAD", "stem_reden": "De Nederlandse stem wordt gedownload zodra NOVA online is.", "stem_soort": "warn"}
+
     def toon_status(self):
         try:
             import nova_stem as stem
             spraak = "WHISPER (ECO)" if self.brug.online else ("VOSK (OFFLINE)" if stem.vosk_klaar() else "ALLEEN TYPEN")
+            stemstatus = self.stem_status()
         except Exception:
-            spraak = "—"
+            spraak, stemstatus = "—", {}
         basis = {"eco": "VERBONDEN" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
                  "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
-                 "naam": self.cfg["naam"], "versie": self.versie()}
+                 "naam": self.cfg["naam"], "versie": self.versie(), **stemstatus}
         if self.brug.online:
             self.ui.status({**basis, "modus": "online", "titel": "VERBONDEN — ECO-BREIN (GROQ/GEMINI)",
                             "sub": f"Offline-reserve: {self.cfg['model']} {'klaar' if self.lokaal_ok else '— ' + self.lokaal_reden}"})
@@ -91,14 +106,21 @@ class NovaApp:
             core.bewaar_kennis(self.lokaal.kennis)
         except Exception as e:
             self.ui.sys(f"Geheugen ophalen lukte niet: {e}")
-        try:  # offline spraakherkenning alvast klaarzetten zolang er internet is
-            import nova_stem as stem
+        import nova_stem as stem
+        try:  # offline spraakherkenning en de Nederlandse stem alvast klaarzetten zolang er internet is
             if not stem.vosk_klaar():
                 stem.vosk_downloaden()
                 self.ui.sys("Offline spraakherkenning (Nederlands) staat klaar.")
                 self.toon_status()
         except Exception:
             pass
+        try:
+            if not stem.piper_klaar():
+                stem.piper_downloaden()
+                self.ui.sys("Nederlandse stem voor als ECO's stem niet lukt (Piper, nathalie) staat klaar.")
+                self.toon_status()
+        except Exception as e:
+            self.ui.sys(f"Nederlandse stem downloaden lukte niet: {e}")
 
     def update_lus(self):
         """Automatisch bijwerken: bij het starten en daarna elke 6 uur, nooit midden in een gesprek."""
@@ -221,23 +243,68 @@ class NovaApp:
             return
 
         def doe():
-            import nova_stem as stem
             with self.spreek_slot:
                 self.ui.staat("speaking")
                 try:
-                    if self.brug.online and self.eco.klaar:
-                        try:
-                            pcm, rate = self.eco.tts(tekst[:1500])
-                            stem.speel_pcm(pcm, rate)
-                            return
-                        except Exception:
-                            pass  # ECO's stem lukt niet: dan de stem van Windows
-                    stem.windows_stem(tekst[:1500])
-                except Exception:
-                    pass
+                    gebruikt = self.spreek_met_stem(tekst[:1500])
+                    if gebruikt:
+                        self.stem_gebruikt(*gebruikt)
+                except Exception as e:
+                    self.stem_gebruikt("GEEN — ALLEEN TEKST", f"{type(e).__name__}: {e}")
                 finally:
                     self.ui.staat("idle")  # altijd terug naar stand-by, ook na ECO's stem
         threading.Thread(target=doe, daemon=True).start()
+
+    def spreek_met_stem(self, tekst):
+        """ECO's stem (online, gestreamd), anders Piper (nathalie), anders een Nederlandse Windows-stem. Nooit een Engelse stem:
+        dan alleen tekst. Geeft (welke stem sprak, waarom de betere stemmen niet lukten), of None als je hem onderbrak."""
+        import nova_stem as stem
+        stem.nieuw_spreken()
+        redenen = []
+        if self.brug.online and self.eco.klaar:
+            speler = None
+            try:
+                rate, r = self.eco.tts_stroom(tekst)
+                with r, stem.Speler(rate) as speler:
+                    for stuk in r.iter_content(4800):
+                        if not speler.schrijf(stuk):
+                            break
+                return "GEMINI (ECO)", ""
+            except Exception as e:
+                if speler and speler.gespeeld:  # al half uitgesproken: niet opnieuw beginnen met een andere stem
+                    return "GEMINI (ECO)", f"ECO's stem viel halverwege weg ({kort(e)})"
+                redenen.append(f"ECO's stem lukte niet ({kort(e)})")
+        elif not self.brug.online:
+            redenen.append("offline")
+        if stem.gestopt():
+            return None
+        if stem.piper_klaar():
+            try:
+                stem.piper_spreek(tekst)
+                return "PIPER (NATHALIE)", "; ".join(redenen)
+            except Exception as e:
+                redenen.append(f"Piper lukte niet ({kort(e)})")
+            if stem.gestopt():
+                return None
+        else:
+            redenen.append("de Nederlandse stem (Piper) is nog niet gedownload; dat gebeurt vanzelf zodra NOVA online is")
+        try:
+            if stem.windows_stem(tekst):
+                return "WINDOWS (NEDERLANDS)", "; ".join(redenen)
+            redenen.append("geen Nederlandse Windows-stem (een Engelse stem gebruik ik niet)")
+        except Exception as e:
+            redenen.append(f"Windows-stem lukte niet ({kort(e)})")
+        return "GEEN — ALLEEN TEKST", "; ".join(redenen)
+
+    def stem_gebruikt(self, naam, reden):
+        """Toont in SYSTEEMSTATUS welke stem sprak, en meldt in het transcript (één keer per reden) waarom hij terugviel."""
+        self.stem_info = (naam, reden)
+        self.toon_status()
+        if reden and reden != self.stem_gemeld:
+            self.stem_gemeld = reden
+            self.ui.sys(f"Stem: {naam.lower()}. Reden: {reden}.")
+        elif not reden:
+            self.stem_gemeld = ""
 
     def beschrijf_beeld(self, jpeg_b64: str) -> str:
         vraag = "Beschrijf kort en concreet wat er op dit scherm staat (programma, belangrijkste tekst)."
@@ -280,6 +347,10 @@ class NovaApp:
             except Exception as e:
                 self.ui.melding(f"Downloaden lukte niet: {e} (draait Ollama? ollama.com)", "err")
         threading.Thread(target=doe, daemon=True).start()
+
+
+def kort(e: Exception) -> str:
+    return (str(e) or type(e).__name__)[:160]
 
 
 # ---------- Venster 1: dezelfde HUD als ECO (WebView2 via pywebview) ----------
@@ -442,7 +513,8 @@ class TkUI:
     def pc(self, tekst, status, detail): self._regel("pc", f"{core.nu_tijd()}  ⚙ {tekst} — {status}{' · ' + detail if detail else ''}\n")
     def status(self, s):
         kleur = {"online": K["ok"], "offline": K["warn"]}.get(s["modus"], K["bad"])
-        self.q.put(lambda: (self.lbl.configure(text="● " + s["titel"], fg=kleur), self.sub.configure(text=s["sub"])))
+        sub = s["sub"] + (f"\nStem: {s['stem']}" if s.get("stem") else "") + (f" — {s['stem_reden']}" if s.get("stem_reden") else "")
+        self.q.put(lambda: (self.lbl.configure(text="● " + s["titel"], fg=kleur), self.sub.configure(text=sub)))
     def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
     def melding(self, t, soort): self.sys(t)
 
@@ -499,8 +571,10 @@ def zelftest() -> int:
     check("interface (ECO-HUD)", lambda: ", ".join(f for f in ("index.html", "nova.js", "nova.css", "ai.css") if (ui_map() / f).exists()) or (_ for _ in ()).throw(FileNotFoundError("ui ontbreekt")))
     for mod in ("requests", "numpy", "tkinter", "sounddevice"):  # zonder deze werkt NOVA niet
         check(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
-    for mod in ("webview", "pyttsx3", "vosk", "PIL", "pycaw.pycaw"):
+    for mod in ("webview", "pyttsx3", "vosk", "piper", "PIL", "pycaw.pycaw"):
         optioneel(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
+    import nova_stem as stem
+    optioneel("Nederlandse stem (Piper)", stem.piper_proef)
     import requests
     optioneel("ECO bereikbaar", lambda: f"HTTP {requests.post(core.ECO_URL, json={}, timeout=15).status_code} (401 = bereikbaar, sleutel nodig)")
     rapport = "\n".join(regels) + f"\n\n{fouten} fout(en)\n"

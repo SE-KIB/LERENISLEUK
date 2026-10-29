@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-VERSIE = "1.1"
+VERSIE = "1.2"
 ECO_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/smooth-service"
 MAP = Path(os.environ.get("APPDATA") or Path.home() / ".config") / "NOVA"
 STANDAARD = {
@@ -137,11 +137,13 @@ class Eco:
         antwoord, conv, gehoord = self._stroom(r, on_delta, on_tool, on_heard)
         return antwoord, conv or conv_id, gehoord
 
-    def tts(self, tekst: str):
-        r = self._post({"tts": tekst, "stream": True}, timeout=30)
+    def tts_stroom(self, tekst: str):
+        """ECO's stem (Gemini) als stroom: (rate, open antwoord). Afspelen kan bij het eerste stukje; sluit het antwoord daarna."""
+        r = self._post({"tts": tekst, "stream": True}, timeout=30, stream=True)
         if "audio" not in r.headers.get("content-type", ""):
+            r.close()
             raise EcoFout("geen stem ontvangen")
-        return r.content, int(r.headers.get("x-audio-rate") or 24000)
+        return int(r.headers.get("x-audio-rate") or 24000), r
 
     def geheugen(self) -> dict:
         return self._post({"nova": {"actie": "geheugen"}}, timeout=20).json()
