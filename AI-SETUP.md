@@ -300,6 +300,10 @@ stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en 
 - **Typen** tijdens een live gesprek: ECO antwoordt hardop in hetzelfde gesprek. Met een foto gaat de vraag via de gewone weg.
 - **Veilig:** de echte `GEMINI_API_KEY` blijft op de server; de app krijgt per gesprek een tijdelijke code die alleen voor Live
   werkt en na 30 minuten verloopt. Elke ~10 minuten verbindt ECO ongemerkt opnieuw (sessiehervatting).
+- **Microfoon:** ECO controleert in de eerste seconden of er echt geluid binnenkomt. Geeft de microfoon alleen stilte (vaak bij
+  Bluetooth in de auto: die microfoon gaat meestal alleen open bij een echt telefoongesprek), dan schakelt hij vanzelf naar de
+  iPhone-microfoon en onthoudt dat. Lukt niets, dan zegt hij dat en werkt hij op de gewone manier. Bij SYSTEEMSTATUS → SPRAAK
+  zie je tijdens een live gesprek een niveaumeter (LIVE ▮▮▯▯▯): beweegt die als je praat, dan hoort ECO je.
 - **Echo:** zonder oortjes kan de microfoon ECO's eigen stem horen. ECO laat tijdens zijn eigen stem alleen geluid door dat duidelijk
   harder is dan zijn echo; met oortjes werkt het het best.
 - **Terugval:** lukt Live niet (quotum op, storing), dan zegt ECO dat en werkt hij tien minuten op de gewone manier (Whisper +
@@ -370,6 +374,9 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 - Spraakherkenning werkt in Chrome, Edge en Safari.
 
 ## Volgende stappen (ideeën)
+- **Meer gratis reserve (besloten 29 okt):** wordt het gratis quotum van Groq/Gemini vaak bereikt, dan Mistral toevoegen als extra
+  gratis reserve rechtstreeks in de functie (secret `MISTRAL_API_KEY`, gratis te maken). **Geen OmniRoute:** dat moet dag en nacht
+  op een eigen server draaien, vraagt per dienst een eigen account, en een deel van de routes valt in een grijs gebied qua voorwaarden.
 - Meer tools: weer, lampen/thermostaat (Home Assistant), notities, iCloud-agenda rechtstreeks (CalDAV met app-specifiek wachtwoord).
 - Geheugen: vaste feiten over jou die ECO onthoudt.
 - Betere stem: een TTS-dienst (bv. ElevenLabs) voor een echte ECO-stem.

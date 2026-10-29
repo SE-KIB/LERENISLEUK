@@ -1400,7 +1400,7 @@ function stopSpeaking() {
   voiceGen++;
   speech.items = []; speech.running = 0; speech.spoken = 0; speech.open = false; speech.fromAsk = false; speech.onFirstAudio = null;
   speechSynthesis?.cancel(); player.pause();
-  try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
+  try { if (navigator.audioSession && !live?.on) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
   for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
   pcmSources.clear(); pcmEnd = 0;
 }
@@ -1524,7 +1524,7 @@ async function bargeStart() {
   if (!bargeOn() || barge.stream || barge.starting || recording || rec) return;
   barge.starting = true;
   let s;
-  try { s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } }); }
+  try { s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, ...micVoorkeur() } }); }
   catch { barge.starting = false; return; }
   barge.starting = false;
   if (document.body.dataset.state !== "speaking" || !bargeOn()) { s.getTracks().forEach((t) => t.stop()); return; }
@@ -1572,6 +1572,7 @@ function bargeHit() {
 // Tools voert de server uit; elke beurt komt in het archief. Lukt Live niet, dan werkt ECO op de gewone manier.
 var live = { on: false, ready: false };
 let liveBrokenUntil = 0, liveWorkletUrl = "";
+const liveWorkletCtx = new WeakSet();
 const LIVE_WORKLET = 'class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor("eco-mic",P)';
 const liveWanted = () => !!$("live")?.checked && Date.now() > liveBrokenUntil && !!(navigator.mediaDevices?.getUserMedia && window.WebSocket);
 try { if ($("live")) $("live").checked = localStorage.getItem("eco-live") !== "0"; } catch { /* geen opslag */ }
@@ -1585,6 +1586,7 @@ const liveSend = (msg) => { if (live.ready && live.ws?.readyState === 1) live.ws
 
 async function liveStart(firstText = "", vanzelf = false) {
   if (live.on) { if (firstText) liveText(firstText); return; }
+  const micBezet = !!(wakeRec || barge.stream || rec || recording);
   wakeStop(); bargeStop(); stopSpeaking(); if (rec || recording) stopListening();
   turn++; // een lopende gewone vraag vervalt
   live = { on: true, ready: false, firstText, handle: "", userText: "", ecoText: "", userEl: null, ecoEl: null, lastActivity: Date.now(), tries: 0, cancelled: new Set() };
@@ -1592,17 +1594,21 @@ async function liveStart(firstText = "", vanzelf = false) {
   $("mic").classList.add("on", "live");
   setState("thinking"); setCaption("Live verbinden…", "user");
   try {
-    // Eerst de microfoon: zolang die opneemt, mag de iPhone ook geluid afspelen.
-    live.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
-    audioOut();
+    // Eerst de audiosessie en dan de microfoon (de sessie wisselen tijdens het opnemen kan de microfoon op stil zetten).
+    // Zolang de microfoon opneemt, mag de iPhone ook geluid afspelen.
     try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch { /* oudere Safari */ }
+    if (micBezet) await new Promise((r) => setTimeout(r, 350)); // "Hé Eco" of onderbreken moet de microfoon eerst loslaten
+    live.stream = await liveGetMic(liveMicPref());
+    audioOut();
     await Promise.race([actx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 800))]);
     if (actx.state !== "running") throw Object.assign(new Error("tik eerst op het scherm"), { tik: true });
     live.cfg = await callFn({ live: "start", loc: myLoc });
     if (!live.on) return;
     await liveConnect();
-    await liveMic();
+    await liveMic(live.stream, actx);
     live.idle = setInterval(liveIdle, 5000);
+    live.meter = setInterval(liveMeter, 300);
+    setTimeout(liveMicWatch, 2500); // hoort ECO echt iets? Zo niet: andere microfoon
     setState("listening"); sfx.listen();
     $("stVoice").textContent = "LIVE"; $("stVoice").className = "ok";
     $("stModel").textContent = "LIVE";
@@ -1654,17 +1660,38 @@ function liveConnect() {
 }
 
 // Microfoon → 16 kHz PCM in stukjes van 80 ms.
-async function liveMic() {
-  const src = actx.createMediaStreamSource(live.stream), stap = actx.sampleRate / 16000, stil = actx.createGain();
-  stil.gain.value = 0; stil.connect(actx.destination);
+// Microfoon kiezen: eerst je voorkeur of de standaard. Geeft die alleen stilte (bv. Bluetooth in de auto, waar de
+// automicrofoon vaak alleen tijdens een echt telefoongesprek open gaat), dan schakelt liveMicWatch naar de iPhone-microfoon.
+const MIC_OPTS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+const liveMicPref = () => { try { return localStorage.getItem("eco-mic") || ""; } catch { return ""; } };
+// Ook de gewone opname (Whisper, onderbreken) gebruikt de microfoon die het laatst werkte, als die er is.
+const micVoorkeur = () => { const id = liveMicPref(); return id ? { deviceId: { ideal: id } } : {}; };
+async function liveGetMic(deviceId = "") {
+  if (deviceId) try { return await navigator.mediaDevices.getUserMedia({ audio: { ...MIC_OPTS, deviceId: { exact: deviceId } } }); } catch { /* weg: de standaard */ }
+  return navigator.mediaDevices.getUserMedia({ audio: MIC_OPTS });
+}
+const micNaam = () => live.stream?.getAudioTracks()[0]?.label || "standaardmicrofoon";
+async function ingebouwdeMic() {
+  const huidig = live.stream?.getAudioTracks()[0]?.getSettings?.().deviceId || "";
+  const ins = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === "audioinput" && d.deviceId && d.deviceId !== huidig && d.deviceId !== "default");
+  return (ins.find((d) => /iphone|ipad|ingebouwd|built-?in|internal|interne|macbook/i.test(d.label))
+    || ins.find((d) => d.label && !/bluetooth|hands-?free|handsfree|carplay|\bauto\b|\bcar\b|airpods|headset|beats/i.test(d.label)))?.deviceId || "";
+}
+async function liveMic(stream, ctx) {
+  const src = ctx.createMediaStreamSource(stream), stap = ctx.sampleRate / 16000, stil = ctx.createGain();
+  stil.gain.value = 0; stil.connect(ctx.destination);
+  live.mic = { frames: 0, piek: 0, niveau: 0, ctx };
   let carry = new Float32Array(0), t = 0, pending = new Int16Array(1280), n = 0;
   let echo = 0, burst = 0, luid = 0, openTot = 0;
   const frames = (f) => {
     if (!live.ready) return;
+    let ruw = 0;
+    for (let i = 0; i < f.length; i++) { const a = Math.abs(f[i]); if (a > ruw) ruw = a; }
+    live.mic.frames += f.length; live.mic.piek = Math.max(live.mic.piek, ruw); live.mic.niveau = Math.max(ruw, live.mic.niveau * 0.9);
     // Praat ECO zelf? Leer eerst hoe hard zijn eigen echo binnenkomt en stuur alleen stem die daar duidelijk bovenuit komt;
     // de rest gaat als stilte, zodat hij zichzelf niet onderbreekt of tegen zichzelf gaat praten.
     if (pcmSources.size) {
-      const nu = performance.now(), dt = f.length / actx.sampleRate * 1000;
+      const nu = performance.now(), dt = f.length / ctx.sampleRate * 1000;
       const rms = Math.sqrt(f.reduce((a, v) => a + v * v, 0) / f.length);
       if (!burst) { burst = nu; echo = 0; luid = 0; }
       if (nu - burst < 500) echo = Math.max(echo, rms);
@@ -1685,15 +1712,66 @@ async function liveMic() {
   };
   let node;
   try {
-    if (!liveWorkletUrl) { liveWorkletUrl = URL.createObjectURL(new Blob([LIVE_WORKLET], { type: "application/javascript" })); await actx.audioWorklet.addModule(liveWorkletUrl); }
-    node = new AudioWorkletNode(actx, "eco-mic");
+    liveWorkletUrl ||= URL.createObjectURL(new Blob([LIVE_WORKLET], { type: "application/javascript" }));
+    if (!liveWorkletCtx.has(ctx)) { await ctx.audioWorklet.addModule(liveWorkletUrl); liveWorkletCtx.add(ctx); } // per audiocontext één keer
+    node = new AudioWorkletNode(ctx, "eco-mic");
     node.port.onmessage = (e) => frames(e.data);
   } catch { // oudere browsers
-    node = actx.createScriptProcessor(4096, 1, 1);
+    node = ctx.createScriptProcessor(4096, 1, 1);
     node.onaudioprocess = (e) => frames(e.inputBuffer.getChannelData(0));
   }
   src.connect(node); node.connect(stil);
   live.nodes = [src, node, stil];
+}
+function liveMicLos() {
+  for (const n of live.nodes || []) { try { n.disconnect(); } catch { /* al los */ } }
+  live.nodes = [];
+  live.stream?.getTracks().forEach((t) => t.stop());
+  if (live.micCtx) { live.micCtx.close().catch(() => {}); live.micCtx = null; }
+}
+// Komt er na een paar seconden echt geluid binnen? Een echte microfoon ruist altijd een beetje; alleen nullen = kapot of dicht.
+// Stap 1: andere microfoon (iPhone i.p.v. de auto). Stap 2: zelfde microfoon met een nieuwe audiocontext (bekende iPhone-fout).
+// Stap 3: eerlijk zeggen wat er mis is en terugvallen op de gewone manier.
+async function liveMicWatch() {
+  if (!live.on || !live.mic) return;
+  const tr = live.stream?.getAudioTracks()[0];
+  const fout = !tr || tr.readyState !== "live" ? "microfoon is uitgegaan" : tr.muted ? "microfoon staat op stil" : !live.mic.frames ? `geen audio (audio ${live.mic.ctx.state})` : live.mic.piek < 2e-4 ? "alleen stilte" : "";
+  if (!fout) { live.micStap = 0; return; }
+  live.micStap = (live.micStap || 0) + 1;
+  const naam = micNaam();
+  try {
+    if (live.micStap === 1) {
+      const ander = await ingebouwdeMic();
+      if (ander) {
+        liveMicLos();
+        live.stream = await liveGetMic(ander);
+        await liveMic(live.stream, actx);
+        try { localStorage.setItem("eco-mic", ander); } catch { /* geen opslag */ }
+        setCaption(`${naam} geeft geen geluid (${fout}); ik gebruik nu ${micNaam()}. Praat maar.`, "user");
+        return void setTimeout(liveMicWatch, 2500);
+      }
+      live.micStap = 2;
+    }
+    if (live.micStap === 2) {
+      liveMicLos();
+      live.stream = await liveGetMic(liveMicPref());
+      live.micCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await live.micCtx.resume().catch(() => {});
+      await liveMic(live.stream, live.micCtx);
+      return void setTimeout(liveMicWatch, 2500);
+    }
+  } catch (e) { console.warn("microfoon wisselen", e); }
+  try { localStorage.removeItem("eco-mic"); } catch { /* geen opslag */ }
+  liveBrokenUntil = Date.now() + 10 * 60000;
+  liveStop(`Ik krijg geen geluid van je microfoon (${naam}: ${fout}). Ben je met Bluetooth verbonden, bv. in de auto? Die microfoon werkt vaak alleen bij bellen; zet Bluetooth even uit of gebruik oortjes. Ik probeer het nu op de gewone manier.`, true);
+  setTimeout(() => listen(), 800);
+}
+// Niveaumeter bij SYSTEEMSTATUS → SPRAAK: zie je hem bewegen als je praat, dan hoort ECO je.
+function liveMeter() {
+  if (!live.on || !live.mic) return;
+  const n = Math.min(5, Math.round(Math.sqrt(live.mic.niveau) * 9));
+  $("stVoice").textContent = `LIVE ${"▮".repeat(n)}${"▯".repeat(5 - n)}`;
+  $("stVoice").title = `Microfoon: ${micNaam()}`;
 }
 
 function liveMessage(msg) {
@@ -1823,10 +1901,9 @@ function liveStop(msg = "", fout = false) {
   if (!live.on && !msg) return;
   const { userText, ecoText } = live;
   live.on = false; live.ready = false;
-  clearInterval(live.idle);
+  clearInterval(live.idle); clearInterval(live.meter);
   try { live.ws?.close(1000); } catch { /* al dicht */ }
-  for (const n of live.nodes || []) { try { n.disconnect(); } catch { /* al los */ } }
-  live.stream?.getTracks().forEach((t) => t.stop());
+  liveMicLos();
   for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
   pcmSources.clear(); pcmEnd = 0;
   try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
@@ -1866,7 +1943,7 @@ function micOn(on) {
 async function recordWhisper(existing = null) {
   let stream = existing;
   if (!stream || !stream.getAudioTracks().some((t) => t.readyState === "live")) {
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, ...micVoorkeur() } }); }
     catch (e) { typeCaption("Geen toegang tot de microfoon: " + e.message, "err"); return; }
   }
   const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
