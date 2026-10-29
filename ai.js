@@ -959,7 +959,7 @@ const TOOL_LABEL = {
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
   mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
   lijst: "Lijstje bijwerken", timer: "Timer zetten", spotify: "Spotify", whatsapp: "WhatsApp klaarzetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
-  nadenken: "Nadenken", diep_nadenken: "Diep nadenken", archief_zoeken: "Archief doorzoeken",
+  nadenken: "Nadenken", diep_nadenken: "Diep nadenken", archief_zoeken: "Archief doorzoeken", volgen: "Onderwerp volgen", ongedaan_maken: "Ongedaan maken",
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
@@ -1946,6 +1946,83 @@ function liveStop(msg = "", fout = false) {
   if (msg) setCaption(msg, fout ? "err" : "user");
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && live.on) liveStop(); });
+
+// ---------- Microfoon kiezen en testen (BEDIENING) ----------
+// De keuze geldt voor Live, Whisper en onderbreken. TEST laat acht seconden zien of ECO je echt hoort.
+async function vulMics() {
+  const sel = $("micSel");
+  if (!sel || !navigator.mediaDevices?.enumerateDevices) return;
+  const ins = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === "audioinput" && d.deviceId && !["default", "communications"].includes(d.deviceId));
+  const pref = liveMicPref();
+  sel.innerHTML = "";
+  sel.append(new Option("MICROFOON: AUTOMATISCH", ""));
+  ins.forEach((d, i) => sel.append(new Option(`MICROFOON: ${(d.label || `microfoon ${i + 1}`).toUpperCase()}`, d.deviceId)));
+  sel.value = ins.some((d) => d.deviceId === pref) ? pref : "";
+}
+$("micSel")?.addEventListener("change", (e) => {
+  try { if (e.target.value) localStorage.setItem("eco-mic", e.target.value); else localStorage.removeItem("eco-mic"); } catch { /* geen opslag */ }
+  if (live.on) { liveStop(); setTimeout(() => liveStart(), 300); } // meteen met de nieuwe microfoon verder
+});
+$("micSel")?.addEventListener("focus", vulMics); // namen zijn pas zichtbaar na toestemming
+navigator.mediaDevices?.addEventListener?.("devicechange", vulMics);
+vulMics();
+
+let micTest = null;
+async function micTestStart() {
+  if (micTest) return micTestStop("Test gestopt.");
+  if (live.on) liveStop();
+  wakeStop(); bargeStop();
+  $("micTestBox").hidden = false; $("mtTip").textContent = "Microfoon openen…"; $("mtTip").className = "";
+  try {
+    try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch { /* oudere Safari */ }
+    const stream = await liveGetMic($("micSel").value || liveMicPref());
+    audioOut(); await actx.resume().catch(() => {});
+    const src = actx.createMediaStreamSource(stream), an = actx.createAnalyser();
+    an.fftSize = 1024; src.connect(an);
+    const buf = new Float32Array(an.fftSize), t0 = performance.now();
+    micTest = { stream, src, raf: 0, stem: 0, piek: 0, pk: -90, rms: 0, vorige: t0 };
+    $("micTestBtn").textContent = "STOP";
+    $("mtName").textContent = `🎙 ${stream.getAudioTracks()[0]?.label || "standaardmicrofoon"}`;
+    vulMics();
+    const pct = (d) => `${Math.max(0, Math.min(100, ((d + 60) / 60) * 100))}%`;
+    const loop = () => {
+      const m = micTest;
+      if (!m) return;
+      const nu = performance.now(), dt = nu - m.vorige, sec = (nu - t0) / 1000;
+      m.vorige = nu;
+      an.getFloatTimeDomainData(buf);
+      let som = 0, mx = 0;
+      for (const v of buf) { som += v * v; if (Math.abs(v) > mx) mx = Math.abs(v); }
+      m.rms = Math.max(Math.sqrt(som / buf.length), m.rms * 0.9); m.piek = Math.max(m.piek, mx);
+      const db = m.rms > 3e-5 ? Math.max(-90, 20 * Math.log10(m.rms)) : -90;
+      m.pk = Math.max(db, m.pk - 0.5);
+      if (db > -40) m.stem += dt;
+      const [tekst, kl] = m.piek < 2e-4 && sec > 1.5 ? ["ALLEEN STILTE", "bad"] : m.stem > 600 ? ["✓ ECO HOORT JE", "ok"]
+        : db > -40 ? ["STEM", "ok"] : db > -55 ? ["ACHTERGROND", "dim"] : ["PRAAT NU…", "dim"];
+      $("mtState").textContent = tekst; $("mtState").className = kl;
+      $("mtFill").style.width = pct(db); $("mtFill").className = kl;
+      $("mtPeak").style.left = pct(m.pk);
+      $("mtDb").textContent = `NIVEAU ${dbTekst(db)} · PIEK ${dbTekst(m.pk)}`;
+      $("mtTip").textContent = `Zeg iets, bv. "hallo ECO" (${Math.max(0, Math.ceil(8 - sec))} s)`;
+      if (sec > 8) {
+        return micTestStop(m.stem > 600 ? "✓ Deze microfoon werkt: ECO hoort je."
+          : m.piek < 2e-4 ? "✗ Deze microfoon geeft alleen stilte (bv. Bluetooth in de auto). Kies hierboven een andere en test opnieuw."
+          : "Ik hoorde geluid maar weinig stem. Praat iets harder of dichter bij de telefoon en test opnieuw.", m.stem > 600 ? "ok" : "bad");
+      }
+      m.raf = requestAnimationFrame(loop);
+    };
+    loop();
+  } catch (e) { micTestStop(`Microfoon openen lukte niet: ${e.message}`, "bad"); }
+}
+function micTestStop(msg = "", kl = "") {
+  const m = micTest;
+  micTest = null;
+  if (m) { cancelAnimationFrame(m.raf); try { m.src.disconnect(); } catch { /* al los */ } m.stream.getTracks().forEach((t) => t.stop()); }
+  try { if (navigator.audioSession && !live.on) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
+  $("micTestBtn").textContent = "TEST";
+  if (msg) { $("mtTip").textContent = msg; $("mtTip").className = kl; }
+}
+$("micTestBtn").onclick = micTestStart;
 
 // ---------- Spraak in ----------
 // Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands

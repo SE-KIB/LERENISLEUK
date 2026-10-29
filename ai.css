@@ -168,6 +168,10 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .push-row{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .push-row input{background:rgba(0,20,30,.6);border:1px solid var(--cd);color:var(--c2);font-family:var(--f-mono);font-size:.8rem;padding:.2rem .4rem;outline:none;color-scheme:dark}
 .push-row input:focus{border-color:var(--c)}
+.mic-row select{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);color:var(--c2);font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;padding:.25rem .3rem;outline:none;color-scheme:dark;text-overflow:ellipsis}
+.mic-row select:focus{border-color:var(--c)}
+.mic-test{grid-column:1/-1;width:100%;margin:0}
+.mt-tip{margin-top:3px;font-size:.68rem;line-height:1.35;color:var(--c2);white-space:normal}.mt-tip.ok{color:#5dffb0}.mt-tip.bad{color:var(--red)}
 #pushBtn[data-on="1"],#spBtn[data-on="1"]{color:#5dffb0}
 .push-msg{grid-column:1/-1;font-size:.7rem;min-height:0}
 .push-msg:empty{display:none}
