@@ -19,7 +19,8 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
 - `supabase/migrations/20261029_memory.sql`, `20261030_planning.sql`, `20261031_kv.sql` — geheugen, lesplanning en server-opslag (draaien automatisch)
-- `supabase/migrations/20261101_cron.sql` — ECO-klok: de database roept de functie elke 5 minuten aan (ochtendbriefing)
+- `supabase/migrations/20261101_cron.sql` — ECO-klok: de database roept de functie elke 30 seconden aan (timers, ochtendbriefing)
+- `supabase/migrations/20261102_lijstjes.sql` — tabellen `ai_items` (lijstjes) en `ai_timers` met RLS
 - `eco-sw.js` — service worker, alleen voor pushmeldingen (geen offline-cache)
 - `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
 - `widget/eco-widget.js` + `widget/installeer.js` — iPhone-widget voor Scriptable
@@ -229,10 +230,22 @@ Aanzetten op de iPhone (eenmalig, iOS 16.4 of nieuwer):
 2. Open **ECO vanaf je beginscherm** → ☰ MENU → BEDIENING → kies de tijd → tik **MELDINGEN UIT** → **Sta toe**.
 3. Je krijgt meteen een testmelding en de knop wordt **MELDINGEN AAN**. Nog een keer tikken zet ze op dit apparaat uit.
 
-Hoe het werkt: de database (pg_cron + pg_net, migratie `20261101_cron.sql`) roept de functie elke 5 minuten aan met een
+Hoe het werkt: de database (pg_cron + pg_net, migratie `20261101_cron.sql`) roept de functie elke 30 seconden aan met een
 willekeurige cron-sleutel die alleen in de server-opslag staat. Op de ingestelde tijd (tot 2 uur later, als de telefoon uit
 stond) maakt de functie de briefing, bewaart hem en stuurt de melding via Web Push. De VAPID-sleutels maakt de functie zelf aan
 en bewaart ze in de server-opslag: **geen secrets nodig**. Eén melding per dag, ook als de klok vaker tikt.
+
+## Lijstjes, notities en timers
+Zeg gewoon wat je wilt; ECO regelt het en het LIJSTJES-paneel (rechts, op mobiel onder het rooster) werkt meteen bij.
+- "Zet melk en brood op mijn boodschappenlijst", "noteer: idee voor het verslag …", "zet *Lisa bellen* op mijn takenlijst".
+  Zonder lijstnaam komt het op **taken**. Typen kan ook: `boodschappen: melk, brood` in het invulveld van LIJSTJES.
+- "Heb ik iets gemist?" of "wat moet ik nog doen?" → ECO noemt de open taken. "Melk is gekocht" → afgevinkt.
+  In het paneel tik je een punt af (afgevinkte blijven 12 uur doorgestreept staan, tik nog eens om terug te zetten) of ✕ om te wissen.
+- "Zet een timer van 10 minuten voor de thee", "herinner me om half vier aan de was", "hoe lang nog?", "stop de timer".
+  Een ring rond de reactor telt af (tik erop om te stoppen). Als hij afgaat: piepjes (ook met GELUID uit), ECO zegt het hardop,
+  en staat ECO dicht of op de achtergrond, dan krijg je binnen een halve minuut een **melding** (zet MELDINGEN aan, zie hierboven).
+- De widget toont je open taken (groot formaat) en een lopende timer die live aftelt. Draai daarvoor het installatiescript nog één keer.
+- De ochtendbriefing noemt ook hoeveel taken er nog open staan.
 
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip

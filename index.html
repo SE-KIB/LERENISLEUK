@@ -119,6 +119,7 @@
         <div class="readout tl" aria-hidden="true" id="roA"></div>
         <div class="readout br" aria-hidden="true" id="roB"></div>
       </div>
+      <div id="timers" class="timers" aria-live="polite"></div>
       <div id="caption" class="caption" aria-live="polite"></div>
       </div>
       <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
@@ -153,6 +154,11 @@
             <input type="file" id="bsFile" accept=".json,application/json" hidden>
           </div>
         </div>
+      </div>
+      <div class="panel lists" data-win="lijstjes">
+        <div class="panel-h"><span>LIJSTJES</span><i id="lsCount" title="Open punten">0</i></div>
+        <ul id="lsList" class="mem-list ls-list"></ul>
+        <form id="lsForm" class="mem-add"><input id="lsInput" placeholder="Toevoegen… (bv. boodschappen: melk, brood)" maxlength="500" autocomplete="off"><button type="submit" class="chip" aria-label="Toevoegen">+</button></form>
       </div>
       <div class="panel profile" data-win="profiel">
         <div class="panel-h"><span>PROFIEL</span><i id="memCount" title="Aantal feiten dat ECO over je weet">0</i></div>

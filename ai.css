@@ -307,7 +307,25 @@ select.lab-id{font-family:var(--f-body);font-size:1rem;appearance:auto}
 select.lab-id option{background:#02121a;color:var(--c2)}
 
 /* Profiel (geheugen) */
-.panel.profile{flex:0 0 auto;max-height:34%;display:flex;flex-direction:column}
+.panel.profile{flex:0 0 auto;max-height:26%;display:flex;flex-direction:column}
+.panel.lists{flex:0 0 auto;max-height:28%;display:flex;flex-direction:column}
+.ls-list li.ls-h{font-family:var(--f-head);font-size:.56rem;letter-spacing:.2em;color:var(--muted);border:0;padding:8px 0 2px}
+.ls-list li.ls-h:first-child{padding-top:0}
+.ls-list li.ls-h i{font-style:normal;color:var(--c)}
+.ls-list label{flex:1;min-width:0;display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.ls-list input{appearance:none;flex:none;width:15px;height:15px;margin:2px 0 0;border:1px solid var(--c);background:var(--cf);display:grid;place-content:center}
+.ls-list input:checked::after{content:"✓";color:var(--c2);font-size:.7rem;line-height:1}
+.ls-list li.done span{text-decoration:line-through;color:var(--muted)}
+.timers{position:relative;z-index:3;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:2px auto 0;max-width:100%}
+.timers:empty{display:none}
+.timer-chip{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1px solid var(--cd);background:rgba(0,20,30,.7);color:var(--c2);font-family:var(--f-mono);font-size:.85rem;cursor:pointer}
+.timer-chip:hover{border-color:var(--red)}
+.timer-chip svg{width:30px;height:30px;transform:rotate(-90deg)}
+.timer-chip circle{fill:none;stroke-width:3}
+.timer-chip .tr-bg{stroke:var(--cd)}
+.timer-chip .tr-fg{stroke:var(--c);stroke-dasharray:94.25;transition:stroke-dashoffset .25s linear;filter:drop-shadow(0 0 3px var(--c))}
+.timer-chip span{font-family:var(--f-head);font-size:.56rem;letter-spacing:.18em;color:var(--muted);max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timer-chip.soon{border-color:var(--amber)}.timer-chip.soon .tr-fg{stroke:var(--amber)}
 .mem-list{list-style:none;margin:0;padding:0;overflow:auto;flex:1;min-height:0;font-size:.92rem}
 .mem-list li{display:flex;gap:6px;align-items:flex-start;padding:4px 0;border-bottom:1px dashed rgba(0,225,255,.12)}
 .mem-list li span{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -318,7 +336,7 @@ select.lab-id option{background:#02121a;color:var(--c2)}
 .mem-add{display:flex;gap:6px;margin-top:8px}
 .mem-add input{flex:1;min-width:0;background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.4rem .55rem;color:var(--c2);font:inherit;font-size:.9rem;outline:none}
 .mem-add input:focus{border-color:var(--c)}
-@media (max-width:900px){.right{display:flex;flex-direction:column;gap:10px}.panel.profile{max-height:40vh}}
+@media (max-width:900px){.right{display:flex;flex-direction:column;gap:10px}.panel.profile,.panel.lists{max-height:40vh}}
 
 /* Weer */
 .wx{display:flex;align-items:center;gap:12px}
