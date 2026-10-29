@@ -199,6 +199,102 @@ class TestPc(unittest.TestCase):
         self.assertEqual(pc.maak_uitvoerder()("rm -rf", {})["status"], "mislukt")
 
 
+class TestApp(unittest.TestCase):
+    """De logica van het venster (NovaApp) met een nep-venster en een nep-ECO."""
+
+    def test_vraag_stroom(self):
+        import nova
+
+        class NepUI:
+            def __init__(self):
+                self.ev = []
+
+            def __getattr__(self, naam):
+                return lambda *a: self.ev.append((naam,) + a)
+
+        ui = NepUI()
+        app = nova.NovaApp(ui)
+        app.cfg.update(eco_sleutel="x", stem=False)
+        app.brug.online = True
+        app.eco.chat = lambda t, c, on_delta, on_tool: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
+        app.vraag("open spotify")
+        self.assertEqual([e[0] for e in ui.ev], ["staat", "jij", "tool", "nova_start", "delta", "delta", "nova_eind", "staat"])
+        self.assertEqual(app.conv, "c1")
+
+    def test_spreken_eindigt_in_stand_by(self):
+        import nova
+        import nova_stem
+
+        class NepUI:
+            def __init__(self):
+                self.ev = []
+
+            def __getattr__(self, naam):
+                return lambda *a: self.ev.append((naam,) + a)
+
+        ui = NepUI()
+        app = nova.NovaApp(ui)
+        app.cfg.update(eco_sleutel="x", stem=True)
+        app.brug.online = True
+        app.eco.tts = lambda t: (b"\x00\x00" * 10, 24000)
+        oud = nova_stem.speel_pcm
+        nova_stem.speel_pcm = lambda pcm, rate: None
+        try:
+            app.spreek("hallo")
+            for _ in range(50):
+                if ui.ev and ui.ev[-1] == ("staat", "idle"):
+                    break
+                import time
+                time.sleep(0.02)
+        finally:
+            nova_stem.speel_pcm = oud
+        self.assertEqual(ui.ev, [("staat", "speaking"), ("staat", "idle")])
+
+    def test_interface_bestanden(self):
+        import nova
+        ui = nova.ui_map()
+        for f in ("index.html", "nova.js", "nova.css"):
+            self.assertTrue((ui / f).exists(), f)
+        self.assertIn("NICE OPERATING VARIANT AGENT", (ui / "index.html").read_text(encoding="utf-8"))
+
+
+class TestUpdate(unittest.TestCase):
+    def test_bijwerken(self):
+        import hashlib
+        import nova_update as upd
+        nieuw_exe = b"NIEUWE NOVA" * 100
+
+        def behandel(h, methode, body):
+            if h.path == "/latest":
+                return h.antwoord(200, {"tag_name": "nova-12", "assets": [{"name": "NOVA.exe", "browser_download_url": srv.url + "/NOVA.exe",
+                                                                            "size": len(nieuw_exe), "digest": "sha256:" + hashlib.sha256(nieuw_exe).hexdigest()}]})
+            if h.path == "/NOVA.exe":
+                return h.antwoord(200, nieuw_exe, "application/octet-stream")
+            return h.antwoord(404, {})
+
+        srv = NepServer(behandel)
+        try:
+            d = Path(tempfile.mkdtemp())
+            exe = d / "NOVA.exe"
+            exe.write_bytes(b"OUDE NOVA")
+            info = upd.nieuwste(srv.url + "/latest")
+            self.assertEqual(info["build"], 12)
+            self.assertFalse(upd.bijwerken(exe, 12, info, herstart=False))  # al de nieuwste
+            self.assertTrue(upd.bijwerken(exe, 3, info, herstart=False))
+            self.assertEqual(exe.read_bytes(), nieuw_exe)
+            self.assertEqual((d / "NOVA.oud.exe").read_bytes(), b"OUDE NOVA")
+            upd.opruimen(exe)
+            self.assertFalse((d / "NOVA.oud.exe").exists())
+            # verkeerde controlesom: niets vervangen
+            info["sha256"] = "0" * 64
+            exe.write_bytes(b"HUIDIG")
+            with self.assertRaises(RuntimeError):
+                upd.bijwerken(exe, 3, info, herstart=False)
+            self.assertEqual(exe.read_bytes(), b"HUIDIG")
+        finally:
+            srv.stop()
+
+
 class TestStem(unittest.TestCase):
     def blokken(self, *delen):
         for niveau, sec in delen:

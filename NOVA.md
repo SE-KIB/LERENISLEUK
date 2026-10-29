@@ -1,4 +1,4 @@
-# NOVA — ECO op je Windows-laptop
+# NOVA — Nice Operating Variant Agent (ECO op je Windows-laptop)
 
 NOVA is ECO's versie op je laptop. **Online** zegt NOVA "Verbonden met ECO" en gebruikt het ECO-brein (Groq/Gemini, gratis),
 met hetzelfde geheugen, dezelfde agenda en hetzelfde archief. **Offline** zegt NOVA "Offline, ik gebruik nu mijn eigen brein" en
@@ -12,9 +12,15 @@ praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen,
 3. **Offline brein (aanrader):** installeer **Ollama** van https://ollama.com/download/windows en start het. Kies in NOVA **⚙ → MODEL
    DOWNLOADEN**. Standaard is dat `qwen3.5:9b` (ongeveer 6 GB; past in de 8 GB van je RTX PRO). Slimmer maar trager: `gpt-oss:20b` of
    `gemma4:26b` (die lopen deels via je werkgeheugen).
-4. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
+4. **Bijwerken gaat vanzelf:** NOVA kijkt bij het starten en elke 6 uur of er een nieuwere versie op GitHub staat, downloadt en
+   controleert die, vervangt zichzelf en start opnieuw (nooit midden in een gesprek). Je instellingen blijven bewaard.
+5. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
 
 ## Gebruiken
+- **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, offline model, Ollama, spraak), BEDIENING
+  (stem, ECO-sleutel, naam, offline model, MODEL DOWNLOADEN), TRANSCRIPT en PC-ACTIES (wat NOVA op je laptop deed, met
+  gedaan / niet gecontroleerd / mislukt). Het venster gebruikt ECO's eigen opmaak via de browsermotor van Windows (WebView2).
+  Lukt dat niet, dan opent NOVA een eenvoudig venster (`NOVA.exe --eenvoudig` doet dat ook).
 - **Typen** onderin en Enter, of **🎙** (of Ctrl+Spatie) en praten; NOVA stopt vanzelf met luisteren als je stil bent.
 - **Bovenin** zie je welk brein antwoordt: ● VERBONDEN (ECO-brein) of ● OFFLINE (eigen brein, met het model erbij).
 - **Je laptop bedienen**, ook via ECO op je iPhone ("open Spotify op mijn laptop"):
