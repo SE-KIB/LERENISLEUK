@@ -155,7 +155,8 @@ class NovaApp:
     # ---------- pc-acties (van ECO via de brug, of van het eigen brein) ----------
     def pc_actie(self, actie, args):
         result = self.uitvoeren(actie, args)
-        tekst = f"{actie.replace('_', ' ')} {' '.join(str(v) for v in (args or {}).values() if str(v) and v != actie)}".strip()
+        waarden = [str(v) for k, v in (args or {}).items() if str(v) and v != actie and not (actie == "document_maken" and k == "tekst")]
+        tekst = f"{actie.replace('_', ' ')} {' '.join(waarden)}".strip()[:90]
         self.ui.pc(tekst, result.get("status", ""), result.get("controle") or result.get("fout") or "")
         return result
 
@@ -571,10 +572,12 @@ def zelftest() -> int:
     check("interface (ECO-HUD)", lambda: ", ".join(f for f in ("index.html", "nova.js", "nova.css", "ai.css") if (ui_map() / f).exists()) or (_ for _ in ()).throw(FileNotFoundError("ui ontbreekt")))
     for mod in ("requests", "numpy", "tkinter", "sounddevice"):  # zonder deze werkt NOVA niet
         check(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
-    for mod in ("webview", "pyttsx3", "vosk", "piper", "PIL", "pycaw.pycaw"):
+    for mod in ("webview", "pyttsx3", "vosk", "piper", "pypdf", "docx", "openpyxl", "pptx", "fpdf", "PIL", "pycaw.pycaw"):
         optioneel(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
     import nova_stem as stem
     optioneel("Nederlandse stem (Piper)", stem.piper_proef)
+    import nova_doc
+    optioneel("documenten (pdf, Word)", lambda: nova_doc.proef(Path(tempfile.mkdtemp())))
     import requests
     optioneel("ECO bereikbaar", lambda: f"HTTP {requests.post(core.ECO_URL, json={}, timeout=15).status_code} (401 = bereikbaar, sleutel nodig)")
     rapport = "\n".join(regels) + f"\n\n{fouten} fout(en)\n"

@@ -42,7 +42,7 @@ jobs:
           Set-Content ui\build.txt "${{ github.run_number }}"  # NOVA vergelijkt dit nummer om zichzelf bij te werken
           # Piper (Nederlandse stem): alleen de uitspraakregels van espeak-ng mee, niet de Arabische/Hebreeuwse modellen
           $piper = python -c "import os, piper; print(os.path.dirname(piper.__file__))"
-          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --add-data "$piper\espeak-ng-data;piper\espeak-ng-data" --hidden-import piper.espeakbridge --collect-binaries onnxruntime --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --add-data "$piper\espeak-ng-data;piper\espeak-ng-data" --hidden-import piper.espeakbridge --collect-binaries onnxruntime --collect-data docx --collect-data pptx --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
           "NOVA.exe: {0:N0} MB" -f ((Get-Item dist\NOVA.exe).Length / 1MB)
       - name: Zelftest van de exe
         shell: pwsh
@@ -58,6 +58,7 @@ jobs:
           $rapport
           if ($p.ExitCode -ne 0) { throw "zelftest faalde (code $($p.ExitCode))" }
           if (-not ($rapport -match "^OK +Nederlandse stem \(Piper\): nl_BE-nathalie-medium")) { throw "de Nederlandse stem (Piper) werkt niet in de exe" }
+          if (-not ($rapport -match "^OK +documenten \(pdf, Word\): pdf en word gemaakt en teruggelezen")) { throw "documenten lezen/maken werkt niet in de exe" }
       - name: Proef met venster (opent de ECO-HUD?)
         shell: pwsh
         run: |

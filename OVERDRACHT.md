@@ -40,6 +40,16 @@ Lees dit eerst. Site: sekibar.nl · repo SE-KIB/LERENISLEUK · `main` = live.
 - De bouwstraat test Piper in de echte exe (zelftest maakt een zin met nathalie).
 - **Nog te checken door Serkan:** klinkt NOVA nu goed? Staat er bij STEM "GEMINI (ECO)" zonder ⚠? Zo niet: de reden doorgeven.
 
+## Vaardigheden voor ECO en NOVA (PR #119)
+Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd:
+- **ECO `web_lezen`:** een webpagina of online PDF openen en lezen (zelf ophalen, alleen openbare adressen; anders Gemini url_context).
+- **ECO PDF's in de chat:** 📷-knop neemt ook PDF's (max 8 MB); Gemini/Claude lezen ze (Groq niet, dus via de slimme baan).
+- **NOVA `bestand_lezen`:** pdf, Word, Excel, PowerPoint, tekst op de laptop lezen (ook via ECO's `pc`-tool vanaf de iPhone, en offline).
+- **NOVA `document_maken`:** PDF of Word maken in Documenten\NOVA (opent meteen, overschrijft nooit).
+- Claude's eigen plugins: alle 14 skills staan al aan; voorgesteld om aan te zetten: supabase, frontend-design, code-review, Productivity.
+- **Ideeën voor later:** echte browserbesturing op de laptop (klikken/invullen) bewust nog niet: risicovol bij webinhoud.
+  Eerst kijken of web_lezen + meekijken genoeg is.
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met

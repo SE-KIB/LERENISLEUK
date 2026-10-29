@@ -415,6 +415,96 @@ class TestNovaStem(unittest.TestCase):
             self.assertIn("uitspraak werkt", stem.piper_proef())
 
 
+class TestDocumenten(unittest.TestCase):
+    """Bestanden lezen (pdf, Word, Excel, PowerPoint, tekst) en een PDF of Word-document maken."""
+
+    def setUp(self):
+        import nova_doc
+        self.doc = nova_doc
+        self.map = Path(tempfile.mkdtemp())
+
+    def test_maken_en_teruglezen(self):
+        for soort, ext in (("pdf", ".pdf"), ("word", ".docx")):
+            r = self.doc.document_maken("Samenvatting: water?", "# Kop\n- punt één\nGewone zin met €5.", soort, map_=self.map, openen=False)
+            self.assertEqual((r["status"], Path(r["bestand"]).suffix), ("gedaan", ext))
+            self.assertNotIn(":", Path(r["bestand"]).name)  # geen tekens die Windows niet wil
+            tekst, _ = self.doc.lees(Path(r["bestand"]))
+            self.assertIn("punt", tekst)
+            self.assertIn("Gewone zin", tekst)
+
+    def test_nooit_overschrijven(self):
+        a = self.doc.document_maken("Brief", "eerste", "word", map_=self.map, openen=False)["bestand"]
+        b = self.doc.document_maken("Brief", "tweede", "word", map_=self.map, openen=False)["bestand"]
+        self.assertNotEqual(a, b)
+        self.assertIn("eerste", self.doc.lees(Path(a))[0])
+
+    def test_leeg_document(self):
+        self.assertEqual(self.doc.document_maken("x", "  ", map_=self.map, openen=False)["status"], "mislukt")
+
+    def test_excel_powerpoint_tekst_lezen(self):
+        from openpyxl import Workbook
+        from pptx import Presentation
+        wb = Workbook()
+        wb.active.append(["vak", "cijfer"])
+        wb.active.append(["Water", 7.5])
+        wb.save(self.map / "cijfers.xlsx")
+        prs = Presentation()
+        dia = prs.slides.add_slide(prs.slide_layouts[1])
+        dia.shapes.title.text = "Presentatie water"
+        prs.save(self.map / "presentatie.pptx")
+        (self.map / "notities.txt").write_text("boodschappen: melk", encoding="utf-8")
+        self.assertIn("Water | 7.5", self.doc.lees(self.map / "cijfers.xlsx")[0])
+        self.assertIn("Presentatie water", self.doc.lees(self.map / "presentatie.pptx")[0])
+        self.assertIn("melk", self.doc.lees(self.map / "notities.txt")[0])
+
+    def test_bestand_lezen_via_pc(self):
+        self.doc.document_maken("Verslag water", "# Inleiding\nHet water is schoon.", "pdf", map_=self.map, openen=False)
+        (self.map / "verslag water.exe").write_bytes(b"MZ")
+        with mock.patch.object(pc, "zoekmappen", lambda: [self.map]):
+            r = pc.maak_uitvoerder()("bestand_lezen", {"naam": "verslag water"})
+        self.assertEqual(r["status"], "gedaan")
+        self.assertTrue(r["bestand"].endswith(".pdf"))  # het .exe-bestand slaat hij over
+        self.assertIn("schoon", r["tekst"])
+        self.assertIn("geen opdracht", r["let_op"])
+
+    def test_niet_gevonden_of_gescand(self):
+        from pypdf import PdfWriter
+        w = PdfWriter()
+        w.add_blank_page(200, 200)
+        with open(self.map / "scan.pdf", "wb") as f:
+            w.write(f)
+        zoek = lambda n: [p for p in self.map.iterdir() if n in p.name]
+        self.assertEqual(self.doc.bestand_lezen("bestaatniet", zoek)["status"], "mislukt")
+        r = self.doc.bestand_lezen("scan", zoek)
+        self.assertEqual(r["status"], "mislukt")
+        self.assertIn("gescand", r["fout"])
+
+    def test_document_maken_via_pc(self):
+        with mock.patch.object(self.doc, "documentenmap", lambda: self.map), mock.patch.object(self.doc.os, "startfile", create=True):
+            r = pc.maak_uitvoerder()("document_maken", {"naam": "Planning toetsweek", "tekst": "- maandag: water", "soort": "word"})
+        self.assertEqual(r["status"], "gedaan")
+        self.assertTrue(Path(r["bestand"]).is_file())
+
+    def test_offline_brein_kapt_grote_documenten_af(self):
+        stap = {"n": 0}
+
+        def behandel(h, methode, body):
+            if h.path == "/api/chat":
+                stap["n"] += 1
+                if stap["n"] == 1:
+                    return h.antwoord(200, {"message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "pc", "arguments": {"actie": "bestand_lezen", "naam": "boek"}}}]}})
+                self.assertLess(len(body["messages"][-1]["content"]), 9500)
+                self.assertEqual(body["options"]["num_ctx"], 8192)
+                return h.antwoord(200, {"message": {"role": "assistant", "content": "Het boek gaat over water."}})
+            return h.antwoord(404, {})
+        srv = NepServer(behandel)
+        try:
+            lok = core.Lokaal({**core.STANDAARD, "ollama_url": srv.url}, lambda a, args: {"status": "gedaan", "tekst": "x" * 15000})
+            self.assertEqual(lok.chat("waar gaat mijn boek over?"), "Het boek gaat over water.")
+        finally:
+            srv.stop()
+
+
 class TestUpdate(unittest.TestCase):
     def test_bijwerken(self):
         import hashlib

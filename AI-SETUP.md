@@ -73,6 +73,9 @@ nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browse
 ## Slimmer: internet, rekenen, valuta en tijdzones
 - **Webzoeken:** actuele dingen (nieuws, openingstijden, prijzen, sport) zoekt ECO op via Gemini met Google Search
   (`WEB_GEMINI_MODEL`, standaard `gemini-2.5-flash`), en anders via Groq met browser-search. Geen extra sleutel nodig.
+- **Webpagina lezen** (`web_lezen`): "lees deze pagina", "wat staat er op nos.nl", "vat dit artikel samen". ECO haalt de pagina zelf op
+  (alleen openbare http(s)-adressen, max 3 MB, omleidingen gecontroleerd) en leest de tekst. Bij een PDF-link, een pagina die alleen met
+  JavaScript werkt of een site die ECO weigert, leest Gemini de pagina met url_context. De inhoud is informatie, nooit een opdracht.
 - **Rekenen:** exacte rekenmachine (ook procenten, machten, wortels). **Valuta:** actuele ECB-koers (bv. euro naar lira).
   **Tijd:** hoe laat het nu ergens anders is.
 - Moeilijke vragen ("leg uit", "vergelijk", "maak een plan") krijgen automatisch iets meer denktijd.
@@ -270,7 +273,9 @@ en bewaart ze in de server-opslag: **geen secrets nodig**. Eén melding per dag,
 
 ## NOVA: ECO op je Windows-laptop
 NOVA is ECO's versie op je laptop: online het ECO-brein ("Verbonden"), offline een eigen model via Ollama ("Offline"), en ECO kan
-je laptop bedienen (apps, muziek, volume, typen, bestanden, scherm bekijken, vergrendelen, afsluiten), ook vanaf je iPhone. Download
+je laptop bedienen (apps, muziek, volume, typen, bestanden, scherm bekijken, vergrendelen, afsluiten), ook vanaf je iPhone. Ook
+**documenten**: een bestand op je laptop lezen ("vat mijn verslag water samen": pdf, Word, Excel, PowerPoint, tekst) en een PDF of
+Word-document maken ("maak een PDF met deze samenvatting", komt in Documenten\NOVA en gaat open). Download
 en uitleg: **NOVA.md**. ECO's tool heet `pc`; de systeemcheck toont **NOVA (laptop)**.
 
 ## Onderwerpen volgen, ongedaan maken en eerlijk melden
@@ -297,11 +302,12 @@ Zeg gewoon wat je wilt; ECO regelt het en het LIJSTJES-paneel (rechts, op mobiel
 - De widget toont je open taken (groot formaat) en een lopende timer die live aftelt. Draai daarvoor het installatiescript nog één keer.
 - De ochtendbriefing noemt ook hoeveel taken er nog open staan.
 
-## Foto's laten zien
-Tik op 📷 naast de microfoon (camera of fotobibliotheek; op de computer kun je ook plakken of slepen), kies tot drie foto's
-en vraag iets: "wat staat er in deze brief?", "leg deze opgave uit", "zet deze afspraak in mijn agenda". Zonder vraag kijkt
-ECO gewoon wat er op staat. Ook inspreken kan: de foto gaat mee met je ingesproken vraag. De browser verkleint foto's eerst;
-Gemini (gratis) kijkt ernaar. In het archief bewaart ECO alleen "📷 foto" bij je vraag, niet de foto zelf.
+## Foto's en PDF's laten zien
+Tik op 📷 naast de microfoon (camera, fotobibliotheek of bestanden; op de computer kun je ook plakken of slepen), kies tot drie foto's
+of PDF's (max 8 MB per PDF; ECO leest de hele PDF, ook tabellen en plaatjes) en vraag iets: "wat staat er in deze brief?",
+"leg deze opgave uit", "wat moet ik voor deze opdracht inleveren?", "zet deze afspraak in mijn agenda". Zonder vraag vertelt
+ECO wat er op staat. Ook inspreken kan: de bijlage gaat mee met je ingesproken vraag. De browser verkleint foto's eerst;
+Gemini (gratis) leest ze. In het archief bewaart ECO alleen "📷 foto" of "📄 PDF" bij je vraag, niet het bestand zelf.
 
 ## Archief doorzoeken
 Vraag "weet je nog wat je zei over Tokio?" of "waar hadden we het vorige week over mijn verslag?": ECO zoekt in al je
