@@ -37,12 +37,14 @@ let spNotice = "";
 // Tik op de briefingmelding terwijl ECO al open staat.
 navigator.serviceWorker?.addEventListener("message", (e) => { if (e.data?.type === "briefing" && !$("app").hidden) briefing(); });
 
+const CAN_RECORD_EARLY = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
 // ---------- Toestand ----------
 const STATE_LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWERKEN", speaking: "SPREKEN", error: "STORING" };
 function setState(s) {
   document.body.dataset.state = s;
   $("stateLabel").textContent = STATE_LABEL[s];
   wakeOnState(s); // "Hé Eco" luistert alleen in stand-by, niet terwijl ECO luistert, denkt of praat
+  bargeOnState(s); // onderbreken: tijdens het praten luistert ECO of jij ertussen praat
 }
 
 // ---------- Geluid (UI-tonen via Web Audio, geen bestanden) ----------
@@ -498,8 +500,26 @@ async function timerDone(t) {
 }
 
 // ---------- Archief ----------
+// Zoeken: in titels en in de tekst van alle berichten (Nederlandse woordvormen).
+let archT = null;
+$("archZoek").oninput = () => { clearTimeout(archT); archT = setTimeout(() => loadConversations(), 300); };
+async function zoekIds(q) {
+  const [m, t] = await Promise.all([
+    sb.from("ai_messages").select("conversation_id").textSearch("content", q, { config: "dutch", type: "websearch" }).order("created_at", { ascending: false }).limit(300),
+    sb.from("ai_conversations").select("id").ilike("title", `%${q}%`).limit(100),
+  ]);
+  return [...new Set([...(t.data ?? []).map((x) => x.id), ...(m.data ?? []).map((x) => x.conversation_id)])].slice(0, 100);
+}
 async function loadConversations() {
-  const { data } = await sb.from("ai_conversations").select("id,title").order("updated_at", { ascending: false }).limit(100);
+  const q = $("archZoek").value.trim();
+  let query = sb.from("ai_conversations").select("id,title").order("updated_at", { ascending: false }).limit(100);
+  if (q) {
+    const ids = await zoekIds(q);
+    if (q !== $("archZoek").value.trim()) return; // er is intussen verder getypt
+    if (!ids.length) { $("convList").innerHTML = `<li class="empty">NIETS GEVONDEN VOOR "${q.replace(/[<>&"]/g, "").toUpperCase()}"</li>`; return; }
+    query = query.in("id", ids);
+  }
+  const { data } = await query;
   const list = $("convList");
   list.innerHTML = "";
   if (!data?.length) list.innerHTML = `<li class="empty">GEEN OPGESLAGEN SESSIES</li>`;
@@ -905,6 +925,7 @@ function applyUi(ev, afterDone) {
 }
 async function ask({ text = "", audio = null }) {
   const my = ++turn;
+  const imgs = takeFotos(); // foto's die klaarstaan gaan mee met deze vraag (getypt of ingesproken)
   const t0 = performance.now();
   let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, unsure = false, done = null;
   const afterDone = [];
@@ -917,7 +938,7 @@ async function ask({ text = "", audio = null }) {
   };
   speech.onFirstAudio = (ms) => { audioAt = ms - t0; showLat(); };
   setState("thinking"); sfx.send();
-  if (text) { entry("user", text); setCaption("› " + text, "user"); }
+  if (text || (imgs.length && !audio)) { fotoThumbs(entry("user", text || "📷"), imgs); setCaption("› " + (text || "📷 foto"), "user"); }
   else setCaption("Uitschrijven…", "user");
   let streaming = true;
   let final = false; // na het slot geen late (requestAnimationFrame) render meer: die zou de knop eronder wissen
@@ -938,10 +959,11 @@ async function ask({ text = "", audio = null }) {
       if (currentConv) fd.append("conversationId", currentConv);
       if (myLoc) { fd.append("lat", myLoc.lat); fd.append("lon", myLoc.lon); }
       fd.append("ui", JSON.stringify(uiState()));
+      if (imgs.length) fd.append("images", JSON.stringify(imgs.map(({ mime, data }) => ({ mime, data }))));
       res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(false), body: fd });
       if (res.status === 501) { whisper = false; setState("idle"); if (Rec) listenBrowser(); return; }
     } else {
-      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc, stream: true, ui: uiState() }) });
+      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc, stream: true, ui: uiState(), ...(imgs.length ? { images: imgs.map(({ mime, data }) => ({ mime, data })) } : {}) }) });
     }
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
     await readEvents(res, (ev) => {
@@ -949,6 +971,7 @@ async function ask({ text = "", audio = null }) {
       if (ev.t === "heard") {
         if (!ev.text) { heardNothing = true; setState("idle"); setCaption("Ik heb niets verstaan.", "user"); speech.open = false; convoNext(false); return; }
         const you = entry("user", ev.text); setCaption("› " + ev.text, "user");
+        fotoThumbs(you, imgs);
         if (ev.q) you.parentElement.title = `Tik om te verbeteren · zekerheid ${ev.q.logprob} · geen spraak ${ev.q.noSpeech}`;
         if (ev.unsure) {
           // Whisper twijfelt: niet raden, maar vragen om het nog eens te zeggen.
@@ -1020,13 +1043,67 @@ async function ask({ text = "", audio = null }) {
 $("chatForm").onsubmit = async (e) => {
   e.preventDefault();
   const text = $("input").value.trim();
-  if (!text) return;
+  if (!text && !fotos.length) return;
   $("input").value = ""; $("input").style.height = "auto"; $("send").disabled = true;
   try { await ask({ text }); } finally {
     $("send").disabled = false;
     if (matchMedia("(min-width: 901px)").matches) $("input").focus();
   }
 };
+
+// ---------- Foto's bij een vraag (camera, bibliotheek, plakken of slepen) ----------
+let fotos = []; // { mime, data, url }
+const takeFotos = () => { const f = fotos; fotos = []; renderFotos(); return f; };
+function fotoThumbs(body, imgs) {
+  if (!body || !imgs?.length) return;
+  const box = document.createElement("div");
+  box.className = "fotos";
+  for (const f of imgs) { const img = document.createElement("img"); img.src = f.url; img.alt = "foto"; box.append(img); }
+  body.prepend(box);
+}
+// Verkleinen naar hooguit 1600 px (JPEG): snel te versturen en scherp genoeg voor tekst op een foto.
+async function verklein(file, max = 1600) {
+  const bron = await createImageBitmap(file).catch(() => new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error("onbekend beeldformaat")); img.src = URL.createObjectURL(file);
+  }));
+  const k = Math.min(1, max / Math.max(bron.width, bron.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bron.width * k)); c.height = Math.max(1, Math.round(bron.height * k));
+  c.getContext("2d").drawImage(bron, 0, 0, c.width, c.height);
+  const url = c.toDataURL("image/jpeg", 0.82);
+  return { mime: "image/jpeg", data: url.split(",")[1], url };
+}
+async function addFotos(files) {
+  for (const f of [...files].filter((f) => f && (f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name || "")))) {
+    if (fotos.length >= 3) { typeCaption("Hooguit drie foto's per vraag.", "err"); break; }
+    try { fotos.push(await verklein(f)); } catch (e) { typeCaption("Foto lezen mislukt: " + e.message, "err"); }
+  }
+  renderFotos();
+  if (fotos.length) { sfx.tick(); if (matchMedia("(min-width: 901px)").matches) $("input").focus(); }
+}
+function renderFotos() {
+  const box = $("fotoChips");
+  box.innerHTML = "";
+  box.hidden = !fotos.length;
+  $("camBtn").classList.toggle("has", fotos.length > 0);
+  $("input").placeholder = fotos.length ? "Vraag iets over de foto…" : "Opdracht…";
+  fotos.forEach((f, i) => {
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img alt="foto"><button type="button" aria-label="Foto weghalen">✕</button>`;
+    fig.querySelector("img").src = f.url;
+    fig.querySelector("button").onclick = () => { fotos.splice(i, 1); renderFotos(); };
+    box.append(fig);
+  });
+}
+$("camBtn").onclick = () => $("camFile").click();
+$("camFile").onchange = async () => { await addFotos($("camFile").files); $("camFile").value = ""; };
+$("input").addEventListener("paste", (e) => {
+  const files = [...(e.clipboardData?.items ?? [])].filter((i) => i.type.startsWith("image/")).map((i) => i.getAsFile());
+  if (files.length) { e.preventDefault(); addFotos(files); }
+});
+$("chatForm").addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); $("chatForm").classList.add("drop"); } });
+$("chatForm").addEventListener("dragleave", () => $("chatForm").classList.remove("drop"));
+$("chatForm").addEventListener("drop", (e) => { e.preventDefault(); $("chatForm").classList.remove("drop"); addFotos(e.dataTransfer.files); });
 
 // ---------- Spraak uit ----------
 // De server stuurt kale PCM (16-bit mono) terwijl de stem nog wordt gemaakt; Web Audio speelt elk stukje direct af.
@@ -1095,7 +1172,7 @@ async function playPcm(res, gen, item) {
   const out = audioOut();
   if (actx.state !== "running") await Promise.race([actx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 1000))]);
   if (actx.state !== "running") { res.body.cancel().catch(() => {}); throw new Error("audio staat stil (tik eerst op het scherm)"); }
-  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* oudere Safari */ }
+  try { if (navigator.audioSession) navigator.audioSession.type = bargeOn() ? "play-and-record" : "playback"; } catch { /* oudere Safari */ }
   const reader = res.body.getReader();
   let carry = null;
   for (;;) {
@@ -1300,6 +1377,66 @@ $("wake")?.addEventListener("change", (e) => {
 });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeStart(); else wakeStop(); });
 
+// ---------- Onderbreken: praat ertussen terwijl ECO praat ----------
+// Tijdens het praten luistert ECO mee (met echo-onderdrukking). Klinkt er duidelijk een stem bovenop zijn eigen
+// echo, dan stopt hij meteen met praten en neemt hij je vraag op, met dezelfde microfoon (geen nieuwe toestemming).
+const bargeOn = () => !!$("barge")?.checked && CAN_RECORD_EARLY;
+const barge = { stream: null, src: null, raf: 0, starting: false };
+try { if ($("barge")) $("barge").checked = localStorage.getItem("eco-barge") !== "0"; } catch { if ($("barge")) $("barge").checked = true; }
+$("barge")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-barge", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  if (!e.target.checked) bargeStop();
+});
+function bargeOnState(s) {
+  if (s === "speaking") bargeStart();
+  else if (s !== "listening") bargeStop();
+}
+async function bargeStart() {
+  if (!bargeOn() || barge.stream || barge.starting || recording || rec) return;
+  barge.starting = true;
+  let s;
+  try { s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } }); }
+  catch { barge.starting = false; return; }
+  barge.starting = false;
+  if (document.body.dataset.state !== "speaking" || !bargeOn()) { s.getTracks().forEach((t) => t.stop()); return; }
+  barge.stream = s;
+  let an;
+  try {
+    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    an = actx.createAnalyser(); an.fftSize = 512;
+    barge.src = actx.createMediaStreamSource(s); barge.src.connect(an);
+  } catch { bargeStop(); return; }
+  const buf = new Float32Array(512), t0 = performance.now();
+  let echo = 0, over = 0, last = t0;
+  const loop = () => {
+    if (!barge.stream) return;
+    const now = performance.now(), dt = now - last; last = now;
+    an.getFloatTimeDomainData(buf);
+    const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
+    if (now - t0 < 600) echo = Math.max(echo, rms); // eerst leren hoe hard zijn eigen echo binnenkomt
+    else {
+      const drempel = Math.min(0.15, Math.max(0.022, echo * 2.6));
+      if (rms > drempel) { over += dt; if (over > 230) return bargeHit(); }
+      else { over = Math.max(0, over - dt * 0.6); echo = Math.max(rms, echo * 0.997); }
+    }
+    barge.raf = requestAnimationFrame(loop);
+  };
+  barge.raf = requestAnimationFrame(loop);
+}
+function bargeStop(keepStream = false) {
+  cancelAnimationFrame(barge.raf);
+  try { barge.src?.disconnect(); } catch { /* al los */ }
+  const s = barge.stream;
+  barge.stream = null; barge.src = null;
+  if (s && !keepStream) s.getTracks().forEach((t) => t.stop());
+  return s;
+}
+function bargeHit() {
+  const s = bargeStop(true);
+  if (!s) return;
+  listen(s);
+}
+
 // ---------- Spraak in ----------
 // Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands
 // veel beter. Stopt vanzelf na een korte stilte. Terugval: de spraakherkenning van de browser.
@@ -1307,12 +1444,13 @@ const CAN_RECORD = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecord
 let whisper = CAN_RECORD, rec = null, recording = null;
 if (!CAN_RECORD && !Rec) $("mic").hidden = true;
 
-function listen() {
-  if (rec || recording) return;
+function listen(stream = null) {
+  if (rec || recording) { stream?.getTracks().forEach((t) => t.stop()); return; }
   wakeStop(); $("tapTalk").hidden = true;
+  stream ||= bargeStop(true); // luisterde ECO al mee (onderbreken)? Dan dezelfde microfoon gebruiken
   stopSpeaking(); turn++;
   warm();
-  if (whisper) recordWhisper(); else listenBrowser();
+  if (whisper) recordWhisper(stream); else { stream?.getTracks().forEach((t) => t.stop()); listenBrowser(); }
 }
 function stopListening() {
   if (recording) recording.stop();
@@ -1324,10 +1462,12 @@ function micOn(on) {
   else if (document.body.dataset.state === "listening") setState("idle");
 }
 
-async function recordWhisper() {
-  let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-  catch (e) { typeCaption("Geen toegang tot de microfoon: " + e.message, "err"); return; }
+async function recordWhisper(existing = null) {
+  let stream = existing;
+  if (!stream || !stream.getAudioTracks().some((t) => t.readyState === "live")) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { typeCaption("Geen toegang tot de microfoon: " + e.message, "err"); return; }
+  }
   const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
   const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
   const parts = [];

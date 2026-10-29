@@ -22,6 +22,7 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `supabase/migrations/20261101_cron.sql` — ECO-klok: de database roept de functie elke 30 seconden aan (timers, ochtendbriefing)
 - `supabase/migrations/20261102_lijstjes.sql` — tabellen `ai_items` (lijstjes) en `ai_timers` met RLS
 - `supabase/migrations/20261103_contacten.sql` — tabel `ai_contacts` (WhatsApp-contacten) met RLS
+- `supabase/migrations/20261104_zoeken.sql` — zoekindex (Nederlands) op alle berichten, voor het archief
 - `eco-sw.js` — service worker, alleen voor pushmeldingen (geen offline-cache)
 - `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
 - `widget/eco-widget.js` + `widget/installeer.js` — iPhone-widget voor Scriptable
@@ -249,6 +250,21 @@ Zeg gewoon wat je wilt; ECO regelt het en het LIJSTJES-paneel (rechts, op mobiel
   en staat ECO dicht of op de achtergrond, dan krijg je binnen een halve minuut een **melding** (zet MELDINGEN aan, zie hierboven).
 - De widget toont je open taken (groot formaat) en een lopende timer die live aftelt. Draai daarvoor het installatiescript nog één keer.
 - De ochtendbriefing noemt ook hoeveel taken er nog open staan.
+
+## Foto's laten zien
+Tik op 📷 naast de microfoon (camera of fotobibliotheek; op de computer kun je ook plakken of slepen), kies tot drie foto's
+en vraag iets: "wat staat er in deze brief?", "leg deze opgave uit", "zet deze afspraak in mijn agenda". Zonder vraag kijkt
+ECO gewoon wat er op staat. Ook inspreken kan: de foto gaat mee met je ingesproken vraag. De browser verkleint foto's eerst;
+Gemini (gratis) kijkt ernaar. In het archief bewaart ECO alleen "📷 foto" bij je vraag, niet de foto zelf.
+
+## Archief doorzoeken
+Vraag "weet je nog wat je zei over Tokio?" of "waar hadden we het vorige week over mijn verslag?": ECO zoekt in al je
+eerdere gesprekken en vat het samen met de datum. In het menu staat bij ARCHIEF ook een zoekveld (zoekt in titels én tekst).
+
+## Onderbreken
+Staat **ONDERBREKEN** aan (BEDIENING, standaard aan), dan luistert ECO mee terwijl hij praat. Begin je te praten, dan stopt hij
+meteen en neemt hij je vraag op. Tikken op de microfoon werkt ook altijd. Op de iPhone klinkt ECO wat zachter zolang hij meeluistert
+(iOS zet de microfoon dan in gespreksstand); vind je dat vervelend, zet ONDERBREKEN dan uit.
 
 ## Spotify
 Zeg "speel Blinding Lights", "zet Drake op", "speel mijn opgeslagen nummers", "pauze", "volgende", "zachter" of "wat speelt er?".
