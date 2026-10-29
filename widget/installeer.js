@@ -5,7 +5,7 @@ try { fm = FileManager.iCloud(); fm.documentsDirectory(); } catch { fm = FileMan
 fm.writeString(fm.joinPath(fm.documentsDirectory(), "ECO.js"), code);
 const a = new Alert();
 a.title = "ECO-widget geïnstalleerd";
-a.message = "Open nu het script 'ECO' en stel je sleutel in. Voeg daarna een Scriptable-widget toe en kies bij Script: ECO.";
+a.message = "Open nu het script 'ECO' en log in met je ECO-account. Voeg daarna een Scriptable-widget toe en kies bij Script: ECO.";
 a.addAction("OK");
 await a.present();
 Script.complete();

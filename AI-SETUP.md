@@ -219,11 +219,13 @@ Voorbeeld "Hé Siri, Eco" met je agenda en herinneringen erbij: voeg vóór stap
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip
 ("Neem een paraplu mee"), deadlines en actiepunten uit het dagrapport. Tik erop om ECO te openen. Ververst ongeveer elk kwartier.
-1. Zorg dat het Supabase-secret `JARVIS_KEY` bestaat (een lange geheime tekst; dezelfde als voor Brightspace en Siri).
-2. Installeer **Scriptable** uit de App Store (gratis).
-3. Open Scriptable → **+** → plak de inhoud van https://sekibar.nl/widget/installeer.js → tik **▶**. Er verschijnt een script **ECO**.
-4. Open het script **ECO** → **Sleutel wijzigen** → plak je `JARVIS_KEY`. Hij wordt bewaard in de iOS-sleutelhanger, niet in het script.
-   Met **Voorbeeld middel** zie je meteen hoe hij eruitziet.
+1. Installeer **Scriptable** uit de App Store (gratis).
+2. Open in Safari https://sekibar.nl/widget/installeer.js, kopieer alle tekst; in Scriptable → **+** → plak → tik **▶**.
+   Er verschijnt een script **ECO**.
+3. Tik op **ECO** → log in met **dezelfde e-mail en hetzelfde wachtwoord als op sekibar.nl**. Je wachtwoord wordt niet bewaard,
+   alleen de inlogsessie (in de iOS-sleutelhanger); die ververst zichzelf. Met **Voorbeeld middel** zie je meteen het resultaat.
+4. (Optioneel, later) Wil je in plaats daarvan een vaste sleutel, zet dan `JARVIS_KEY` in Supabase; de widget gebruikt die als hij
+   in de sleutelhanger staat.
 5. Beginscherm: houd ingedrukt → **+** → Scriptable → kies klein, middel of groot → tik op de widget → *Script*: **ECO**.
    Vergrendelscherm: houd het vergrendelscherm ingedrukt → Pas aan → widgets → Scriptable → kies **ECO**.
 Bijwerken naar een nieuwe versie: draai het installatiescript nog een keer.
