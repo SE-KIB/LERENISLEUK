@@ -1,0 +1,9 @@
+{
+  "name": "eco-brightspace",
+  "private": true,
+  "type": "module",
+  "description": "ECO: Brightspace-roosterpagina's ophalen met Playwright (draait in GitHub Actions)",
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

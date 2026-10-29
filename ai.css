@@ -341,3 +341,8 @@ select.lab-id option{background:#02121a;color:var(--c2)}
 .rs-foot .vak{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);border:1px dashed rgba(0,225,255,.25);padding:2px 6px}
 .rs-foot .vak button{border:0;background:none;color:var(--muted);padding:0 2px;cursor:pointer}
 .rs-foot .vak button:hover{color:var(--red)}
+.rs-bs{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,225,255,.18)}
+.rs-bs-h{display:flex;gap:8px;align-items:baseline;font-family:var(--f-mono);font-size:.68rem;color:var(--muted);letter-spacing:.06em}
+.rs-bs-h b{font-family:var(--f-head);font-weight:400;color:var(--c);letter-spacing:.18em}
+.rs-bs-h span.ok{color:var(--c)}
+.rs-bs-h span.warn{color:#ffb24a}
