@@ -1,13 +1,15 @@
-"""NOVA — ECO op je Windows-laptop.
+"""NOVA — Nice Operating Variant Agent: ECO op je Windows-laptop.
 
 Online ("Verbonden") praat NOVA met het ECO-brein (Groq/Gemini, zelfde geheugen, agenda en archief); offline met een model op
-de laptop via Ollama. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Start: dubbelklik NOVA.exe.
+de laptop via Ollama. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Het venster is dezelfde HUD als ECO
+(ui/index.html met ECO's ai.css, getoond met WebView2); lukt dat niet, dan een eenvoudig venster. Start: dubbelklik NOVA.exe.
 Zelftest (voor de bouwstraat): NOVA.exe --selftest
 """
 from __future__ import annotations
 
 import argparse
-import queue
+import json
+import shutil
 import sys
 import tempfile
 import threading
@@ -18,112 +20,62 @@ from pathlib import Path
 import nova_core as core
 import nova_pc as pc
 
-K = {"bg": "#04090d", "paneel": "#071219", "rand": "#0e3a47", "c": "#00e1ff", "c2": "#9fefff", "muted": "#5b7f8c", "ok": "#5dffb0", "warn": "#ffb12a", "bad": "#ff4d6d"}
 
+class NovaApp:
+    """Al het werk van NOVA, los van het venster. `ui` krijgt gebeurtenissen: jij, nova_start, delta, nova_eind, sys, fout,
+    tool, pc, status, staat, melding."""
 
-class Nova:
-    def __init__(self, root):
-        import tkinter as tk
-        self.tk, self.root = tk, root
+    def __init__(self, ui):
+        self.ui = ui
         self.cfg = core.laad_config()
-        self.ui: "queue.Queue[tuple]" = queue.Queue()
         self.eco = core.Eco(self.cfg)
         self.uitvoeren = pc.maak_uitvoerder(self.beschrijf_beeld)
-        self.lokaal = core.Lokaal(self.cfg, self.uitvoeren)
+        self.lokaal = core.Lokaal(self.cfg, self.pc_actie)
         self.lokaal.kennis = core.laad_kennis()
         self.lokaal_ok, self.lokaal_reden = False, "nog niet gecontroleerd"
-        self.brug = core.Brug(self.eco, self.uitvoeren, self.status_info, on_online=self.online_wissel, on_opdracht=self.opdracht_gezien)
+        self.brug = core.Brug(self.eco, self.pc_actie, self.status_info, on_online=self.online_wissel)
         self.conv = None
         self.bezig = False
         self.spreek_slot = threading.Lock()
-        self.bouw()
-        self.root.after(100, self.verwerk)
+
+    def start(self):
         self.brug.start()
         threading.Thread(target=self.lokaal_lus, daemon=True).start()
-        self.zeg_sys(f"NOVA {core.VERSIE} gestart op {self.cfg['naam']}.")
-        if not self.eco.klaar:
-            self.root.after(500, self.instellingen)
+        self.ui.sys(f"NOVA {core.VERSIE} gestart op {self.cfg['naam']}.")
+        self.toon_status()
 
-    # ---------- venster ----------
-    def bouw(self):
-        tk = self.tk
-        r = self.root
-        r.title("NOVA")
-        r.geometry("460x680")
-        r.minsize(380, 480)
-        r.configure(bg=K["bg"])
-        kop = tk.Frame(r, bg=K["bg"])
-        kop.pack(fill="x", padx=14, pady=(12, 4))
-        tk.Label(kop, text="N.O.V.A.", fg=K["c"], bg=K["bg"], font=("Consolas", 22, "bold")).pack(side="left")
-        tk.Button(kop, text="⚙", command=self.instellingen, fg=K["c2"], bg=K["paneel"], activebackground=K["rand"], relief="flat", font=("Segoe UI", 12)).pack(side="right")
-        self.status = tk.Label(r, text="● VERBINDEN…", fg=K["warn"], bg=K["bg"], font=("Consolas", 10), anchor="w")
-        self.status.pack(fill="x", padx=16)
-        self.sub = tk.Label(r, text="", fg=K["muted"], bg=K["bg"], font=("Consolas", 9), anchor="w", justify="left", wraplength=420)
-        self.sub.pack(fill="x", padx=16, pady=(0, 6))
-        self.log = tk.Text(r, bg=K["paneel"], fg="#e9fdff", insertbackground=K["c"], relief="flat", wrap="word", font=("Segoe UI", 11), padx=10, pady=8,
-                           highlightthickness=1, highlightbackground=K["rand"])
-        self.log.pack(fill="both", expand=True, padx=12)
-        for tag, kleur in (("jij", K["warn"]), ("nova", "#e9fdff"), ("sys", K["muted"]), ("pc", K["ok"]), ("fout", K["bad"])):
-            self.log.tag_configure(tag, foreground=kleur)
-        self.log.configure(state="disabled")
-        onder = tk.Frame(r, bg=K["bg"])
-        onder.pack(fill="x", padx=12, pady=10)
-        self.mic = tk.Button(onder, text="🎙", command=self.mic_klik, fg=K["c"], bg=K["paneel"], activebackground=K["rand"], relief="flat", font=("Segoe UI", 14), width=3)
-        self.mic.pack(side="left")
-        self.invoer = tk.Entry(onder, bg=K["paneel"], fg="#e9fdff", insertbackground=K["c"], relief="flat", font=("Segoe UI", 11), highlightthickness=1, highlightbackground=K["rand"])
-        self.invoer.pack(side="left", fill="x", expand=True, padx=8, ipady=6)
-        self.invoer.bind("<Return>", lambda e: self.stuur())
-        tk.Button(onder, text="STUUR", command=self.stuur, fg=K["bg"], bg=K["c"], activebackground=K["c2"], relief="flat", font=("Consolas", 10, "bold")).pack(side="left")
-        r.bind("<Control-space>", lambda e: self.mic_klik())
-        r.protocol("WM_DELETE_WINDOW", self.sluit)
+    def stop(self):
+        self.brug.stop()
 
-    def verwerk(self):  # alles uit andere threads komt via deze wachtrij in het venster
-        try:
-            while True:
-                soort, *rest = self.ui.get_nowait()
-                if soort == "regel":
-                    tag, tekst = rest
-                    self.log.configure(state="normal")
-                    self.log.insert("end", tekst, tag)
-                    self.log.see("end")
-                    self.log.configure(state="disabled")
-                elif soort == "status":
-                    tekst, kleur, sub = rest
-                    self.status.configure(text=tekst, fg=kleur)
-                    self.sub.configure(text=sub)
-                elif soort == "mic":
-                    self.mic.configure(bg=rest[0])
-        except queue.Empty:
-            pass
-        self.root.after(80, self.verwerk)
-
-    def regel(self, tag, tekst):
-        self.ui.put(("regel", tag, tekst))
-
-    def zeg_sys(self, tekst):
-        self.regel("sys", f"{core.nu_tijd()}  {tekst}\n")
-
-    def toon_status(self):
-        if self.brug.online:
-            self.ui.put(("status", "● VERBONDEN — ECO-brein (Groq/Gemini)", K["ok"],
-                         f"Offline-reserve: {self.cfg['model']} {'klaar' if self.lokaal_ok else '— ' + self.lokaal_reden}"))
-        elif self.lokaal_ok:
-            self.ui.put(("status", f"● OFFLINE — eigen brein ({self.cfg['model']})", K["warn"], f"ECO niet bereikbaar: {self.brug.reden}"))
-        else:
-            self.ui.put(("status", "● OFFLINE — geen brein beschikbaar", K["bad"], f"ECO: {self.brug.reden or 'niet bereikbaar'} · Lokaal: {self.lokaal_reden}"))
-
-    # ---------- verbinding ----------
+    # ---------- status ----------
     def status_info(self):
         return {"naam": self.cfg["naam"], "versie": core.VERSIE, "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"]}
+
+    def toon_status(self):
+        try:
+            import nova_stem as stem
+            spraak = "WHISPER (ECO)" if self.brug.online else ("VOSK (OFFLINE)" if stem.vosk_klaar() else "ALLEEN TYPEN")
+        except Exception:
+            spraak = "—"
+        basis = {"eco": "VERBONDEN" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
+                 "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
+                 "naam": self.cfg["naam"], "versie": core.VERSIE}
+        if self.brug.online:
+            self.ui.status({**basis, "modus": "online", "titel": "VERBONDEN — ECO-BREIN (GROQ/GEMINI)",
+                            "sub": f"Offline-reserve: {self.cfg['model']} {'klaar' if self.lokaal_ok else '— ' + self.lokaal_reden}"})
+        elif self.lokaal_ok:
+            self.ui.status({**basis, "modus": "offline", "titel": f"OFFLINE — EIGEN BREIN ({self.cfg['model']})", "sub": f"ECO niet bereikbaar: {self.brug.reden}"})
+        else:
+            self.ui.status({**basis, "modus": "geen", "titel": "OFFLINE — GEEN BREIN BESCHIKBAAR", "sub": f"ECO: {self.brug.reden or 'niet bereikbaar'} · Lokaal: {self.lokaal_reden}"})
 
     def online_wissel(self, online, reden):
         self.toon_status()
         if online:
-            self.zeg_sys("Verbonden met ECO.")
+            self.ui.sys("Verbonden met ECO.")
             self.spreek("Verbonden met ECO.")
             threading.Thread(target=self.kennis_bijwerken, daemon=True).start()
         else:
-            self.zeg_sys(f"Offline ({reden}).")
+            self.ui.sys(f"Offline ({reden}).")
             self.spreek("Offline. Ik gebruik nu mijn eigen brein." if self.lokaal_ok else "Offline, en mijn eigen brein is nog niet klaar.")
 
     def kennis_bijwerken(self):
@@ -131,12 +83,13 @@ class Nova:
             self.lokaal.kennis = self.eco.geheugen()
             core.bewaar_kennis(self.lokaal.kennis)
         except Exception as e:
-            self.zeg_sys(f"Geheugen ophalen lukte niet: {e}")
+            self.ui.sys(f"Geheugen ophalen lukte niet: {e}")
         try:  # offline spraakherkenning alvast klaarzetten zolang er internet is
             import nova_stem as stem
             if not stem.vosk_klaar():
                 stem.vosk_downloaden()
-                self.zeg_sys("Offline spraakherkenning (Nederlands) staat klaar.")
+                self.ui.sys("Offline spraakherkenning (Nederlands) staat klaar.")
+                self.toon_status()
         except Exception:
             pass
 
@@ -146,93 +99,100 @@ class Nova:
             self.toon_status()
             time.sleep(60)
 
-    def opdracht_gezien(self, o):
-        args = " ".join(str(v) for v in (o.get("args") or {}).values())
-        self.regel("pc", f"{core.nu_tijd()}  ⚙ ECO → {o.get('actie')} {args}\n")
+    # ---------- pc-acties (van ECO via de brug, of van het eigen brein) ----------
+    def pc_actie(self, actie, args):
+        result = self.uitvoeren(actie, args)
+        tekst = f"{actie.replace('_', ' ')} {' '.join(str(v) for v in (args or {}).values() if str(v) and v != actie)}".strip()
+        self.ui.pc(tekst, result.get("status", ""), result.get("controle") or result.get("fout") or "")
+        return result
 
     # ---------- praten ----------
-    def stuur(self):
-        tekst = self.invoer.get().strip()
-        if not tekst or self.bezig:
-            return
-        self.invoer.delete(0, "end")
-        threading.Thread(target=self.vraag, args=(tekst,), daemon=True).start()
+    def stuur(self, tekst):
+        tekst = (tekst or "").strip()
+        if tekst and not self.bezig:
+            threading.Thread(target=self.vraag, args=(tekst,), daemon=True).start()
 
     def vraag(self, tekst, al_getoond=False):
         self.bezig = True
+        self.ui.staat("thinking")
         try:
             if not al_getoond:
-                self.regel("jij", f"\nJij: {tekst}\n")
-            self.regel("nova", "NOVA: ")
+                self.ui.jij(tekst)
+            gestart = {"ja": False}
+
+            def delta(d):
+                if not gestart["ja"]:
+                    gestart["ja"] = True
+                    self.ui.nova_start()
+                self.ui.delta(d)
             if self.brug.online and self.eco.klaar:
-                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=lambda d: self.regel("nova", d), on_tool=self.tool_gezien)
+                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
             elif self.lokaal_ok:
-                antwoord = self.lokaal.chat(tekst, on_tool=self.tool_gezien)
-                self.regel("nova", antwoord)
+                antwoord = self.lokaal.chat(tekst, on_tool=lambda n: self.ui.tool(n))
+                delta(antwoord)
             else:
-                antwoord = "Ik ben offline en mijn eigen brein is nog niet klaar. Installeer Ollama en download het model via ⚙."
-                self.regel("fout", antwoord)
-            self.regel("nova", "\n")
+                raise RuntimeError("Ik ben offline en mijn eigen brein is nog niet klaar. Installeer Ollama en download het model bij BEDIENING.")
+            self.ui.nova_eind(antwoord)
             self.spreek(antwoord)
         except Exception as e:
-            self.regel("fout", f"\n⚠ {e}\n")
+            self.ui.fout(str(e))
+            self.ui.staat("idle")
         finally:
             self.bezig = False
 
-    def tool_gezien(self, naam):
-        self.regel("pc", f" [{naam}] ")
-
-    def mic_klik(self):
-        if self.bezig:
-            return
-        threading.Thread(target=self.luister, daemon=True).start()
+    def mic(self):
+        if not self.bezig:
+            threading.Thread(target=self.luister, daemon=True).start()
 
     def luister(self):
         import nova_stem as stem
         self.bezig = True
-        self.ui.put(("mic", K["warn"]))
         try:
             stem.stop_spelen()
+            self.ui.staat("listening")
             samples = stem.opnemen()
-            self.ui.put(("mic", K["paneel"]))
             if samples is None:
-                self.zeg_sys("Ik hoorde niets.")
+                self.ui.sys("Ik hoorde niets.")
+                self.ui.staat("idle")
                 return
+            self.ui.staat("thinking")
             if self.brug.online and self.eco.klaar:
-                self.regel("nova", "\n")
-                gehoord = {"t": ""}
+                gestart = {"ja": False}
 
-                def heard(t):
-                    gehoord["t"] = t
-                    self.regel("jij", f"Jij: {t}\n")
-                    self.regel("nova", "NOVA: ")
-                antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=heard, on_delta=lambda d: self.regel("nova", d), on_tool=self.tool_gezien)
-                self.regel("nova", "\n")
+                def delta(d):
+                    if not gestart["ja"]:
+                        gestart["ja"] = True
+                        self.ui.nova_start()
+                    self.ui.delta(d)
+                antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
+                self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
             else:
                 if not stem.vosk_klaar():
-                    self.regel("fout", "\n⚠ Offline spraakherkenning is nog niet gedownload (gebeurt vanzelf als je online bent). Typ je vraag.\n")
-                    return
+                    raise RuntimeError("Offline spraakherkenning is nog niet gedownload (gebeurt vanzelf als je online bent). Typ je vraag.")
                 tekst = stem.vosk_herken(samples)
                 if not tekst:
-                    self.zeg_sys("Ik verstond niets.")
+                    self.ui.sys("Ik verstond niets.")
+                    self.ui.staat("idle")
                     return
-                self.regel("jij", f"\nJij: {tekst}\n")
+                self.ui.jij(tekst)
                 self.bezig = False
                 self.vraag(tekst, al_getoond=True)
         except Exception as e:
-            self.regel("fout", f"\n⚠ Microfoon: {e}\n")
+            self.ui.fout(f"Microfoon: {e}")
+            self.ui.staat("idle")
         finally:
-            self.ui.put(("mic", K["paneel"]))
             self.bezig = False
 
     def spreek(self, tekst):
         if not self.cfg.get("stem", True) or not tekst:
+            self.ui.staat("idle")
             return
 
         def doe():
             import nova_stem as stem
             with self.spreek_slot:
+                self.ui.staat("speaking")
                 try:
                     if self.brug.online and self.eco.klaar:
                         pcm, rate = self.eco.tts(tekst[:1500])
@@ -244,6 +204,8 @@ class Nova:
                     stem.windows_stem(tekst[:1500])
                 except Exception:
                     pass
+                finally:
+                    self.ui.staat("idle")
         threading.Thread(target=doe, daemon=True).start()
 
     def beschrijf_beeld(self, jpeg_b64: str) -> str:
@@ -256,51 +218,221 @@ class Nova:
         return "Ik kan het scherm nu niet bekijken (offline en geen eigen brein)."
 
     # ---------- instellingen ----------
+    def info(self):
+        return {"modellen": core.MODELLEN, "model": self.cfg["model"], "naam": self.cfg["naam"], "stem": bool(self.cfg.get("stem", True)),
+                "heeft_sleutel": self.eco.klaar, "versie": core.VERSIE}
+
+    def opslaan(self, d: dict):
+        if (d.get("eco_sleutel") or "").strip():
+            self.cfg["eco_sleutel"] = d["eco_sleutel"].strip()
+        self.cfg["naam"] = (d.get("naam") or "").strip() or self.cfg["naam"]
+        self.cfg["model"] = (d.get("model") or "").strip() or self.cfg["model"]
+        self.cfg["stem"] = bool(d.get("stem", True))
+        core.bewaar_config(self.cfg)
+        self.ui.melding("Opgeslagen.", "ok")
+        threading.Thread(target=lambda: (setattr(self, "lokaal_ok", self.lokaal.status()[0]), self.toon_status()), daemon=True).start()
+
+    def download(self, model: str | None = None):
+        if model:
+            self.cfg["model"] = model
+            core.bewaar_config(self.cfg)
+
+        def doe():
+            try:
+                self.ui.melding(f"{self.cfg['model']} downloaden…", "")
+                self.lokaal.ophalen(lambda f, s: self.ui.melding(f"{self.cfg['model']} downloaden… {f:.0%}", ""))
+                self.lokaal_ok, self.lokaal_reden = self.lokaal.status()
+                self.ui.melding(f"{self.cfg['model']} staat klaar voor offline.", "ok")
+                self.toon_status()
+            except Exception as e:
+                self.ui.melding(f"Downloaden lukte niet: {e} (draait Ollama? ollama.com)", "err")
+        threading.Thread(target=doe, daemon=True).start()
+
+
+# ---------- Venster 1: dezelfde HUD als ECO (WebView2 via pywebview) ----------
+def ui_map() -> Path:
+    basis = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    ui = basis / "ui"
+    if not (ui / "ai.css").exists():  # ontwikkelen vanuit de repo: ECO's ai.css staat een map hoger
+        bron = Path(__file__).resolve().parent.parent / "ai.css"
+        if bron.exists():
+            shutil.copy(bron, ui / "ai.css")
+    return ui
+
+
+class WebUI:
+    """Stuurt gebeurtenissen naar de pagina (window.nova.ev); wacht tot de pagina klaar is."""
+
+    def __init__(self):
+        self.window = None
+        self._wachtrij: list[dict] = []
+        self._geladen = False
+        self._slot = threading.Lock()
+
+    def _stuur(self, ev):
+        with self._slot:
+            if not self._geladen:
+                self._wachtrij.append(ev)
+                return
+        self._js(ev)
+
+    def _js(self, ev):
+        try:
+            self.window.evaluate_js(f"window.nova && window.nova.ev({json.dumps(ev, ensure_ascii=False)})")
+        except Exception:
+            pass
+
+    def klaar(self):
+        with self._slot:
+            self._geladen = True
+            wachtrij, self._wachtrij = self._wachtrij, []
+        for ev in wachtrij:
+            self._js(ev)
+
+    def jij(self, t): self._stuur({"t": "jij", "tekst": t})
+    def nova_start(self): self._stuur({"t": "nova_start"})
+    def delta(self, t): self._stuur({"t": "delta", "tekst": t})
+    def nova_eind(self, t): self._stuur({"t": "nova_eind", "tekst": t})
+    def sys(self, t): self._stuur({"t": "sys", "tekst": t})
+    def fout(self, t): self._stuur({"t": "fout", "tekst": t})
+    def tool(self, n): self._stuur({"t": "tool", "tekst": n})
+    def pc(self, tekst, status, detail): self._stuur({"t": "pc", "tekst": tekst, "status": status, "detail": detail})
+    def status(self, s): self._stuur({"t": "status", **s})
+    def staat(self, s): self._stuur({"t": "staat", "s": s})
+    def melding(self, t, soort): self._stuur({"t": "melding", "tekst": t, "soort": soort})
+
+
+class Api:
+    """Wat de pagina mag aanroepen (window.pywebview.api.*). Velden met _ ziet de pagina niet."""
+
+    def __init__(self, app: NovaApp, ui: WebUI):
+        self._app, self._ui = app, ui
+
+    def stuur(self, tekst): self._app.stuur(tekst)
+    def mic(self): self._app.mic()
+    def info(self): return self._app.info()
+    def opslaan(self, d): self._app.opslaan(d or {})
+    def download(self, model=None): self._app.download(model)
+    def klaar(self): self._ui.klaar()
+
+
+def start_web(webview) -> None:
+    ui = WebUI()
+    app = NovaApp(ui)
+    venster = webview.create_window("NOVA — Nice Operating Variant Agent", url=str(ui_map() / "index.html"), js_api=Api(app, ui),
+                                    width=1320, height=840, min_size=(1000, 640), background_color="#01070c")
+    ui.window = venster
+    app.start()
+    try:
+        webview.start(http_server=True)
+    finally:
+        app.stop()
+
+
+# ---------- Venster 2 (reserve): eenvoudig venster als WebView2 ontbreekt ----------
+K = {"bg": "#04090d", "paneel": "#071219", "rand": "#0e3a47", "c": "#00e1ff", "c2": "#9fefff", "muted": "#5b7f8c", "ok": "#5dffb0", "warn": "#ffb12a", "bad": "#ff4d6d"}
+
+
+class TkUI:
+    def __init__(self, root):
+        import queue
+        import tkinter as tk
+        self.tk, self.root, self.q = tk, root, queue.Queue()
+        root.title("NOVA — Nice Operating Variant Agent")
+        root.geometry("460x680")
+        root.configure(bg=K["bg"])
+        kop = tk.Frame(root, bg=K["bg"])
+        kop.pack(fill="x", padx=14, pady=(12, 4))
+        tk.Label(kop, text="N.O.V.A.", fg=K["c"], bg=K["bg"], font=("Consolas", 22, "bold")).pack(side="left")
+        tk.Button(kop, text="⚙", command=self.instellingen, fg=K["c2"], bg=K["paneel"], relief="flat", font=("Segoe UI", 12)).pack(side="right")
+        self.lbl = tk.Label(root, text="● VERBINDEN…", fg=K["warn"], bg=K["bg"], font=("Consolas", 10), anchor="w")
+        self.lbl.pack(fill="x", padx=16)
+        self.sub = tk.Label(root, text="", fg=K["muted"], bg=K["bg"], font=("Consolas", 9), anchor="w", justify="left", wraplength=420)
+        self.sub.pack(fill="x", padx=16, pady=(0, 6))
+        self.log = tk.Text(root, bg=K["paneel"], fg="#e9fdff", relief="flat", wrap="word", font=("Segoe UI", 11), padx=10, pady=8)
+        self.log.pack(fill="both", expand=True, padx=12)
+        for tag, kleur in (("jij", K["warn"]), ("nova", "#e9fdff"), ("sys", K["muted"]), ("pc", K["ok"]), ("fout", K["bad"])):
+            self.log.tag_configure(tag, foreground=kleur)
+        self.log.configure(state="disabled")
+        onder = tk.Frame(root, bg=K["bg"])
+        onder.pack(fill="x", padx=12, pady=10)
+        self.micknop = tk.Button(onder, text="🎙", command=lambda: self.app.mic(), fg=K["c"], bg=K["paneel"], relief="flat", font=("Segoe UI", 14), width=3)
+        self.micknop.pack(side="left")
+        self.invoer = tk.Entry(onder, bg=K["paneel"], fg="#e9fdff", insertbackground=K["c"], relief="flat", font=("Segoe UI", 11))
+        self.invoer.pack(side="left", fill="x", expand=True, padx=8, ipady=6)
+        self.invoer.bind("<Return>", lambda e: self.verstuur())
+        tk.Button(onder, text="STUUR", command=self.verstuur, fg=K["bg"], bg=K["c"], relief="flat", font=("Consolas", 10, "bold")).pack(side="left")
+        root.bind("<Control-space>", lambda e: self.app.mic())
+        self.app = NovaApp(self)
+        root.protocol("WM_DELETE_WINDOW", lambda: (self.app.stop(), root.destroy()))
+        root.after(80, self.verwerk)
+        self.app.start()
+        if not self.app.eco.klaar:
+            root.after(500, self.instellingen)
+
+    def verwerk(self):
+        import queue
+        try:
+            while True:
+                f = self.q.get_nowait()
+                f()
+        except queue.Empty:
+            pass
+        self.root.after(80, self.verwerk)
+
+    def _regel(self, tag, tekst):
+        def doe():
+            self.log.configure(state="normal")
+            self.log.insert("end", tekst, tag)
+            self.log.see("end")
+            self.log.configure(state="disabled")
+        self.q.put(doe)
+
+    def verstuur(self):
+        t = self.invoer.get().strip()
+        self.invoer.delete(0, "end")
+        self.app.stuur(t)
+
+    def jij(self, t): self._regel("jij", f"\nJij: {t}\n")
+    def nova_start(self): self._regel("nova", "NOVA: ")
+    def delta(self, t): self._regel("nova", t)
+    def nova_eind(self, t): self._regel("nova", "\n")
+    def sys(self, t): self._regel("sys", f"{core.nu_tijd()}  {t}\n")
+    def fout(self, t): self._regel("fout", f"\n⚠ {t}\n")
+    def tool(self, n): self._regel("pc", f" [{n}] ")
+    def pc(self, tekst, status, detail): self._regel("pc", f"{core.nu_tijd()}  ⚙ {tekst} — {status}{' · ' + detail if detail else ''}\n")
+    def status(self, s):
+        kleur = {"online": K["ok"], "offline": K["warn"]}.get(s["modus"], K["bad"])
+        self.q.put(lambda: (self.lbl.configure(text="● " + s["titel"], fg=kleur), self.sub.configure(text=s["sub"])))
+    def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
+    def melding(self, t, soort): self.sys(t)
+
     def instellingen(self):
         tk = self.tk
         from tkinter import ttk
         w = tk.Toplevel(self.root)
         w.title("NOVA — instellingen")
         w.configure(bg=K["bg"])
-        w.geometry("420x420")
-        def rij(label, var, verborgen=False, opties=None):
+        i = self.app.info()
+        sleutel, naam, model, stemvar = tk.StringVar(), tk.StringVar(value=i["naam"]), tk.StringVar(value=i["model"]), tk.BooleanVar(value=i["stem"])
+        for label, var, verborgen in (("ECO-SLEUTEL (leeg = zo laten)", sleutel, True), ("NAAM VAN DEZE LAPTOP", naam, False)):
             tk.Label(w, text=label, fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
-            if opties:
-                ttk.Combobox(w, textvariable=var, values=opties).pack(fill="x", padx=14)
-            else:
-                tk.Entry(w, textvariable=var, show="•" if verborgen else "", bg=K["paneel"], fg="#e9fdff", insertbackground=K["c"], relief="flat").pack(fill="x", padx=14, ipady=4)
-        sleutel, naam, model = tk.StringVar(value=self.cfg["eco_sleutel"]), tk.StringVar(value=self.cfg["naam"]), tk.StringVar(value=self.cfg["model"])
-        stemvar = tk.BooleanVar(value=self.cfg.get("stem", True))
-        rij("ECO-SLEUTEL (dezelfde als JARVIS_KEY in Supabase)", sleutel, verborgen=True)
-        rij("NAAM VAN DEZE LAPTOP", naam)
-        rij("OFFLINE MODEL (Ollama)", model, opties=core.MODELLEN)
-        tk.Checkbutton(w, text="NOVA praat hardop", variable=stemvar, fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"], activebackground=K["bg"]).pack(anchor="w", padx=12, pady=8)
-        melding = tk.Label(w, text="", fg=K["muted"], bg=K["bg"], font=("Consolas", 9), wraplength=390, justify="left")
-        def opslaan():
-            self.cfg.update(eco_sleutel=sleutel.get().strip(), naam=naam.get().strip() or self.cfg["naam"], model=model.get().strip() or self.cfg["model"], stem=stemvar.get())
-            core.bewaar_config(self.cfg)
-            melding.configure(text="Opgeslagen.", fg=K["ok"])
-            threading.Thread(target=lambda: (setattr(self, "lokaal_ok", self.lokaal.status()[0]), self.toon_status()), daemon=True).start()
-        def download():
-            opslaan()
-            def doe():
-                try:
-                    self.lokaal.ophalen(lambda f, s: melding.after(0, lambda: melding.configure(text=f"{self.cfg['model']} downloaden… {f:.0%}", fg=K["warn"])))
-                    self.lokaal_ok, self.lokaal_reden = self.lokaal.status()
-                    melding.after(0, lambda: melding.configure(text=f"{self.cfg['model']} staat klaar voor offline.", fg=K["ok"]))
-                    self.toon_status()
-                except Exception as e:
-                    melding.after(0, lambda: melding.configure(text=f"Downloaden lukte niet: {e} (draait Ollama? ollama.com)", fg=K["bad"]))
-            threading.Thread(target=doe, daemon=True).start()
+            tk.Entry(w, textvariable=var, show="•" if verborgen else "", bg=K["paneel"], fg="#e9fdff", relief="flat").pack(fill="x", padx=14, ipady=4)
+        tk.Label(w, text="OFFLINE MODEL (OLLAMA)", fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
+        ttk.Combobox(w, textvariable=model, values=i["modellen"]).pack(fill="x", padx=14)
+        tk.Checkbutton(w, text="NOVA praat hardop", variable=stemvar, fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(anchor="w", padx=12, pady=8)
         knoppen = tk.Frame(w, bg=K["bg"])
         knoppen.pack(fill="x", padx=12, pady=6)
-        for tekst, cmd in (("OPSLAAN", opslaan), ("MODEL DOWNLOADEN", download)):
-            tk.Button(knoppen, text=tekst, command=cmd, fg=K["bg"], bg=K["c"], relief="flat", font=("Consolas", 9, "bold")).pack(side="left", padx=4)
-        melding.pack(fill="x", padx=14, pady=6)
+        opslaan = lambda: self.app.opslaan({"eco_sleutel": sleutel.get(), "naam": naam.get(), "model": model.get(), "stem": stemvar.get()})
+        tk.Button(knoppen, text="OPSLAAN", command=opslaan, fg=K["bg"], bg=K["c"], relief="flat").pack(side="left", padx=4)
+        tk.Button(knoppen, text="MODEL DOWNLOADEN", command=lambda: (opslaan(), self.app.download(model.get())), fg=K["bg"], bg=K["c"], relief="flat").pack(side="left", padx=4)
 
-    def sluit(self):
-        self.brug.stop()
-        self.root.destroy()
+
+def start_tk() -> None:
+    import tkinter as tk
+    root = tk.Tk()
+    TkUI(root)
+    root.mainloop()
 
 
 def zelftest() -> int:
@@ -309,11 +441,15 @@ def zelftest() -> int:
     def check(naam, f):
         nonlocal fouten
         try:
-            uit = f()
-            regels.append(f"OK    {naam}: {uit}")
+            regels.append(f"OK    {naam}: {f()}")
         except Exception as e:
             fouten += 1
             regels.append(f"FOUT  {naam}: {type(e).__name__}: {e}")
+    def optioneel(naam, f):  # zonder deze werkt NOVA nog, alleen minder (geen offline stem, volume via toetsen, eenvoudig venster, ...)
+        try:
+            regels.append(f"OK    {naam}: {f()}")
+        except Exception as e:
+            regels.append(f"LET OP {naam}: {type(e).__name__}: {e}")
     check("versie", lambda: core.VERSIE)
     check("instellingen", lambda: (core.bewaar_config(core.laad_config(Path(tempfile.gettempdir()) / "nova-test.json"), Path(tempfile.gettempdir()) / "nova-test.json"), "lezen/schrijven werkt")[1])
     check("adres", lambda: pc.normaliseer_url("weer in den haag"))
@@ -321,19 +457,15 @@ def zelftest() -> int:
     check("bestand zoeken", lambda: (lambda d: (Path(d, "nova_zelftest.txt").write_text("x"), pc.bestand_zoeken("nova_zelftest", [Path(d)]))[1])(tempfile.mkdtemp()))
     check("startmenu", lambda: f"{len(pc.startmenu_snelkoppelingen())} snelkoppelingen")
     check("sse", lambda: list(core.sse_events(['data: {"t":"delta","text":"hoi"}', ""])))
+    check("interface (ECO-HUD)", lambda: ", ".join(f for f in ("index.html", "nova.js", "nova.css", "ai.css") if (ui_map() / f).exists()) or (_ for _ in ()).throw(FileNotFoundError("ui ontbreekt")))
     for mod in ("requests", "numpy", "tkinter", "sounddevice"):  # zonder deze werkt NOVA niet
         check(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
-    def optioneel(naam, f):  # zonder deze werkt NOVA nog, alleen minder (geen offline stem, volume via toetsen, ...)
-        try:
-            regels.append(f"OK    {naam}: {f()}")
-        except Exception as e:
-            regels.append(f"LET OP {naam}: {type(e).__name__}: {e}")
-    for mod in ("pyttsx3", "vosk", "PIL", "pycaw.pycaw"):
+    for mod in ("webview", "pyttsx3", "vosk", "PIL", "pycaw.pycaw"):
         optioneel(f"module {mod}", lambda m=mod: (__import__(m), "aanwezig")[1])
     import requests
     optioneel("ECO bereikbaar", lambda: f"HTTP {requests.post(core.ECO_URL, json={}, timeout=15).status_code} (401 = bereikbaar, sleutel nodig)")
     rapport = "\n".join(regels) + f"\n\n{fouten} fout(en)\n"
-    try:  # NOVA.exe heeft geen console: het rapport staat ook in %APPDATA%\\NOVA\\zelftest.txt
+    try:  # NOVA.exe heeft geen console: het rapport staat ook in %APPDATA%\NOVA\zelftest.txt
         core.MAP.mkdir(parents=True, exist_ok=True)
         (core.MAP / "zelftest.txt").write_text(rapport, encoding="utf-8")
     except OSError:
@@ -344,16 +476,21 @@ def zelftest() -> int:
 
 
 def main():
-    p = argparse.ArgumentParser(description="NOVA — ECO op je laptop")
+    p = argparse.ArgumentParser(description="NOVA — Nice Operating Variant Agent")
     p.add_argument("--selftest", action="store_true")
+    p.add_argument("--eenvoudig", action="store_true", help="het eenvoudige venster in plaats van de ECO-HUD")
     a = p.parse_args()
     if a.selftest:
         sys.exit(zelftest())
-    import tkinter as tk
-    root = tk.Tk()
+    if not a.eenvoudig:
+        try:
+            import webview  # WebView2 (Edge) zit in Windows 10/11
+            return start_web(webview)
+        except Exception:
+            core.MAP.mkdir(parents=True, exist_ok=True)
+            (core.MAP / "venster-fout.txt").write_text(traceback.format_exc(), encoding="utf-8")
     try:
-        Nova(root)
-        root.mainloop()
+        start_tk()
     except Exception:
         from tkinter import messagebox
         messagebox.showerror("NOVA", traceback.format_exc()[-1500:])

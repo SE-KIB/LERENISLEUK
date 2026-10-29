@@ -199,6 +199,36 @@ class TestPc(unittest.TestCase):
         self.assertEqual(pc.maak_uitvoerder()("rm -rf", {})["status"], "mislukt")
 
 
+class TestApp(unittest.TestCase):
+    """De logica van het venster (NovaApp) met een nep-venster en een nep-ECO."""
+
+    def test_vraag_stroom(self):
+        import nova
+
+        class NepUI:
+            def __init__(self):
+                self.ev = []
+
+            def __getattr__(self, naam):
+                return lambda *a: self.ev.append((naam,) + a)
+
+        ui = NepUI()
+        app = nova.NovaApp(ui)
+        app.cfg.update(eco_sleutel="x", stem=False)
+        app.brug.online = True
+        app.eco.chat = lambda t, c, on_delta, on_tool: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
+        app.vraag("open spotify")
+        self.assertEqual([e[0] for e in ui.ev], ["staat", "jij", "tool", "nova_start", "delta", "delta", "nova_eind", "staat"])
+        self.assertEqual(app.conv, "c1")
+
+    def test_interface_bestanden(self):
+        import nova
+        ui = nova.ui_map()
+        for f in ("index.html", "nova.js", "nova.css"):
+            self.assertTrue((ui / f).exists(), f)
+        self.assertIn("NICE OPERATING VARIANT AGENT", (ui / "index.html").read_text(encoding="utf-8"))
+
+
 class TestStem(unittest.TestCase):
     def blokken(self, *delen):
         for niveau, sec in delen:

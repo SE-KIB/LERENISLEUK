@@ -35,15 +35,40 @@ jobs:
       - name: Tests (op Windows)
         working-directory: nova
         run: python -m unittest -v test_nova
-      - name: NOVA.exe bouwen
+      - name: NOVA.exe bouwen (met ECO's opmaak)
         working-directory: nova
-        run: pyinstaller --noconfirm --onefile --windowed --name NOVA --collect-all vosk --collect-all sounddevice --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+        run: |
+          Copy-Item ..\ai.css ui\ai.css
+          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
       - name: Zelftest van de exe
         shell: pwsh
         run: |
           $p = Start-Process -FilePath nova\dist\NOVA.exe -ArgumentList "--selftest" -Wait -PassThru
           Get-Content "$env:APPDATA\NOVA\zelftest.txt"
           if ($p.ExitCode -ne 0) { throw "zelftest faalde (code $($p.ExitCode))" }
+      - name: Proef met venster (opent de ECO-HUD?)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath nova\dist\NOVA.exe -PassThru
+          Start-Sleep -Seconds 25
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("nova-venster.png")
+          $titels = Get-Process NOVA -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle } | Where-Object { $_ }
+          "Venster: $($titels -join ', ')"
+          $fout = "$env:APPDATA\NOVA\venster-fout.txt"
+          Get-Process NOVA -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (Test-Path $fout) { Get-Content $fout; throw "de ECO-HUD opende niet (zie hierboven); NOVA viel terug op het eenvoudige venster" }
+          if (-not ($titels -match "Nice Operating Variant Agent")) { throw "geen NOVA-venster gevonden" }
+      - name: Screenshot bewaren
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-venster
+          path: nova-venster.png
+          if-no-files-found: ignore
       - name: Als download klaarzetten
         if: github.event_name != 'pull_request'  # bij een PR alleen bouwen en testen
         uses: softprops/action-gh-release@v2

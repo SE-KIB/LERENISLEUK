@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-VERSIE = "1.0"
+VERSIE = "1.1"
 ECO_URL = "https://wlpfgbrvnzjclnjocewj.supabase.co/functions/v1/smooth-service"
 MAP = Path(os.environ.get("APPDATA") or Path.home() / ".config") / "NOVA"
 STANDAARD = {
@@ -211,7 +211,7 @@ class Lokaal:
     def systeem(self) -> str:
         nu = datetime.now().strftime("%A %d %B %Y, %H:%M")
         feiten = "\n".join(f"- {f}" for f in self.kennis.get("feiten", [])[:60])
-        return ("Je bent NOVA, de persoonlijke assistent van Serkan op zijn laptop: de offline versie van ECO, kalm, warm en kort, in de stijl van JARVIS. "
+        return ("Je bent NOVA (Nice Operating Variant Agent), de persoonlijke assistent van Serkan op zijn laptop: de offline versie van ECO, kalm, warm en kort, in de stijl van JARVIS. "
                 "Praat Nederlands in korte gesproken zinnen, zonder opmaak of lijstjes. Je bent nu OFFLINE: geen internet, dus geen weer, nieuws of mail; "
                 "zeg dat eerlijk als iets internet nodig heeft. Je kunt deze laptop bedienen met de tool pc. Zeg alleen dat iets gelukt is als de status 'gedaan' is; "
                 "bij 'niet_gecontroleerd' zeg je dat je het hebt geprobeerd maar niet kon controleren. Verzin niets."
