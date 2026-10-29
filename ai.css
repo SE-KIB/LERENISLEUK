@@ -175,6 +175,9 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
   text-shadow:0 0 8px rgba(0,225,255,.45);padding:0 8px;overflow:auto;max-height:22vh}
 .caption.user{color:var(--muted);font-family:var(--f-mono);font-size:1rem}
 .caption.err{color:var(--red)}
+.entry.user{cursor:pointer}
+.entry.user.unsure .body{opacity:.6;text-decoration:underline dotted;text-underline-offset:4px}
+.entry.user.unsure .body::after{content:"  (?)";color:var(--muted)}
 .caption.tool{color:var(--c);font-family:var(--f-mono);font-size:1rem;letter-spacing:.08em;text-transform:uppercase;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.45}}
 .caption .cursor{display:inline-block;width:.55em;height:1.05em;background:var(--c);vertical-align:-.15em;margin-left:2px;animation:blink .8s steps(1) infinite}
