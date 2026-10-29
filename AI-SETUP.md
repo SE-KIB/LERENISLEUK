@@ -265,6 +265,18 @@ willekeurige cron-sleutel die alleen in de server-opslag staat. Op de ingestelde
 stond) maakt de functie de briefing, bewaart hem en stuurt de melding via Web Push. De VAPID-sleutels maakt de functie zelf aan
 en bewaart ze in de server-opslag: **geen secrets nodig**. Eén melding per dag, ook als de klok vaker tikt.
 
+## Onderwerpen volgen, ongedaan maken en eerlijk melden
+- **Volgen:** "Hou het nieuws over de HHS in de gaten" of "volg de prijs van de PS6". ECO kijkt elke dag tussen 12:00 en 22:00 één keer
+  (Gemini met Google Search, gratis) of er écht nieuws is ten opzichte van wat hij al meldde. Bij nieuws komt er een melding en het staat
+  in de volgende ochtendbriefing. "Wat volg je?", "stop met volgen van …" en "kijk nu even" werken ook. Hooguit tien onderwerpen.
+- **Ongedaan maken:** "Maak dat ongedaan" of "draai de laatste twee terug" draait acties van de afgelopen dag terug: iets op een lijstje
+  gezet, afgevinkt, verwijderd of een lijst leeggemaakt, een timer gezet of gestopt, een afspraak gemaakt (iCloud/Google), iets onthouden of
+  vergeten, of een onderwerp gaan volgen.
+- **Eerlijk melden:** elke actie krijgt een status: *gedaan* (gecontroleerd), *niet gecontroleerd* (verstuurd, geopend of klaargezet,
+  bv. een WhatsApp die jij zelf verstuurt) of *mislukt*. Na "speel …" kijkt ECO of Spotify echt speelt; zo niet, dan zegt hij dat.
+- **Gisteren in de briefing:** de ochtendbriefing sluit af met één zin over waar jullie gisteren over spraken (samengevat met een gratis
+  model, één keer per dag), zonder een vraag te stellen.
+
 ## Lijstjes, notities en timers
 Zeg gewoon wat je wilt; ECO regelt het en het LIJSTJES-paneel (rechts, op mobiel onder het rooster) werkt meteen bij.
 - "Zet melk en brood op mijn boodschappenlijst", "noteer: idee voor het verslag …", "zet *Lisa bellen* op mijn takenlijst".
@@ -303,6 +315,9 @@ stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en 
 - **Microfoon:** ECO controleert in de eerste seconden of er echt geluid binnenkomt. Geeft de microfoon alleen stilte (vaak bij
   Bluetooth in de auto: die microfoon gaat meestal alleen open bij een echt telefoongesprek), dan schakelt hij vanzelf naar de
   iPhone-microfoon en onthoudt dat. Lukt niets, dan zegt hij dat en werkt hij op de gewone manier.
+- **Microfoon kiezen en testen** (BEDIENING): kies MICROFOON: AUTOMATISCH of een microfoon op naam (bv. de iPhone-microfoon in de
+  auto) en tik op **TEST**: acht seconden een meter met ✓ ECO HOORT JE of ✗ alleen stilte. De keuze geldt voor Live, gewone spraak en
+  onderbreken. De namen verschijnen nadat je ECO één keer de microfoon hebt laten gebruiken.
 - **Microfoonmeter** (onder de ondertitel, ook op de telefoon): welke microfoon ECO gebruikt (en waarom, na een wissel), wat hij
   hoort (STIL, ACHTERGRONDGELUID, STEM, ECO VERSTAAT JE, of ECO PRAAT · praat harder om te onderbreken, of ALLEEN STILTE ·
   microfoon dicht?), een balk met het streepje als grens voor stem en een piekmarkering, het niveau in dB, en of het geluid echt
