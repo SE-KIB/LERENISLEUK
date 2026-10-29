@@ -202,6 +202,8 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 
 ## Op de website
 - 🎙️-knop of **spatie ingedrukt houden** om te praten; antwoorden worden voorgelezen (uit te zetten).
+- **Mobiel:** swipe van links naar rechts (of tik ☰ MENU) voor archief, bediening, weer en status; swipe terug of tik ernaast om te
+  sluiten. Tik op een paneeltitel (TRANSCRIPT, ROOSTER, PROFIEL) om het in of uit te klappen.
 - **GESPREK** (bij BEDIENING): handsfree praten. Na elk antwoord luistert ECO vanzelf weer; zeg "stop" of "bedankt" om te pauzeren.
   Tik tijdens het praten op de microfoon om ECO te onderbreken.
 - Spraakherkenning werkt in Chrome, Edge en Safari.
