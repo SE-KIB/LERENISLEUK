@@ -900,6 +900,7 @@ function applyUi(ev, afterDone) {
   else if (ev.onderdeel === "nieuw_gesprek") afterDone.push(() => $("newChat").click());
   else if (ev.onderdeel === "archief") afterDone.push(() => loadConversations());
   else if (ev.onderdeel === "lijstjes") loadLists();
+  else if (ev.onderdeel === "spotify") { setTimeout(loadSpotify, 4000); setTimeout(loadSpotify, 25000); }
   else if (ev.onderdeel === "timer" || ev.onderdeel === "timers") loadTimers();
 }
 async function ask({ text = "", audio = null }) {
@@ -1616,6 +1617,7 @@ async function loadSpotify() {
     ? `${st.naam || "Gekoppeld"}${st.premium === false ? " · zonder Premium opent ECO alleen links" : ""} · tik om te ontkoppelen`
     : "Koppel Spotify zodat ECO muziek kan bedienen (Premium nodig). Zonder koppeling opent ECO Spotify-links.";
   if (st.fout && !st.gekoppeld) spMsg(`Spotify: ${st.fout}. Koppel opnieuw.`, "err");
+  else if (st.log?.[0]) spMsg(`Laatst (${new Date(st.log[0].at).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}): ${st.log[0].tekst}`, /mislukt|weigerde|niet binnen/.test(st.log[0].tekst) ? "err" : "");
 }
 $("spBtn").onclick = async () => {
   if ($("spBtn").dataset.on) {
