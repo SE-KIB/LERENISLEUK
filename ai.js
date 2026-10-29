@@ -17,6 +17,23 @@ navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => {
   const w = r.active || r.waiting || r.installing;
   if (!/\/eco-sw\.js$/.test(w?.scriptURL || "")) r.unregister();
 }));
+// Terug van Spotify (koppelen): code aan de server geven en het adres opschonen. Werkt ook in een venster zonder ECO-sessie.
+let spNotice = "";
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("state") || !(q.has("code") || q.has("error"))) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+  const done = (t, ok) => {
+    spNotice = t;
+    const lm = $("loginMsg"); if (lm) { lm.className = "login-msg " + (ok ? "ok" : "err"); lm.textContent = t; }
+    if (!$("app").hidden) { typeCaption(t, ok ? "" : "err"); loadSpotify(); }
+  };
+  if (q.get("error")) return done(q.get("error") === "access_denied" ? "Spotify-koppeling geannuleerd." : "Spotify gaf een fout: " + q.get("error"), false);
+  fetch(FUNCTION_URL + "?spotify=callback", { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY }, body: JSON.stringify({ code: q.get("code"), state: q.get("state") }) })
+    .then((r) => r.json())
+    .then((r) => done(r.ok ? `Spotify gekoppeld${r.naam ? ` (${r.naam})` : ""}.${r.premium === false ? " Zonder Premium kan ECO Spotify alleen openen, niet bedienen." : ""}` : r.fout || "Koppelen mislukt.", !!r.ok))
+    .catch(() => done("Spotify koppelen mislukt (geen verbinding).", false));
+})();
 // Tik op de briefingmelding terwijl ECO al open staat.
 navigator.serviceWorker?.addEventListener("message", (e) => { if (e.data?.type === "briefing" && !$("app").hidden) briefing(); });
 
@@ -226,6 +243,7 @@ function render(session) {
   loadLists();
   loadTimers();
   setTimeout(loadPush, 1500);
+  setTimeout(loadSpotify, 1700);
   const briefingNu = /briefing/i.test(location.hash);
   if (!$("messages").children.length && !briefingNu) {
     const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
@@ -233,6 +251,7 @@ function render(session) {
     if (justLoggedIn) { sfx.open(); say(text); }
   }
   justLoggedIn = false;
+  if (spNotice) setTimeout(() => typeCaption(spNotice), 600);
   // Geopend vanuit de ochtendmelding (sekibar.nl/#briefing).
   if (briefingNu) briefing();
   // Geopend met sekibar.nl/#luister (Siri-opdracht "Start Eco" of "Hé Eco"): meteen luisteren.
@@ -828,7 +847,7 @@ const TOOL_LABEL = {
   agenda_bekijken: "Agenda bekijken", afspraak_maken: "Afspraak inplannen", weer: "Weer ophalen", web_zoeken: "Op internet zoeken",
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
   mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
-  lijst: "Lijstje bijwerken", timer: "Timer zetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
+  lijst: "Lijstje bijwerken", timer: "Timer zetten", spotify: "Spotify", whatsapp: "WhatsApp klaarzetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
@@ -900,9 +919,10 @@ async function ask({ text = "", audio = null }) {
   if (text) { entry("user", text); setCaption("› " + text, "user"); }
   else setCaption("Uitschrijven…", "user");
   let streaming = true;
+  let final = false; // na het slot geen late (requestAnimationFrame) render meer: die zou de knop eronder wissen
   const render = () => {
     rendered = false;
-    if (!body || my !== turn) return;
+    if (!body || my !== turn || final) return;
     const shown = visible(full, streaming);
     body.innerHTML = md(shown);
     setCaption(plain(shown));
@@ -969,16 +989,19 @@ async function ask({ text = "", audio = null }) {
     if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; }
     streaming = false;
     render();
+    final = true;
     if (heardExit) convo.paused = true; // vóór finish(): met de stem uit eindigt de beurt meteen
     speech.finish(full);
     lastLatency = Math.round(performance.now() - t0);
     showLat();
     if (done.model) $("stModel").textContent = done.model.replace(/^openai\/|^gemini-|^claude-/, "").toUpperCase();
-    if (done.open) {
-      const a = document.createElement("a");
-      a.href = done.open; a.className = "action"; a.textContent = "▶ OPEN IN GOOGLE MAPS";
+    if (done.open) { // Google Maps, WhatsApp of Spotify
+      const a = document.createElement("a"), mobiel = matchMedia("(pointer: coarse)").matches;
+      a.href = done.open; a.className = "action"; a.textContent = done.openLabel || "▶ OPENEN";
+      if (!mobiel) { a.target = "_blank"; a.rel = "noopener"; }
       body.append(a);
-      setTimeout(() => { location.href = done.open; }, 1800); // eerst laten voorlezen, dan Maps openen
+      // Eerst laten voorlezen, dan de app openen; op de computer in een nieuw tabblad (ECO blijft open).
+      setTimeout(() => { if (my !== turn) return; if (mobiel) location.href = done.openApp || done.open; else window.open(done.open, "_blank", "noopener"); }, 1800);
     }
     if (done.convDeleted) { currentConv = null; $("convId").textContent = "—"; }
     loadConversations();
@@ -1578,6 +1601,39 @@ $("pushBtn").onclick = async () => {
 $("pushTime").onchange = () => {
   if (!/^\d{2}:\d{2}$/.test($("pushTime").value)) return;
   callFn({ push: { actie: "instellen", tijd: $("pushTime").value } }).then((r) => pushMsg(`Briefing elke ochtend om ${r.tijd}.`, "ok")).catch((e) => pushMsg(e.message, "err"));
+};
+
+// ---------- Spotify koppelen (PKCE; alleen een Client ID nodig, geen geheime sleutel) ----------
+const spMsg = (t, cls = "") => { $("spMsg").className = "login-msg push-msg " + cls; $("spMsg").textContent = t; };
+let spState = null;
+async function loadSpotify() {
+  const st = await callFn({ spotify: "status" }).catch(() => null);
+  if (!st) return;
+  spState = st;
+  $("spBtn").textContent = st.gekoppeld ? "SPOTIFY GEKOPPELD" : "SPOTIFY KOPPELEN";
+  $("spBtn").dataset.on = st.gekoppeld ? "1" : "";
+  $("spBtn").title = st.gekoppeld
+    ? `${st.naam || "Gekoppeld"}${st.premium === false ? " · zonder Premium opent ECO alleen links" : ""} · tik om te ontkoppelen`
+    : "Koppel Spotify zodat ECO muziek kan bedienen (Premium nodig). Zonder koppeling opent ECO Spotify-links.";
+  if (st.fout && !st.gekoppeld) spMsg(`Spotify: ${st.fout}. Koppel opnieuw.`, "err");
+}
+$("spBtn").onclick = async () => {
+  if ($("spBtn").dataset.on) {
+    if (!confirm("Spotify ontkoppelen?")) return;
+    await callFn({ spotify: "ontkoppel" }).catch(() => {});
+    spMsg("Spotify ontkoppeld.");
+    return loadSpotify();
+  }
+  let clientId;
+  if (!spState?.clientId) {
+    clientId = prompt(`Client ID van je Spotify-app (developer.spotify.com → Dashboard → je app → Settings).\nZet daar als Redirect URI: ${spState?.redirect || "https://sekibar.nl/"}`);
+    if (!clientId) return;
+  }
+  try {
+    spMsg("Naar Spotify…");
+    const { url } = await callFn({ spotify: { actie: "start", ...(clientId ? { clientId: clientId.trim() } : {}) } });
+    location.href = url;
+  } catch (e) { spMsg(e.message, "err"); }
 };
 
 const labMsg = (t, cls = "") => { $("labMsg").className = "login-msg " + cls; $("labMsg").textContent = t; };
