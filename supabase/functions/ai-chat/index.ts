@@ -56,6 +56,7 @@ function systemPrompt(memory = "", context = "") {
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
     `\n- Noem een lestijd, lokaal of afspraak alleen als die letterlijk in de agendagegevens staat, en zeg kort uit welke bron (de naam tussen [haken], bv. "volgens je schoolrooster"). ` +
     `Brightspace is leidend: docenten zetten wijzigingen (later beginnen, verplaatst, vervalt) in Brightspace, het schoolrooster toont vaak nog de oude planning. ` +
+    `De bron "Brightspace-planning" is de lesplanning van de docent en gaat altijd voor; staat bij een roosterles "Brightspace-planning wijkt af", gebruik dan alleen de planning. ` +
     `Noemt Brightspace voor hetzelfde vak op dezelfde dag een andere tijd, geef dan de Brightspace-tijd en zeg kort dat het rooster iets anders zegt. ` +
     `Staat een les er niet bij, zeg dan eerlijk dat je hem niet in zijn agenda ziet; gok nooit een tijd. ` +
     `In Brightspace zelf kun je niet inloggen; je ziet alleen de gekoppelde agenda-links.` +
@@ -781,11 +782,12 @@ function eventLine(e: any, bron = "") {
   const fmt = (v: string) => /^\d{4}-\d\d-\d\dT/.test(v ?? "") ? new Date(v).toLocaleString("nl-NL", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" }) : String(v ?? "");
   const eind = e.eind ? fmt(e.eind).replace(/^.*?(\d\d:\d\d)$/, "$1") : "";
   return `- ${bron ? `[${bron}] ` : ""}${fmt(e.start)}${eind && eind !== fmt(e.start) ? `–${eind}` : ""} ${e.titel ?? ""}` +
-    `${e.locatie ? ` (${e.locatie})` : ""}${e.soort ? ` [${e.soort}]` : ""}${e.afwijking ? ` [${e.afwijking}]` : ""}${e.verzet ? ` [${e.verzet}]` : ""}`;
+    `${e.locatie ? ` (${e.locatie})` : ""}${e.soort ? ` [${e.soort}]` : ""}${e.afwijking ? ` [${e.afwijking}]` : ""}${e.verzet ? ` [${e.verzet}]` : ""}` +
+    `${e.vervangen ? ` [${e.vervangen}]` : ""}${e.info && bron === "Brightspace-planning" ? ` (${e.info})` : ""}`;
 }
-async function agendaContext() {
-  if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !FEEDS().length) return "";
-  const res = await runTool("agenda_bekijken", { van: new Date(dagStart(0)).toISOString(), tot: new Date(dagStart(2)).toISOString() }, {} as Actions) as Record<string, any>;
+async function agendaContext(who?: Who) {
+  const res = await agendaAll(new Date(dagStart(0)).toISOString(), new Date(dagStart(2)).toISOString(), false, who) as Record<string, any>;
+  if (!Object.keys(res).length) return "";
   const lines: string[] = [], extra: string[] = [];
   for (const [bron, v] of Object.entries(res ?? {})) {
     const list = Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : null;
@@ -805,13 +807,117 @@ async function rapportContext() {
   return `Dagrapport van vandaag (mail): ${actie ? `actie nodig:\n${actie.slice(0, 600)}` : "geen actiepunten."}`;
 }
 
-async function agendaAll(van: string, tot: string, debug = false): Promise<Record<string, unknown>> {
-  const [ic, go, fe] = await Promise.all([
+type Who = { db: any; userId: string };
+async function agendaAll(van: string, tot: string, debug = false, who?: Who): Promise<Record<string, unknown>> {
+  const [ic, go, fe, pl] = await Promise.all([
     ICLOUD() ? icloudEvents(van, tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
     env("GOOGLE_REFRESH_TOKEN") ? googleEvents(van, tot).catch((e) => ({ fout: String(e.message ?? e) })) : null,
     FEEDS().length ? feedsEvents(van, tot, debug) : null,
+    who ? planningEvents(who, van, tot).catch((e) => { console.warn("planning", e); return [] as any[]; }) : [],
   ]);
-  return { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
+  const out: Record<string, unknown> = { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
+  if (pl.length) {
+    out["Brightspace-planning"] = pl;
+    // Lessen uit het schoolrooster voor een vak dat op die dag een planning heeft: de planning is leidend.
+    const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, " ").trim();
+    const perDag = new Map<string, string[]>();
+    for (const e of pl) perDag.set(e._dag, [...(perDag.get(e._dag) ?? []), key(e._vak)]);
+    for (const [bron, v] of Object.entries(out)) {
+      if (bron === "Brightspace-planning" || /brightspace/i.test(bron)) continue;
+      const list = Array.isArray(v) ? v : Array.isArray((v as any)?.afspraken) ? (v as any).afspraken : null;
+      for (const e of list ?? []) {
+        const dag = [...perDag.keys()].find((d) => String(e.start ?? "").startsWith(d));
+        const t = key(String(e.titel ?? ""));
+        if (dag && t.length >= 5 && perDag.get(dag)!.some((vk) => t.includes(vk) || vk.includes(t))) e.vervangen = "Brightspace-planning wijkt af en is leidend";
+      }
+    }
+    for (const e of pl) { delete e._dag; delete e._vak; }
+  }
+  return out;
+}
+
+// ---------- Lesplanning uit Brightspace (geïmporteerd via screenshots of PDF) ----------
+const dagLabel = (datum: string) => new Date(datum + "T12:00:00Z").toLocaleDateString("nl-NL", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" });
+async function planningEvents(who: Who, van: string, tot: string) {
+  const from = localParts(Date.parse(van)).datum, to = localParts(Date.parse(tot) - 1).datum;
+  const { data, error } = await who.db.from("ai_planning").select("vak, datum, start, eind, titel, soort, opmerking")
+    .eq("user_id", who.userId).gte("datum", from).lte("datum", to).order("datum").order("start", { ascending: true, nullsFirst: true }).limit(200);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => {
+    const dag = dagLabel(r.datum);
+    return {
+      titel: `${r.vak}: ${r.titel}`, start: r.start ? `${dag}, ${r.start}` : `${dag} (hele dag)`, eind: r.eind ? `${dag}, ${r.eind}` : undefined,
+      ...(r.soort && r.soort !== "les" ? { soort: ["toets", "deadline", "vervalt"].includes(r.soort) ? `belangrijk (${r.soort})` : r.soort } : {}),
+      ...(r.opmerking ? { info: r.opmerking } : {}),
+      _dag: dag, _vak: r.vak,
+    } as Record<string, any>;
+  });
+}
+const PLANNING_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    vak: { type: "STRING" },
+    lessen: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          datum: { type: "STRING", description: "YYYY-MM-DD" },
+          start: { type: "STRING", nullable: true, description: "HH:MM, 24-uurs" },
+          eind: { type: "STRING", nullable: true, description: "HH:MM, 24-uurs" },
+          titel: { type: "STRING" },
+          soort: { type: "STRING", enum: ["les", "zelfstudie", "toets", "deadline", "vervalt", "overig"] },
+          opmerking: { type: "STRING", nullable: true },
+        },
+        required: ["datum", "titel", "soort"],
+      },
+    },
+  },
+  required: ["lessen"],
+};
+async function planningImport(who: Who, vak: string, files: { mime: string; data: string }[]) {
+  const vandaag = localParts(Date.now()).datum, jaar = +vandaag.slice(0, 4), maand = +vandaag.slice(5, 7);
+  const start = maand >= 8 ? jaar : jaar - 1;
+  const instructie = `Je krijgt screenshots of een PDF van een lesplanning (rooster) uit Brightspace voor het vak "${vak}". Vandaag is ${vandaag}. ` +
+    `Het studiejaar loopt van september ${start} tot en met augustus ${start + 1}: september tot en met december = ${start}, januari tot en met augustus = ${start + 1}. ` +
+    `Zet elke ingeplande activiteit om naar één rij met datum (YYYY-MM-DD), start en eind (HH:MM, 24-uurs), titel, soort en opmerking. Regels: ` +
+    `1) Staat er in een cel een eigen tijd (vaak rood of vet, bv. "11:00-12:00" of "9:00 - 12:00"), gebruik die tijd; dat is de echte tijd. ` +
+    `2) Anders gebruik je de tijden van de rij (bv. 08:45 tot 10:15). Loopt een cel zonder eigen tijd over twee rijen, dan de start van de bovenste en het eind van de onderste rij. ` +
+    `3) Een cel met twee activiteiten met elk een eigen tijd wordt twee rijen. Lege cellen sla je over, ook vakanties. ` +
+    `4) soort: les (college, werkcollege, practicum, gastcollege, vragenuur, feedbacksessie), zelfstudie (zelfstudie, groepswerk, oefeningen zonder docent), toets, deadline (inleveren), vervalt, overig. ` +
+    `5) Inleverdeadlines zonder tijd krijgen start en eind null. 6) opmerking: docentnaam of bijzonderheid, bv. "afwijkende tijd". ` +
+    `7) Verzin niets: wat je niet goed kunt lezen of wat buiten beeld valt laat je weg. Zelfde activiteit op meerdere screenshots maar één keer.`;
+  const parts: any[] = [{ text: instructie }, ...files.map((f) => ({ inlineData: { mimeType: f.mime, data: f.data } }))];
+  let last = "";
+  for (const model of env("PLANNING_MODEL", "gemini-2.5-flash,gemini-flash-latest").split(",").map((m) => m.trim()).filter(Boolean)) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json", responseSchema: PLANNING_SCHEMA } }),
+      signal: AbortSignal.timeout(120000),
+    }).catch((e) => { last = String(e); return null; });
+    if (!r) continue;
+    if (!r.ok) { last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`; console.warn("planning", last); continue; }
+    const text = ((await r.json()).candidates?.[0]?.content?.parts ?? []).filter((p: any) => p.text && !p.thought).map((p: any) => p.text).join("");
+    let parsed: any;
+    try { parsed = JSON.parse(text); } catch { last = `${model}: geen geldige JSON`; continue; }
+    const hhmm = (t: unknown) => { const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(t ?? "").trim()); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : null; };
+    const seen = new Set<string>();
+    const rows = (parsed.lessen ?? []).map((l: any) => ({
+      user_id: who.userId, vak, datum: String(l.datum ?? "").slice(0, 10), start: hhmm(l.start), eind: hhmm(l.eind),
+      titel: String(l.titel ?? "").trim().slice(0, 300), soort: String(l.soort ?? "les"), opmerking: l.opmerking ? String(l.opmerking).slice(0, 300) : null,
+    })).filter((l: any) => /^\d{4}-\d{2}-\d{2}$/.test(l.datum) && !isNaN(Date.parse(l.datum)) && l.titel)
+      .filter((l: any) => { const k = `${l.datum}|${l.start}|${l.titel.toLowerCase()}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    if (!rows.length) { last = `${model}: geen lessen gevonden`; continue; }
+    // Alleen de dagen die in deze upload staan vervangen (zo kun je een brede tabel in delen uploaden).
+    const dagen = [...new Set(rows.map((l: any) => l.datum))];
+    const del = await who.db.from("ai_planning").delete().eq("user_id", who.userId).eq("vak", vak).in("datum", dagen);
+    if (del.error) throw new Error(del.error.message);
+    const ins = await who.db.from("ai_planning").insert(rows);
+    if (ins.error) throw new Error(ins.error.message);
+    for (const k of [...ctxCache.keys()]) if (k.startsWith("agenda:") || k.startsWith("vocab:")) ctxCache.delete(k);
+    return { vak, aantal: rows.length, van: dagen.sort()[0], tot: dagen.sort().at(-1), model };
+  }
+  throw Object.assign(new Error(`Planning lezen lukte niet: ${last}`), { status: 502 });
 }
 
 async function runTool(name: string, input: Record<string, string>, actions: Actions) {
@@ -852,9 +958,9 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
     return { geopend_in_google_maps: true, bestemming: input.bestemming };
   }
   if (name === "agenda_bekijken" || name === "afspraak_maken") {
-    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !(name === "agenda_bekijken" && FEEDS().length))
+    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !(name === "agenda_bekijken" && (FEEDS().length || actions.db)))
       return { fout: "Er is nog geen agenda gekoppeld (iCloud, Google of een agenda-link)." };
-    if (name === "agenda_bekijken") return await agendaAll(input.van, input.tot);
+    if (name === "agenda_bekijken") return await agendaAll(input.van, input.tot, false, actions.db && actions.userId ? { db: actions.db, userId: actions.userId } : undefined);
     if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN")) return { fout: "Afspraken maken kan alleen in iCloud of Google; de agenda-link (bv. schoolrooster) is alleen-lezen." };
     const eind = input.eind ?? new Date(new Date(input.start).getTime() + 3600_000).toISOString();
     ctxCache.delete(`agenda:${localParts(Date.now()).datum}`); // volgende vraag ziet de nieuwe afspraak meteen
@@ -1245,7 +1351,7 @@ async function chat(admin: any, inp: ChatIn) {
   });
   const ctxP = Promise.all([
     locP.then((loc) => loc ? cached(`wx:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`, 10 * 60000, 700, () => weather(loc)) : null),
-    cached(`agenda:${localParts(Date.now()).datum}`, 5 * 60000, 1500, agendaContext),
+    cached(`agenda:${localParts(Date.now()).datum}`, 5 * 60000, 1500, () => agendaContext({ db: admin, userId })),
     cached(`rapport:${localParts(Date.now()).datum}`, 20 * 60000, 400, rapportContext),
   ]);
   const [message, hist, { data: mem }, loc, [wx, agenda, rapport]] = await Promise.all([inp.message, histP, memP, locP, ctxP]);
@@ -1323,8 +1429,8 @@ function eventStream(run: (emit: Emit) => Promise<void>) {
 
 // Spraak naar tekst met Groq Whisper.
 // Woordenlijst voor Whisper: vaknamen uit het rooster (week terug, twee weken vooruit) + vaste woorden.
-async function vocab() {
-  const res = await runTool("agenda_bekijken", { van: new Date(dagStart(-7)).toISOString(), tot: new Date(dagStart(14)).toISOString() }, {} as Actions) as Record<string, any>;
+async function vocab(who?: Who) {
+  const res = await agendaAll(new Date(dagStart(-7)).toISOString(), new Date(dagStart(14)).toISOString(), false, who) as Record<string, any>;
   const titles = new Set<string>();
   for (const v of Object.values(res ?? {})) {
     const list = Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : [];
@@ -1423,7 +1529,7 @@ Deno.serve(async (req) => {
     const convId = String(form!.get("conversationId") ?? "") || undefined;
     return eventStream(async (emit) => {
       const t = Date.now();
-      const vak = await cached(`vocab:${localParts(Date.now()).datum}`, 6 * 3600000, 250, vocab);
+      const vak = await cached(`vocab:${localParts(Date.now()).datum}`, 6 * 3600000, 250, () => vocab({ db: admin, userId: userId! }));
       const heard = transcribe(file, vak ? `${STT_PROMPT} Vakken: ${vak}.` : STT_PROMPT).then(({ text, unsure, logprob, noSpeech }) => {
         const said = isGhost(text) ? "" : dedupe(text);
         emit({ t: "heard", text: said, unsure: !!(said && unsure), q: { logprob: +logprob.toFixed(2), noSpeech: +noSpeech.toFixed(2) }, ms: Date.now() - t });
@@ -1438,6 +1544,7 @@ Deno.serve(async (req) => {
     conversationId?: string; message?: string; tts?: string; voice?: string; description?: string; text?: string;
     generatedVoiceId?: string; name?: string; ttsVoice?: string; ttsStyle?: string; preview?: boolean;
     loc?: { lat?: number; lon?: number }; stream?: boolean; warm?: boolean; agenda?: string | boolean;
+    planning?: "lijst" | { vak?: string; files?: { mime: string; data: string }[]; wis?: string };
   };
   try { body = await req.json(); } catch { return json({ error: "Ongeldige JSON" }, 400); }
 
@@ -1446,8 +1553,31 @@ Deno.serve(async (req) => {
     const dag = /^\d{4}-\d{2}-\d{2}$/.test(String(body.agenda)) ? String(body.agenda) : localParts(Date.now()).datum;
     const [y, m, d] = dag.split("-").map(Number);
     const van = new Date(localToUtc(y, m - 1, d, 0, 0, TZ)).toISOString(), tot = new Date(localToUtc(y, m - 1, d + 1, 0, 0, TZ)).toISOString();
-    if (!ICLOUD() && !env("GOOGLE_REFRESH_TOKEN") && !FEEDS().length) return json({ dag, bronnen: {}, fout: "Nog geen agenda gekoppeld" });
-    return json({ dag, bronnen: await agendaAll(van, tot, true) });
+    return json({ dag, bronnen: await agendaAll(van, tot, true, { db: admin, userId }) });
+  }
+
+  // Lesplanning: importeren (screenshots/PDF), lijst van vakken, of een vak wissen.
+  if (body.planning) {
+    const pl = body.planning as any;
+    try {
+      if (pl === "lijst") {
+        const { data } = await admin.from("ai_planning").select("vak, datum").eq("user_id", userId).limit(2000);
+        const per = new Map<string, { aantal: number; tot: string }>();
+        for (const r of data ?? []) { const c = per.get(r.vak) ?? { aantal: 0, tot: "" }; c.aantal++; if (r.datum > c.tot) c.tot = r.datum; per.set(r.vak, c); }
+        return json({ vakken: [...per].map(([vak, c]) => ({ vak, ...c })) });
+      }
+      if (pl.wis) {
+        await admin.from("ai_planning").delete().eq("user_id", userId).eq("vak", String(pl.wis));
+        for (const k of [...ctxCache.keys()]) if (k.startsWith("agenda:")) ctxCache.delete(k);
+        return json({ ok: true });
+      }
+      const vak = String(pl.vak ?? "").trim().slice(0, 120);
+      const files = (Array.isArray(pl.files) ? pl.files : []).filter((f: any) => /^(image\/(png|jpeg|webp|heic|heif)|application\/pdf)$/.test(f?.mime) && typeof f.data === "string").slice(0, 8);
+      if (!vak) return json({ error: "Geef de naam van het vak" }, 400);
+      if (!files.length) return json({ error: "Geen afbeelding of PDF ontvangen" }, 400);
+      if (!env("GEMINI_API_KEY")) return json({ error: "GEMINI_API_KEY ontbreekt" }, 501);
+      return json(await planningImport({ db: admin, userId }, vak, files));
+    } catch (e) { console.error("planning", e); return fail(e); }
   }
 
   // Opwarmen: de browser roept dit aan bij openen en bij het indrukken van de microfoon.
@@ -1457,9 +1587,9 @@ Deno.serve(async (req) => {
     const dag = localParts(Date.now()).datum;
     bg(Promise.all([
       sent ? cached(`wx:${sent.lat.toFixed(2)},${sent.lon.toFixed(2)}`, 10 * 60000, 0, () => weather(sent)) : null,
-      cached(`agenda:${dag}`, 5 * 60000, 0, agendaContext),
+      cached(`agenda:${dag}`, 5 * 60000, 0, () => agendaContext({ db: admin, userId: userId! })),
       cached(`rapport:${dag}`, 20 * 60000, 0, rapportContext),
-      cached(`vocab:${dag}`, 6 * 3600000, 0, vocab),
+      cached(`vocab:${dag}`, 6 * 3600000, 0, () => vocab({ db: admin, userId: userId! })),
     ]));
     return json({ ok: true });
   }

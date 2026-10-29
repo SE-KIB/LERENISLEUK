@@ -18,6 +18,7 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `index.html`, `ai.js`, `ai.css` — de chatwebsite
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
+- `supabase/migrations/20261029_memory.sql` en `20261030_planning.sql` — geheugen en geïmporteerde lesplanning (draaien automatisch)
 - `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Automatisch uitrollen (aanbevolen)
 De workflow `.github/workflows/deploy-function.yml` zet de functie zelf online bij elke wijziging op `main`.
 Eenmalig, kan ook op de telefoon:
@@ -83,6 +84,12 @@ kan ECO niet lezen: Brightspace zit achter je HHS-login met tweestapsverificatie
 is onveilig. ECO noemt bij een lestijd altijd de bron ("volgens je schoolrooster"). **Brightspace is leidend:** docenten zetten wijzigingen
 (later beginnen, verplaatst, vervalt) in Brightspace, terwijl MyTimetable vaak nog de oude planning toont. Noemt Brightspace een
 andere tijd voor hetzelfde vak, dan geeft ECO die tijd en zegt hij dat het rooster iets anders zegt.
+
+**Lesplanning van de docent (de "Rooster"-pagina in een Brightspace-cursus):** zo'n tabel per week staat niet in een agenda-link.
+Maak er screenshots van (op de iPhone liefst in de breedte, of op de computer; een brede tabel mag in delen) of sla hem op als PDF,
+en kies in ECO bij **ROOSTER → + PLANNING** de bestanden en het vak. Gemini leest alle weken uit, ook rode afwijkende tijden,
+zelfstudie, toetsen en inleverdata. Die planning is daarna **leidend**: de roosterles van dat vak op die dag wordt doorgestreept.
+Opnieuw uploaden vervangt alleen de dagen die op de nieuwe screenshots staan. Wissen kan met ✕ naast de vaknaam.
 
 **Controleren wat ECO ziet:** het paneel **ROOSTER** (onder het transcript) toont per dag alle afspraken per bron. Houd je vinger
 of muis op een les om de ruwe tijd uit de link te zien. Wijkt die af van Brightspace/MyTimetable, stuur dan een screenshot van beide.
