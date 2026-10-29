@@ -254,8 +254,68 @@ $("newChat").onclick = () => {
   currentConv = null; $("messages").innerHTML = ""; $("convId").textContent = "—"; markActive();
   typeCaption("Nieuw gesprek gestart. Ik luister."); closeDrawer(); $("input").focus();
 };
-$("archiveBtn").onclick = () => $("leftCol").classList.toggle("open");
-const closeDrawer = () => $("leftCol").classList.remove("open");
+// Menu (links) op mobiel: knop, ✕, tik op de achtergrond of swipen.
+function setDrawer(open) {
+  $("leftCol").classList.toggle("open", open);
+  document.body.classList.toggle("drawer-open", open);
+  $("archiveBtn").setAttribute("aria-expanded", String(open));
+}
+const closeDrawer = () => setDrawer(false);
+$("archiveBtn").onclick = () => setDrawer(!$("leftCol").classList.contains("open"));
+$("drawerClose").onclick = closeDrawer;
+$("scrim").onclick = closeDrawer;
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+// Swipen: van links naar rechts opent het menu, terug sluit het. Het menu volgt je vinger.
+(() => {
+  const left = $("leftCol"), scrim = $("scrim");
+  let x0 = 0, y0 = 0, t0 = 0, active = false, decided = false, wasOpen = false, w = 300;
+  addEventListener("touchstart", (e) => {
+    active = false;
+    if (matchMedia("(min-width: 901px)").matches || e.touches.length !== 1 || $("app").hidden || !$("voiceLab").hidden) return;
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    const t = e.touches[0];
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+    active = true; decided = false; wasOpen = left.classList.contains("open"); w = left.offsetWidth || 300;
+  }, { passive: true });
+  addEventListener("touchmove", (e) => {
+    if (!active) return;
+    const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (!decided) {
+      if (Math.abs(dx) < 14 && Math.abs(dy) < 14) return;
+      decided = true;
+      // Alleen een duidelijk horizontale beweging in de goede richting; anders gewoon scrollen.
+      if (Math.abs(dx) < Math.abs(dy) * 1.5 || (wasOpen ? dx > 0 : dx < 0)) { active = false; return; }
+      document.body.classList.add("drawer-drag");
+    }
+    const offset = wasOpen ? Math.min(0, dx) : Math.min(0, dx - w);
+    left.style.transform = `translateX(${offset}px)`;
+    scrim.style.opacity = String(Math.max(0, 1 + offset / w));
+    scrim.style.pointerEvents = "none";
+  }, { passive: true });
+  const end = (e) => {
+    if (!active || !decided) { active = false; return; }
+    active = false;
+    const dx = (e.changedTouches?.[0]?.clientX ?? x0) - x0, v = dx / Math.max(1, Date.now() - t0);
+    document.body.classList.remove("drawer-drag");
+    left.style.transform = ""; scrim.style.opacity = ""; scrim.style.pointerEvents = "";
+    setDrawer(wasOpen ? !(dx < -w * 0.3 || v < -0.35) : (dx > w * 0.3 || v > 0.35));
+  };
+  addEventListener("touchend", end);
+  addEventListener("touchcancel", end);
+})();
+// Panelen in- en uitklappen (mobiel): tik op de titel. PROFIEL begint ingeklapt.
+const COLLAPSE_KEY = "eco-collapsed";
+let collapsed;
+try { collapsed = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY)) ?? ["profiel"]); } catch { collapsed = new Set(["profiel"]); }
+for (const p of document.querySelectorAll(".right .panel[data-win]")) {
+  if (collapsed.has(p.dataset.win)) p.classList.add("collapsed");
+  p.querySelector(":scope > .panel-h > span:first-child")?.addEventListener("click", () => {
+    if (matchMedia("(min-width: 901px)").matches) return;
+    const on = p.classList.toggle("collapsed");
+    on ? collapsed.add(p.dataset.win) : collapsed.delete(p.dataset.win);
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsed])); } catch { /* geen opslag */ }
+  });
+}
 
 // ---------- Archief ----------
 async function loadConversations() {

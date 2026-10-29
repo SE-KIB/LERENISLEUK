@@ -20,6 +20,7 @@
 <body data-state="idle">
   <div class="fx-grid" aria-hidden="true"></div>
   <div class="fx-scan" aria-hidden="true"></div>
+  <div id="scrim" class="scrim" aria-hidden="true"></div>
 
   <!-- Opstartsequentie -->
   <section id="boot" class="boot" aria-label="Systeem start op">
@@ -58,12 +59,13 @@
       <div class="sysline"><i class="dot"></i><span id="sysLine">ALLE SYSTEMEN OPERATIONEEL</span></div>
       <div class="top-right">
         <div id="version" class="version" title="Laatst bijgewerkte pull request" hidden>PR92 | 29-10-2026 10:14</div>
-        <button type="button" id="archiveBtn" class="chip only-mobile" aria-controls="leftCol">ARCHIEF</button>
+        <button type="button" id="archiveBtn" class="chip only-mobile" aria-controls="leftCol" aria-expanded="false">☰ MENU</button>
         <button type="button" id="logoutTop" class="chip danger-chip only-mobile">AFMELDEN</button>
       </div>
     </header>
 
     <aside class="col left" id="leftCol">
+      <div class="drawer-h"><b>MENU</b><span>swipe naar links om te sluiten</span><button type="button" id="drawerClose" class="chip" aria-label="Menu sluiten">✕</button></div>
       <div class="panel" data-win="tijd">
         <div class="panel-h"><span>LOKALE TIJD</span><i>CET</i></div>
         <div id="clock" class="clock">00:00<small>:00</small></div>
@@ -120,7 +122,7 @@
         </button>
         <span class="prompt">›</span>
         <textarea id="input" rows="1" placeholder="Opdracht…" required maxlength="8000" enterkeyhint="send"></textarea>
-        <button type="submit" id="send" class="btn-primary">UITVOEREN</button>
+        <button type="submit" id="send" class="btn-primary" aria-label="Uitvoeren"><span>UITVOEREN</span></button>
       </form>
     </main>
 

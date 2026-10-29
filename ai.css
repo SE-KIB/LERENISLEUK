@@ -346,3 +346,52 @@ select.lab-id option{background:#02121a;color:var(--c2)}
 .rs-bs-h b{font-family:var(--f-head);font-weight:400;color:var(--c);letter-spacing:.18em}
 .rs-bs-h span.ok{color:var(--c)}
 .rs-bs-h span.warn{color:#ffb24a}
+
+/* ---------- Mobiel: compacter, menu met swipe, panelen inklappen ---------- */
+.drawer-h,.scrim{display:none}
+@media (max-width:900px){
+  html{font-size:15px}
+  input,textarea,select{font-size:16px!important} /* iOS zoomt in bij kleinere invoervelden */
+  .hud{gap:8px;padding-left:12px;padding-right:12px}
+  .topbar{padding-bottom:6px}
+  .brand b{font-size:1rem}
+  #logoutTop{display:none!important} /* afmelden staat in het menu (BEDIENING) */
+  .panel{padding:9px 11px}
+  .panel-h{margin-bottom:7px;padding-bottom:5px}
+  .main-reactor{width:min(42vw,170px)}
+  .caption{font-size:.98rem;min-height:0;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .entry .meta{font-size:.62rem}
+  .entry .body{font-size:.95rem;line-height:1.4}
+  .log{gap:9px}
+  .right .panel{max-height:48vh}
+  .rs-list{max-height:13rem}
+  .cmd{padding:6px;gap:8px}
+  .mic{width:46px;height:46px}
+  #send{width:46px;height:46px;padding:0;display:grid;place-items:center}
+  #send span{display:none}
+  #send::after{content:"➤";font-size:1.1rem;font-family:var(--f-body)}
+
+  /* Menu (links): archief en bediening bovenaan, donkere achtergrond, sluitknop */
+  .left{gap:10px;z-index:31;box-shadow:12px 0 40px rgba(0,0,0,.6)}
+  .left [data-win="archief"]{order:1;min-height:9rem;max-height:45vh}
+  .left .clock{font-size:1.7rem}
+  .left .wx-tip{min-height:0}
+  .left [data-win="bediening"]{order:2}
+  .left [data-win="weer"]{order:3}
+  .left [data-win="status"]{order:4}
+  .left [data-win="tijd"]{order:5}
+  .drawer-h{display:flex;align-items:center;gap:8px;order:0;font-family:var(--f-mono);font-size:.62rem;color:var(--muted);letter-spacing:.08em}
+  .drawer-h b{font-family:var(--f-head);font-weight:400;color:var(--c);letter-spacing:.3em;font-size:.8rem}
+  .drawer-h button{margin-left:auto}
+  .scrim{display:block;position:fixed;inset:0;z-index:30;background:rgba(0,4,8,.62);opacity:0;pointer-events:none;transition:opacity .3s}
+  body.drawer-open .scrim{opacity:1;pointer-events:auto}
+  body.drawer-drag .left,body.drawer-drag .scrim{transition:none}
+
+  /* Panelen in- en uitklappen door op de titel te tikken */
+  .right .panel-h>span:first-child{cursor:pointer}
+  .right .panel-h>span:first-child::after{content:" ▾";color:var(--muted);font-size:.8em}
+  .right .panel.collapsed>.panel-h>span:first-child::after{content:" ▸"}
+  .right .panel.collapsed>:not(.panel-h){display:none!important}
+  .right .panel.collapsed>.panel-h{margin-bottom:0;border-bottom:0;padding-bottom:0}
+}
+@media (max-width:900px) and (prefers-reduced-motion:reduce){.left,.scrim{transition:none}}
