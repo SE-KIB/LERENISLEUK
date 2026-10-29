@@ -126,11 +126,22 @@ def toets(vk: int, keer: int = 1) -> None:
         ctypes.windll.user32.keybd_event(vk, 0, 2, 0)  # type: ignore[attr-defined]
 
 
-def volume_lezen():
+def eindpunt():
+    """Het volume van de luidsprekers via pycaw (nieuwe versies: .EndpointVolume, oude: via Activate)."""
     com()
+    from pycaw.pycaw import AudioUtilities  # type: ignore
+    sp = AudioUtilities.GetSpeakers()
+    ev = getattr(sp, "EndpointVolume", None)
+    if ev is not None:
+        return ev
+    from comtypes import CLSCTX_ALL  # type: ignore
+    from pycaw.pycaw import IAudioEndpointVolume  # type: ignore
+    return ctypes.cast(sp.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), ctypes.POINTER(IAudioEndpointVolume))
+
+
+def volume_lezen():
     try:
-        from pycaw.pycaw import AudioUtilities  # type: ignore
-        return round(AudioUtilities.GetSpeakers().EndpointVolume.GetMasterVolumeLevelScalar() * 100)
+        return round(eindpunt().GetMasterVolumeLevelScalar() * 100)
     except Exception:
         return None
 
@@ -153,8 +164,7 @@ def volume(opdracht: str) -> dict:
     if re.fullmatch(r"\d{1,3}", o):
         doel = max(0, min(100, int(o)))
         try:
-            from pycaw.pycaw import AudioUtilities  # type: ignore
-            AudioUtilities.GetSpeakers().EndpointVolume.SetMasterVolumeLevelScalar(doel / 100, None)
+            eindpunt().SetMasterVolumeLevelScalar(doel / 100, None)
         except Exception:
             toets(VK["zachter"], 50)  # zonder pycaw: eerst helemaal zacht, dan in stappen van 2% omhoog
             toets(VK["harder"], doel // 2)
