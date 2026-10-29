@@ -697,6 +697,7 @@ async function warm() {
   try { fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ warm: true, loc: myLoc }) }).catch(() => {}); } catch { /* niet ingelogd */ }
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !$("app").hidden) warm(); });
+$("input").addEventListener("focus", warm); // je gaat typen: server alvast klaarzetten
 
 let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ongeldig
 async function ask({ text = "", audio = null }) {
@@ -705,9 +706,9 @@ async function ask({ text = "", audio = null }) {
   let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, unsure = false, done = null;
   stopSpeaking();
   speech.open = true; speech.fromAsk = true;
-  let audioAt = 0;
+  let audioAt = 0, modelFirst = null;
   const showLat = () => {
-    const parts = [firstText && `TEKST ${(firstText / 1000).toFixed(1)}S`, audioAt && `STEM ${(audioAt / 1000).toFixed(1)}S`].filter(Boolean);
+    const parts = [firstText && `TEKST ${(firstText / 1000).toFixed(1)}S${modelFirst != null ? ` (MODEL ${(modelFirst / 1000).toFixed(1)}S)` : ""}`, audioAt && `STEM ${(audioAt / 1000).toFixed(1)}S`].filter(Boolean);
     if (parts.length) $("stLat").textContent = parts.join(" · ");
   };
   speech.onFirstAudio = (ms) => { audioAt = ms - t0; showLat(); };
@@ -766,6 +767,7 @@ async function ask({ text = "", audio = null }) {
         if (!rendered) { rendered = true; requestAnimationFrame(render); }
       } else if (ev.t === "done") {
         done = ev;
+        modelFirst = ev.ms?.first ?? null;
       } else if (ev.t === "error") {
         throw new Error(ev.error);
       }
