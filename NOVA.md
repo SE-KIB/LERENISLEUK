@@ -12,7 +12,9 @@ praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen,
 3. **Offline brein (aanrader):** installeer **Ollama** van https://ollama.com/download/windows en start het. Kies in NOVA **⚙ → MODEL
    DOWNLOADEN**. Standaard is dat `qwen3.5:9b` (ongeveer 6 GB; past in de 8 GB van je RTX PRO). Slimmer maar trager: `gpt-oss:20b` of
    `gemma4:26b` (die lopen deels via je werkgeheugen).
-4. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
+4. **Bijwerken gaat vanzelf:** NOVA kijkt bij het starten en elke 6 uur of er een nieuwere versie op GitHub staat, downloadt en
+   controleert die, vervangt zichzelf en start opnieuw (nooit midden in een gesprek). Je instellingen blijven bewaard.
+5. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
 
 ## Gebruiken
 - **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, offline model, Ollama, spraak), BEDIENING

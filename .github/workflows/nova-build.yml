@@ -39,6 +39,7 @@ jobs:
         working-directory: nova
         run: |
           Copy-Item ..\ai.css ui\ai.css
+          Set-Content ui\build.txt "${{ github.run_number }}"  # NOVA vergelijkt dit nummer om zichzelf bij te werken
           pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
       - name: Zelftest van de exe
         shell: pwsh
@@ -73,10 +74,11 @@ jobs:
         if: github.event_name != 'pull_request'  # bij een PR alleen bouwen en testen
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nova-v1.0.${{ github.run_number }}
-          name: NOVA 1.0 (build ${{ github.run_number }})
+          tag_name: nova-${{ github.run_number }}
+          name: NOVA (build ${{ github.run_number }})
           make_latest: "true"
           files: nova/dist/NOVA.exe
           body: |
             NOVA: ECO op je Windows-laptop. Download NOVA.exe en start hem; uitleg in NOVA.md.
+            NOVA werkt zichzelf daarna automatisch bij (bij het starten en elke 6 uur).
             Windows kan waarschuwen ("Windows heeft uw pc beschermd") omdat de exe niet ondertekend is: kies "Meer info" → "Toch uitvoeren".

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -41,6 +42,7 @@ class NovaApp:
     def start(self):
         self.brug.start()
         threading.Thread(target=self.lokaal_lus, daemon=True).start()
+        threading.Thread(target=self.update_lus, daemon=True).start()
         self.ui.sys(f"NOVA {core.VERSIE} gestart op {self.cfg['naam']}.")
         self.toon_status()
 
@@ -48,8 +50,13 @@ class NovaApp:
         self.brug.stop()
 
     # ---------- status ----------
+    def versie(self):
+        import nova_update as upd
+        build = upd.huidige_build(ui_map())
+        return f"{core.VERSIE}.{build}" if build else core.VERSIE
+
     def status_info(self):
-        return {"naam": self.cfg["naam"], "versie": core.VERSIE, "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"]}
+        return {"naam": self.cfg["naam"], "versie": self.versie(), "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"]}
 
     def toon_status(self):
         try:
@@ -59,7 +66,7 @@ class NovaApp:
             spraak = "—"
         basis = {"eco": "VERBONDEN" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
                  "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
-                 "naam": self.cfg["naam"], "versie": core.VERSIE}
+                 "naam": self.cfg["naam"], "versie": self.versie()}
         if self.brug.online:
             self.ui.status({**basis, "modus": "online", "titel": "VERBONDEN — ECO-BREIN (GROQ/GEMINI)",
                             "sub": f"Offline-reserve: {self.cfg['model']} {'klaar' if self.lokaal_ok else '— ' + self.lokaal_reden}"})
@@ -92,6 +99,30 @@ class NovaApp:
                 self.toon_status()
         except Exception:
             pass
+
+    def update_lus(self):
+        """Automatisch bijwerken: bij het starten en daarna elke 6 uur, nooit midden in een gesprek."""
+        if not getattr(sys, "frozen", False):
+            return  # ontwikkelen vanuit de broncode: niets bij te werken
+        import nova_update as upd
+        exe = Path(sys.executable)
+        upd.opruimen(exe)
+        time.sleep(15)
+        while True:
+            try:
+                info = upd.nieuwste()
+                build = upd.huidige_build(ui_map())
+                if info and info["build"] > build:
+                    while self.bezig:
+                        time.sleep(5)
+                    self.ui.sys(f"Nieuwe NOVA gevonden ({info['tag']}); ik werk mezelf bij en start opnieuw.")
+                    if upd.bijwerken(exe, build, info):
+                        time.sleep(1.5)
+                        self.stop()
+                        os._exit(0)
+            except Exception as e:
+                self.ui.sys(f"Bijwerken lukte niet: {e}")
+            time.sleep(6 * 3600)
 
     def lokaal_lus(self):
         while True:
@@ -219,8 +250,10 @@ class NovaApp:
 
     # ---------- instellingen ----------
     def info(self):
+        import nova_update as upd
+        build = upd.huidige_build(ui_map())
         return {"modellen": core.MODELLEN, "model": self.cfg["model"], "naam": self.cfg["naam"], "stem": bool(self.cfg.get("stem", True)),
-                "heeft_sleutel": self.eco.klaar, "versie": core.VERSIE}
+                "heeft_sleutel": self.eco.klaar, "versie": f"{core.VERSIE}.{build}" if build else core.VERSIE}
 
     def opslaan(self, d: dict):
         if (d.get("eco_sleutel") or "").strip():

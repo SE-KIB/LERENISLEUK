@@ -258,6 +258,43 @@ class TestApp(unittest.TestCase):
         self.assertIn("NICE OPERATING VARIANT AGENT", (ui / "index.html").read_text(encoding="utf-8"))
 
 
+class TestUpdate(unittest.TestCase):
+    def test_bijwerken(self):
+        import hashlib
+        import nova_update as upd
+        nieuw_exe = b"NIEUWE NOVA" * 100
+
+        def behandel(h, methode, body):
+            if h.path == "/latest":
+                return h.antwoord(200, {"tag_name": "nova-12", "assets": [{"name": "NOVA.exe", "browser_download_url": srv.url + "/NOVA.exe",
+                                                                            "size": len(nieuw_exe), "digest": "sha256:" + hashlib.sha256(nieuw_exe).hexdigest()}]})
+            if h.path == "/NOVA.exe":
+                return h.antwoord(200, nieuw_exe, "application/octet-stream")
+            return h.antwoord(404, {})
+
+        srv = NepServer(behandel)
+        try:
+            d = Path(tempfile.mkdtemp())
+            exe = d / "NOVA.exe"
+            exe.write_bytes(b"OUDE NOVA")
+            info = upd.nieuwste(srv.url + "/latest")
+            self.assertEqual(info["build"], 12)
+            self.assertFalse(upd.bijwerken(exe, 12, info, herstart=False))  # al de nieuwste
+            self.assertTrue(upd.bijwerken(exe, 3, info, herstart=False))
+            self.assertEqual(exe.read_bytes(), nieuw_exe)
+            self.assertEqual((d / "NOVA.oud.exe").read_bytes(), b"OUDE NOVA")
+            upd.opruimen(exe)
+            self.assertFalse((d / "NOVA.oud.exe").exists())
+            # verkeerde controlesom: niets vervangen
+            info["sha256"] = "0" * 64
+            exe.write_bytes(b"HUIDIG")
+            with self.assertRaises(RuntimeError):
+                upd.bijwerken(exe, 3, info, herstart=False)
+            self.assertEqual(exe.read_bytes(), b"HUIDIG")
+        finally:
+            srv.stop()
+
+
 class TestStem(unittest.TestCase):
     def blokken(self, *delen):
         for niveau, sec in delen:
