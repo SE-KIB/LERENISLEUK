@@ -21,6 +21,7 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `supabase/migrations/20261029_memory.sql`, `20261030_planning.sql`, `20261031_kv.sql` — geheugen, lesplanning en server-opslag (draaien automatisch)
 - `supabase/migrations/20261101_cron.sql` — ECO-klok: de database roept de functie elke 30 seconden aan (timers, ochtendbriefing)
 - `supabase/migrations/20261102_lijstjes.sql` — tabellen `ai_items` (lijstjes) en `ai_timers` met RLS
+- `supabase/migrations/20261103_contacten.sql` — tabel `ai_contacts` (WhatsApp-contacten) met RLS
 - `eco-sw.js` — service worker, alleen voor pushmeldingen (geen offline-cache)
 - `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
 - `widget/eco-widget.js` + `widget/installeer.js` — iPhone-widget voor Scriptable
@@ -211,6 +212,8 @@ Bij de eerste keer 🎙️ vraagt de telefoon toestemming voor de microfoon.
 | Google Agenda | Google-koppeling (hierboven) | afspraken bekijken en maken |
 | Gmail | Google-koppeling (hierboven) | zoeken, lezen, **concepten** maken (versturen doe je zelf) |
 | Google Maps | geen koppeling nodig | route openen vanaf je locatie ("route naar …") |
+| Spotify | geen koppeling nodig / koppeling + Premium (hieronder) | muziek openen / volledig bedienen |
+| WhatsApp | geen koppeling nodig | bericht klaarzetten (jij verstuurt); lezen kan niet |
 | iPhone zelf (Herinneringen, Agenda van iCloud, Contacten, locatie) | iPhone-opdracht stuurt die gegevens mee | erover antwoorden |
 
 Een website of app-snelkoppeling kan zelf **niet** in je iCloud of telefoon kijken; dat staat Apple niet toe.
@@ -246,6 +249,29 @@ Zeg gewoon wat je wilt; ECO regelt het en het LIJSTJES-paneel (rechts, op mobiel
   en staat ECO dicht of op de achtergrond, dan krijg je binnen een halve minuut een **melding** (zet MELDINGEN aan, zie hierboven).
 - De widget toont je open taken (groot formaat) en een lopende timer die live aftelt. Draai daarvoor het installatiescript nog één keer.
 - De ochtendbriefing noemt ook hoeveel taken er nog open staan.
+
+## Spotify
+Zeg "speel Blinding Lights", "zet Drake op", "speel mijn opgeslagen nummers", "pauze", "volgende", "zachter" of "wat speelt er?".
+- **Zonder koppeling (of zonder Premium):** ECO opent Spotify op de juiste zoekopdracht of het juiste nummer; jij tikt op play.
+- **Met koppeling + Spotify Premium:** ECO bedient Spotify zelf (afspelen, pauze, volgende/vorige, volume, shuffle, wachtrij,
+  wat er speelt). Sinds 2026 eist Spotify Premium voor elke eigen koppeling; zonder Premium blijft het bij links openen.
+
+Koppelen (eenmalig, ±3 minuten, geen geheime sleutel nodig):
+1. Ga naar https://developer.spotify.com → log in met je Spotify-account → **Dashboard** → **Create app**.
+   Naam `ECO`, beschrijving wat je wilt, **Redirect URI** precies `https://sekibar.nl/` (met de slash) → vink **Web API** aan → **Save**.
+2. Open de app → **Settings** → kopieer de **Client ID** (de Client secret heb je niet nodig).
+3. Open sekibar.nl (liefst in Safari of op de computer) → ☰ MENU → BEDIENING → **SPOTIFY KOPPELEN** → plak de Client ID →
+   log in bij Spotify → **Agree**. Je komt terug in ECO met "Spotify gekoppeld"; de knop wordt groen.
+Gebruik je voor de developer-site een ander Spotify-account dan waarmee je luistert, voeg dat account dan toe onder
+*User Management* van de app. Spotify moet ergens open staan (telefoon of computer); staat hij nergens open, dan opent ECO de app.
+Ontkoppelen: tik op **SPOTIFY GEKOPPELD**.
+
+## WhatsApp
+"Stuur Lisa via WhatsApp dat ik tien minuten later ben" → WhatsApp opent met het bericht al ingevuld voor Lisa; jij drukt op versturen.
+- ECO onthoudt nummers: "het nummer van Lisa is 06 12345678" (ook buitenlandse nummers met +32, +49, …). "Welke contacten ken je?",
+  "vergeet Lisa" werken ook. Kent ECO iemand niet, dan opent WhatsApp en kies je zelf het contact.
+- Werkt ook via "Hé Siri, Eco" (de opdracht opent de link die ECO teruggeeft).
+- ECO verstuurt nooit zelf iets en kan geen berichten lezen: WhatsApp biedt dat niet voor persoonlijke accounts.
 
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip
