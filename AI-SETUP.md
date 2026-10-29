@@ -84,6 +84,12 @@ nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browse
 - **Vragen over zichzelf:** "Welke stem gebruik je?", "Is Brightspace gekoppeld?", "Hoeveel gesprekken heb ik?", "Welk model gebruik je?".
 - **Interface bedienen:** "Zet je stem uit", "zet gespreksmodus aan", "zet Hé Eco aan", "begin een nieuw gesprek", "open het menu".
 - ACTIVITEIT (SYSTEEMSTATUS) staat in stand-by op 0% en loopt op tijdens luisteren, denken en praten.
+- **Echte systeemcheck bij het opstarten:** ECO test elk onderdeel echt: netwerk, server (reactietijd), database, taalmodel (Groq),
+  denkwerk (Gemini), spraakherkenning, stem, agenda-links, Brightspace (laatste ronde), Spotify, meldingen, de klok (pg_cron) en mail,
+  plus de microfoontoestemming van dit apparaat. Elk onderdeel krijgt OK, STORING (met de reden) of UIT (niet ingesteld).
+  De check kost geen AI-quotum (alleen modellenlijsten en instellingen). De uitslag staat bovenin, bij SYSTEEMSTATUS → SYSTEMEN
+  (tik voor elk onderdeel apart, of OPNIEUW TESTEN) en naast de reactor; de groet zegt eerlijk wat er niet werkt. Ben je na meer dan
+  tien minuten terug in de app, dan test ECO stil opnieuw. Vraag ook gewoon: "Werkt alles?" of "Doe een systeemcheck".
 
 ## Apple-agenda (iCloud)
 1. https://account.apple.com → Inloggen en beveiliging → App-specifieke wachtwoorden → **+** → naam `ECO` → kopieer.

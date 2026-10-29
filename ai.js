@@ -162,11 +162,12 @@ function drawViz(t) {
   if (!REDUCED) requestAnimationFrame(drawViz);
 }
 
-// ---------- Datastroom-uitlezingen naast de reactor ----------
-const hex = (n) => Array.from({ length: n }, () => "0123456789ABCDEF"[Math.random() * 16 | 0]).join("");
+// ---------- Uitlezingen naast de reactor: echte waarden uit de laatste systeemcheck ----------
 function readouts() {
-  $("roA").textContent = `SYS.${hex(4)}\nMEM ${(40 + Math.random() * 20).toFixed(1)}%\nNRL ${hex(6)}\nΔt ${(Math.random() * 9).toFixed(2)}ms`;
-  $("roB").textContent = `${hex(8)}\nFREQ ${(432 + Math.random() * 4).toFixed(2)}Hz\nSYNC ${hex(3)}-${hex(3)}\nLINK ▮▮▮▮▯`;
+  const v = (id) => { const x = lastCheck?.find((i) => i.id === id); return x ? stTxt(x) : "…"; };
+  const srv = lastCheck?.find((i) => i.id === "server");
+  $("roA").textContent = `SRV  ${!srv ? "…" : srv.ok ? /\d+ ms/.exec(srv.tekst)?.[0] ?? "OK" : "STORING"}\nDB   ${v("database")}\nAI   ${v("taalmodel")}\nDENK ${v("denken")}`;
+  $("roB").textContent = `STEM ${v("stem")}\nAGND ${v("agenda")}\nBRSP ${v("brightspace")}\nKLOK ${v("klok")}`;
 }
 
 // ---------- Klok en systeemstatus ----------
@@ -193,35 +194,126 @@ function initStatus() {
   if (!navigator.getBattery) $("stBat").textContent = "EXTERN";
 }
 
-// ---------- Opstartsequentie ----------
+// ---------- Systeemcheck: bij het opstarten echt testen of alles werkt (geen nep-lijstje) ----------
+// De server test database, taalmodel, denkwerk, spraak, stem, agenda, Brightspace, Spotify, meldingen, klok en mail;
+// hier komen het netwerk, de reactietijd van de server en de microfoontoestemming van dit apparaat erbij.
+let sysCheck = null, lastCheck = null; // sysCheck = { at, promise }
+const permState = async (name) => { try { return (await navigator.permissions.query({ name })).state; } catch { return ""; } };
+const binnen = (ms, msg) => new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms));
+async function runCheck() {
+  const items = [{ id: "netwerk", naam: "Netwerk", ok: navigator.onLine, tekst: navigator.onLine ? "online" : "offline" }];
+  const { data: { session } } = await sb.auth.getSession();
+  const t = performance.now();
+  try {
+    if (session) {
+      const r = await Promise.race([callFn({ check: true }), binnen(15000, "geen antwoord binnen 15 s")]);
+      items.push({ id: "server", naam: "Server", ok: true, tekst: `${Math.round(performance.now() - t)} ms` }, ...(r.onderdelen ?? []));
+    } else {
+      await Promise.race([fetch(FUNCTION_URL, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY }, body: "{}" }), binnen(10000, "geen antwoord binnen 10 s")]);
+      items.push({ id: "server", naam: "Server", ok: true, tekst: `bereikbaar in ${Math.round(performance.now() - t)} ms; log in voor de rest` });
+    }
+  } catch (e) { items.push({ id: "server", naam: "Server", ok: false, tekst: navigator.onLine ? e.message : "geen internet" }); }
+  const mic = await permState("microphone");
+  items.push({ id: "microfoon", naam: "Microfoon", ok: mic === "granted" ? true : mic === "denied" ? false : null,
+    tekst: { granted: "toegestaan", denied: "geweigerd: zet hem aan in de instellingen", prompt: "vraagt toestemming bij gebruik" }[mic] || "niet uit te lezen op dit apparaat" });
+  items.sessie = !!session;
+  return items;
+}
+function startCheck() {
+  const promise = runCheck().then((items) => { lastCheck = items; showCheck(items); return items; });
+  sysCheck = { at: Date.now(), promise };
+  return promise;
+}
+const stCls = (x) => x.ok === true ? "ok" : x.ok === false ? "bad" : "off";
+const stTxt = (x) => x.ok === true ? "OK" : x.ok === false ? "STORING" : "UIT";
+function showCheck(items) {
+  const actief = items.filter((x) => x.ok !== null), goed = actief.filter((x) => x.ok).length;
+  const kapot = items.filter((x) => x.ok === false);
+  $("stSys").textContent = `${goed}/${actief.length} OK ▾`;
+  $("stSys").className = kapot.length ? "bad" : "ok";
+  $("sysLine").textContent = kapot.length ? `STORING: ${kapot.map((x) => x.naam.replace(/ \(.*\)$/, "")).join(", ").toUpperCase()}` : "ALLE SYSTEMEN OPERATIONEEL";
+  document.querySelector("#sysTop .dot").className = `dot${kapot.length ? " bad" : ""}`;
+  $("sysList").innerHTML = "";
+  for (const x of items) {
+    const li = document.createElement("li"), s = document.createElement("span"), b = document.createElement("b");
+    s.textContent = x.naam.toUpperCase();
+    b.textContent = x.ok === true ? x.tekst || "OK" : `${stTxt(x)}${x.tekst ? " · " + x.tekst : ""}`;
+    b.className = stCls(x); b.title = x.tekst;
+    li.append(s, b); $("sysList").append(li);
+  }
+  readouts();
+}
+// Storingen in gewone taal: "Brightspace en de klok werken nu niet goed".
+const ZEG = { database: "de database", taalmodel: "het taalmodel", denken: "het denkwerk", spraak: "de spraakherkenning", stem: "de stem", agenda: "de agenda", brightspace: "Brightspace",
+  spotify: "Spotify", meldingen: "de meldingen", klok: "de klok", mail: "de mail", netwerk: "het netwerk", server: "de server", microfoon: "de microfoon" };
+function storingZin(kapot) {
+  const namen = kapot.map((x) => ZEG[x.id] || x.naam);
+  return `${namen.length > 1 ? `${namen.slice(0, -1).join(", ")} en ${namen.at(-1)}` : namen[0]} ${namen.length > 1 ? "werken" : "werkt"} nu niet goed`;
+}
+$("sysRow").onclick = () => { $("sysBox").hidden = !$("sysBox").hidden; };
+$("sysAgain").onclick = () => { $("stSys").textContent = "TESTEN…"; $("stSys").className = ""; startCheck(); };
+// Terug naar de app na een tijdje (de iPhone opent hem vaak zonder opnieuw te laden): stil opnieuw testen en storingen melden.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !sysCheck || Date.now() - sysCheck.at < 10 * 60000 || $("app").hidden) return;
+  startCheck().then((items) => {
+    const kapot = items.filter((x) => x.ok === false);
+    if (kapot.length && document.body.dataset.state === "idle") typeCaption(`Let op: ${storingZin(kapot)}.`);
+  });
+});
+
+// ---------- Opstartsequentie: toont de echte systeemcheck ----------
 async function boot() {
   let skip = false;
   $("boot").onclick = () => { skip = true; };
   try { if (sessionStorage.getItem("eco-booted")) skip = true; } catch { /* privé-venster */ }
   if (/luister|briefing/i.test(location.hash + location.search)) skip = true; // geopend via Siri/Hé Eco/melding: meteen klaar
-  const lines = [
-    ["E.C.O. KERNEL v4.2.1 — SEKIBAR SYSTEMS", ""],
-    ["Kernmodules laden", "OK"],
-    ["Neuraal taalmodel koppelen", "OK"],
-    ["Spraakherkenning", Rec ? "OK" : "BEPERKT"],
-    ["Spraaksynthese", window.speechSynthesis ? "OK" : "BEPERKT"],
-    ["Agenda- en mailinterface", "OK"],
-    ["Beveiligde verbinding", location.protocol === "https:" ? "OK" : "LOKAAL"],
-    ["Holografische interface", "OK"],
-  ];
-  const log = $("bootLog");
-  for (let i = 0; i < lines.length && !skip; i++) {
-    const [label, st] = lines[i];
-    const dots = st ? " " + ".".repeat(Math.max(2, 30 - label.length)) + " " : "";
-    log.innerHTML += `${label}${dots}${st ? `<span class="${st === "OK" ? "ok" : "warn"}">${st}</span>` : ""}\n`;
-    $("bootBar").style.width = `${((i + 1) / lines.length) * 100}%`;
-    sfx.tick();
-    await new Promise((r) => setTimeout(r, 170 + Math.random() * 160));
+  const check = startCheck(); // loopt ook door als het scherm wordt overgeslagen
+  const log = $("bootLog"), bar = $("bootBar");
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  if (!skip) {
+    log.textContent = "E.C.O. — SEKIBAR SYSTEMS\nAlle systemen testen…\n";
+    let p = 4;
+    const kruip = setInterval(() => { p = Math.min(88, p + (88 - p) * 0.07); bar.style.width = `${p}%`; }, 120);
+    const items = await Promise.race([check, new Promise((r) => { const t = setInterval(() => { if (skip) { clearInterval(t); r(null); } }, 100); })]);
+    clearInterval(kruip);
+    if (items && !skip) {
+      log.textContent = "E.C.O. — SEKIBAR SYSTEMS\n";
+      for (let i = 0; i < items.length && !skip; i++) {
+        const x = items[i], dots = " " + ".".repeat(Math.max(2, 26 - x.naam.length)) + " ";
+        log.innerHTML += `${esc(x.naam)}${dots}<span class="${stCls(x)}">${stTxt(x)}</span>${x.ok === true ? "" : ` <small>${esc(x.tekst)}</small>`}\n`;
+        bar.style.width = `${88 + ((i + 1) / items.length) * 12}%`;
+        sfx.tick();
+        await pause(80);
+      }
+      const kapot = items.filter((x) => x.ok === false);
+      log.innerHTML += kapot.length
+        ? `\n<span class="warn">${kapot.length} ${kapot.length === 1 ? "ONDERDEEL" : "ONDERDELEN"} MET STORING — details bij SYSTEEMSTATUS</span>`
+        : `\n<span class="ok">ALLE SYSTEMEN OPERATIONEEL</span>`;
+      if (!skip) await pause(kapot.length ? 2200 : 700);
+    }
   }
-  if (!skip) { log.innerHTML += `\n<span class="ok">ALLE SYSTEMEN OPERATIONEEL</span>`; await new Promise((r) => setTimeout(r, 500)); }
   try { sessionStorage.setItem("eco-booted", "1"); } catch { /* geen opslag */ }
   $("boot").classList.add("done");
   setTimeout(() => $("boot").remove(), 700);
+}
+
+// Groet op basis van de echte systeemcheck; bij een storing zegt ECO wat er niet werkt.
+async function greet(spreek) {
+  const wacht = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r(null), 6000))]);
+  let items = sysCheck ? await wacht(sysCheck.promise) : null;
+  if (!sysCheck || (items && !items.sessie)) items = await wacht(startCheck()); // eerst zonder login getest: nu alles
+  if ($("messages").children.length || document.body.dataset.state !== "idle" || spNotice) return; // intussen al iets anders begonnen
+  const kapot = (items ?? []).filter((x) => x.ok === false);
+  const text = !items ? `${greeting()}, Serkan. De systeemcheck duurt langer dan normaal; ik houd het in de gaten. Waarmee kan ik helpen?`
+    : kapot.length ? `${greeting()}, Serkan. Let op: ${storingZin(kapot)}; de rest is operationeel. Waarmee kan ik helpen?`
+    : `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
+  typeCaption(text);
+  if (spreek) { sfx.open(); say(text); }
+  if (!items) sysCheck?.promise.then((later) => {
+    const k = later.filter((x) => x.ok === false);
+    if (k.length && document.body.dataset.state === "idle") typeCaption(`Let op: ${storingZin(k)}.`);
+  });
 }
 
 // ---------- Inloggen ----------
@@ -247,11 +339,7 @@ function render(session) {
   setTimeout(loadPush, 1500);
   setTimeout(loadSpotify, 1700);
   const briefingNu = /briefing/i.test(location.hash);
-  if (!$("messages").children.length && !briefingNu) {
-    const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
-    typeCaption(text);
-    if (justLoggedIn) { sfx.open(); say(text); }
-  }
+  if (!$("messages").children.length && !briefingNu) greet(justLoggedIn);
   justLoggedIn = false;
   if (spNotice) setTimeout(() => typeCaption(spNotice), 600);
   // Geopend vanuit de ochtendmelding (sekibar.nl/#briefing).
@@ -1889,6 +1977,6 @@ $("versionLogin").textContent = $("version").textContent; // volledige PR-badge 
 $("brandVer").textContent = $("version").textContent.split("|")[0].trim(); // klein "PR78" naast E.C.O.
 initStatus();
 clock(); setInterval(clock, 1000);
-readouts(); setInterval(readouts, 1400);
+readouts();
 sizeViz(); requestAnimationFrame(drawViz);
 boot();
