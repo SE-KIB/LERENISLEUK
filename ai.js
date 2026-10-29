@@ -397,13 +397,14 @@ async function loadRooster() {
     for (const e of items) {
       const el = document.createElement("li");
       if (/^\(vervallen\)/.test(e.titel) || e.soort === "vervalt") el.className = "off";
+      if (e.vervangen) el.className = "replaced";
       const time = document.createElement("time");
       time.textContent = /hele dag/.test(e.start) ? "HELE DAG" : `${hm(e.start)}${hm(e.eind) ? "–" + hm(e.eind) : ""}`;
       const title = document.createElement("span");
       title.textContent = e.titel + (e.locatie ? ` · ${e.locatie}` : "");
       const meta = document.createElement("small");
       meta.textContent = String(e.bron).toUpperCase();
-      for (const extra of [e.soort, e.afwijking, e.verzet].filter(Boolean)) {
+      for (const extra of [e.soort, e.afwijking, e.verzet, e.vervangen && "vervangen door planning", e.info && e.bron === "Brightspace-planning" && e.info].filter(Boolean)) {
         const em = document.createElement("em"); em.textContent = ` · ${extra}`; meta.append(em);
       }
       if (e.ruw) el.title = `Ruw uit de link: ${e.ruw}`;
@@ -416,7 +417,65 @@ async function loadRooster() {
 $("rsPrev").onclick = () => { rsOffset--; loadRooster(); };
 $("rsNext").onclick = () => { rsOffset++; loadRooster(); };
 $("rsDay").onclick = () => { rsOffset = 0; loadRooster(); };
-function startRooster() { loadRooster(); clearInterval(rsTimer); rsTimer = setInterval(() => { if (document.visibilityState === "visible") loadRooster(); }, 10 * 60000); }
+// Lesplanning uit Brightspace inlezen: screenshots (verkleind tot max 2800 px) of een PDF → Gemini leest de tabel.
+const toB64 = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+async function filePart(file) {
+  if (file.type === "application/pdf") {
+    if (file.size > 8e6) throw new Error(`${file.name} is te groot (max 8 MB)`);
+    return { mime: "application/pdf", data: await toB64(file) };
+  }
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 2800 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+  return { mime: "image/jpeg", data: await toB64(blob) };
+}
+async function loadVakken() {
+  try {
+    const { vakken } = await callFn({ planning: "lijst" });
+    const box = $("rsVakken");
+    box.replaceChildren(...(vakken || []).map((v) => {
+      const el = document.createElement("span");
+      el.className = "vak"; el.title = `${v.aantal} activiteiten, t/m ${v.tot}`;
+      el.textContent = v.vak;
+      const del = document.createElement("button");
+      del.type = "button"; del.textContent = "✕"; del.setAttribute("aria-label", `Planning ${v.vak} wissen`);
+      del.onclick = async () => {
+        if (!confirm(`Planning van "${v.vak}" wissen?`)) return;
+        await callFn({ planning: { wis: v.vak } }).catch(() => {});
+        loadVakken(); loadRooster();
+      };
+      el.append(del);
+      return el;
+    }));
+  } catch { /* geen planning */ }
+}
+$("rsAdd").onclick = () => $("rsFile").click();
+$("rsFile").onchange = async (e) => {
+  const files = [...e.target.files].slice(0, 6);
+  e.target.value = "";
+  if (!files.length) return;
+  let last = ""; try { last = localStorage.getItem("eco-vak") || ""; } catch { /* geen opslag */ }
+  const vak = (prompt("Voor welk vak is deze planning?", last) || "").trim();
+  if (!vak) return;
+  try { localStorage.setItem("eco-vak", vak); } catch { /* geen opslag */ }
+  const note = (t, cls = "note") => { const li = document.createElement("li"); li.className = cls; li.textContent = t; $("rsList").prepend(li); return li; };
+  const busy = note(`Planning van ${vak} lezen… dit duurt 20 tot 60 seconden.`);
+  $("rsAdd").disabled = true;
+  try {
+    const parts = await Promise.all(files.map(filePart));
+    const r = await callFn({ planning: { vak, files: parts } });
+    busy.remove();
+    sfx.reply();
+    await loadRooster(); loadVakken();
+    note(`✓ ${r.aantal} activiteiten van ${vak} ingelezen (${r.van} t/m ${r.tot}). Deze planning gaat voor het rooster.`);
+  } catch (err) { busy.textContent = "Planning inlezen mislukt: " + err.message; busy.className = "empty"; }
+  finally { $("rsAdd").disabled = false; }
+};
+
+function startRooster() { loadRooster(); loadVakken(); clearInterval(rsTimer); rsTimer = setInterval(() => { if (document.visibilityState === "visible") loadRooster(); }, 10 * 60000); }
 
 // ---------- Geheugen (PROFIEL) ----------
 async function loadMemory() {

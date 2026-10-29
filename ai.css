@@ -336,3 +336,8 @@ select.lab-id option{background:#02121a;color:var(--c2)}
 .rs-list li.empty,.rs-list li.note{display:block;color:var(--muted);font-family:var(--f-mono);font-size:.72rem;border:0}
 .rs-list li.note{color:#ffe2b0}
 .rs-list li.off span{text-decoration:line-through;opacity:.6}
+.rs-list li.replaced span,.rs-list li.replaced time{opacity:.45;text-decoration:line-through}
+.rs-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.rs-foot .vak{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);border:1px dashed rgba(0,225,255,.25);padding:2px 6px}
+.rs-foot .vak button{border:0;background:none;color:var(--muted);padding:0 2px;cursor:pointer}
+.rs-foot .vak button:hover{color:var(--red)}
