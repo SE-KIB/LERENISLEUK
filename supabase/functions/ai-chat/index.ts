@@ -33,6 +33,26 @@ const HISTORY = 20;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
+// Klokstijd zoals je hem zegt: 08:45 → "kwart voor negen", 11:00 → "elf uur", 13:30 → "half twee".
+const UREN = ["twaalf", "één", "twee", "drie", "vier", "vijf", "zes", "zeven", "acht", "negen", "tien", "elf"];
+function spokenTime(hhmm: string) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return "";
+  const h = +m[1], mi = +m[2], uur = (x: number) => UREN[x % 12], n = (x: number) => (x === 5 ? "vijf" : "tien");
+  if (mi === 0) return `${uur(h)} uur`;
+  if (mi === 15) return `kwart over ${uur(h)}`;
+  if (mi === 30) return `half ${uur(h + 1)}`;
+  if (mi === 45) return `kwart voor ${uur(h + 1)}`;
+  if (mi % 5 === 0) {
+    if (mi < 15) return `${n(mi)} over ${uur(h)}`;
+    if (mi < 30) return `${n(30 - mi)} voor half ${uur(h + 1)}`;
+    if (mi < 45) return `${n(mi - 30)} over half ${uur(h + 1)}`;
+    return `${n(60 - mi)} voor ${uur(h + 1)}`;
+  }
+  return `${uur(h)} uur ${mi}`;
+}
+const timeOf = (t: unknown) => /(\d{1,2}:\d{2})(?!.*\d{1,2}:\d{2})/.exec(String(t ?? ""))?.[1] ?? "";
+
 // Stemtags die Gemini 3.8 TTS uitspreekt als geluid; overal anders weghalen.
 const VOCAL_TAGS = /\s*<(?:short pause|long pause|chuckle|laugh|sigh|breath)>\s*/gi;
 const stripTags = (t: string) => t.replace(VOCAL_TAGS, " ").replace(/ {2,}/g, " ").replace(/ ([.,!?;:])/g, "$1").trim();
@@ -54,6 +74,7 @@ function systemPrompt(memory = "", context = "") {
     `\n- Verzin nooit afspraken, mails, weer of feiten.` +
     `\n\nRegels voor tools:` +
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
+    `\n- Bij agenda-items staat de uitgesproken tijd er al bij (veld "gezegd" of tussen haakjes, bv. "kwart voor negen tot twaalf uur"). Neem die letterlijk over en reken een tijd nooit zelf om.` +
     `\n- Noem een lestijd, lokaal of afspraak alleen als die letterlijk in de agendagegevens staat, en zeg kort uit welke bron (de naam tussen [haken], bv. "volgens je schoolrooster"). ` +
     `Brightspace is leidend: docenten zetten wijzigingen (later beginnen, verplaatst, vervalt) in Brightspace, het schoolrooster toont vaak nog de oude planning. ` +
     `De bron "Brightspace-planning" is de lesplanning van de docent en gaat altijd voor; staat bij een roosterles "Brightspace-planning wijkt af", gebruik dan alleen de planning. ` +
@@ -368,7 +389,8 @@ const wxLine = (w: any) => `Weer in ${w.plaats}: ${w.nu.temp}°C (voelt als ${w.
 // ---------- Agenda-abonnementen (ICS-links, bv. schoolrooster) ----------
 // Secret AGENDA_FEEDS: "School|https://…ics" (meerdere gescheiden door komma of nieuwe regel; webcal:// mag).
 const FEEDS = () => env("AGENDA_FEEDS").split(/[,\n]/).map((f) => f.trim()).filter(Boolean).map((f, i) => {
-  const [name, url] = f.includes("|") ? f.split("|") : [`Agenda ${i + 1}`, f];
+  const [name, url] = f.includes("|") ? f.split("|") :
+    [/mytimetable|rooster|timetable/i.test(f) ? "Schoolrooster" : /brightspace|\/d2l\//i.test(f) ? "Brightspace" : `Agenda ${i + 1}`, f];
   return { name: name.trim(), url: url.trim().replace(/^webcal:/i, "https:") };
 });
 const feedCache = new Map<string, { at: number; ics: string }>();
@@ -781,7 +803,7 @@ const dagStart = (offsetDays = 0) => {
 function eventLine(e: any, bron = "") {
   const fmt = (v: string) => /^\d{4}-\d\d-\d\dT/.test(v ?? "") ? new Date(v).toLocaleString("nl-NL", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" }) : String(v ?? "");
   const eind = e.eind ? fmt(e.eind).replace(/^.*?(\d\d:\d\d)$/, "$1") : "";
-  return `- ${bron ? `[${bron}] ` : ""}${fmt(e.start)}${eind && eind !== fmt(e.start) ? `–${eind}` : ""} ${e.titel ?? ""}` +
+  return `- ${bron ? `[${bron}] ` : ""}${fmt(e.start)}${eind && eind !== fmt(e.start) ? `–${eind}` : ""}${e.gezegd ? ` (${e.gezegd})` : ""} ${e.titel ?? ""}` +
     `${e.locatie ? ` (${e.locatie})` : ""}${e.soort ? ` [${e.soort}]` : ""}${e.afwijking ? ` [${e.afwijking}]` : ""}${e.verzet ? ` [${e.verzet}]` : ""}` +
     `${e.vervangen ? ` [${e.vervangen}]` : ""}${e.info && bron === "Brightspace-planning" ? ` (${e.info})` : ""}`;
 }
@@ -816,8 +838,17 @@ async function agendaAll(van: string, tot: string, debug = false, who?: Who): Pr
     who ? planningEvents(who, van, tot).catch((e) => { console.warn("planning", e); return [] as any[]; }) : [],
   ]);
   const out: Record<string, unknown> = { ...(ic ? { icloud: ic } : {}), ...(go ? { google: go } : {}), ...(fe ?? {}) };
+  if (pl.length) out["Brightspace-planning"] = pl;
+  for (const v of Object.values(out)) {
+    const list = Array.isArray(v) ? v : Array.isArray((v as any)?.afspraken) ? (v as any).afspraken : [];
+    for (const e of list) {
+      if (/hele dag/.test(String(e.start ?? ""))) continue;
+      const a = spokenTime(timeOf(/^\d{4}-\d\d-\d\dT/.test(e.start ?? "") ? new Date(e.start).toLocaleTimeString("nl-NL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) : e.start));
+      const b = e.eind ? spokenTime(timeOf(/^\d{4}-\d\d-\d\dT/.test(e.eind) ? new Date(e.eind).toLocaleTimeString("nl-NL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) : e.eind)) : "";
+      if (a) e.gezegd = b && b !== a ? `${a} tot ${b}` : a;
+    }
+  }
   if (pl.length) {
-    out["Brightspace-planning"] = pl;
     // Lessen uit het schoolrooster voor een vak dat op die dag een planning heeft: de planning is leidend.
     const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, " ").trim();
     const perDag = new Map<string, string[]>();
