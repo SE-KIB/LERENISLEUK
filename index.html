@@ -22,6 +22,7 @@
   <div class="fx-scan" aria-hidden="true"></div>
   <div id="scrim" class="scrim" aria-hidden="true"></div>
   <button type="button" id="tapTalk" class="tap-talk" hidden>🎙️ TIK OM TE PRATEN</button>
+  <button type="button" id="tapBrief" class="tap-talk" hidden>☀️ TIK VOOR JE BRIEFING</button>
 
   <!-- Opstartsequentie -->
   <section id="boot" class="boot" aria-label="Systeem start op">
@@ -101,6 +102,8 @@
         <label class="switch"><input type="checkbox" id="sfx" checked><i></i><span>GELUID</span></label>
         <label class="switch" title="Handsfree: na elk antwoord luistert ECO vanzelf weer. Zeg &quot;stop&quot; of &quot;bedankt&quot; om te pauzeren."><input type="checkbox" id="convo"><i></i><span>GESPREK</span></label>
         <label class="switch" id="wakeSwitch" title="Zolang ECO open staat luistert hij naar &quot;Hé Eco&quot;. Zeg daarna je vraag, of zeg alles in één keer: &quot;Hé Eco, hoe laat begint water?&quot;"><input type="checkbox" id="wake"><i></i><span>HÉ ECO</span></label>
+        <div class="push-row" title="Elke ochtend een melding als je briefing klaarstaat. Op iPhone: eerst ECO op je beginscherm zetten en daarvandaan openen."><button type="button" id="pushBtn" class="link">MELDINGEN UIT</button><input type="time" id="pushTime" value="07:30" aria-label="Tijd van de ochtendbriefing"></div>
+        <p id="pushMsg" class="login-msg push-msg"></p>
         <button type="button" id="labOpen" class="link" title="Eigen stem ontwerpen met ElevenLabs">STEMLAB</button>
         <button type="button" id="resetLayout" class="link only-desktop" title="Alle panelen terug naar de standaardindeling">INDELING HERSTELLEN</button>
         <button type="button" id="logout" class="link danger">AFMELDEN</button>

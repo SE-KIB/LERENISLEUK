@@ -19,6 +19,8 @@ van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen 
 - `supabase/functions/ai-chat/index.ts` — server-functie die het model aanroept (streaming)
 - `supabase/migrations/20261028_ai.sql` — tabellen `ai_conversations`, `ai_messages`, `ai_usage` met RLS
 - `supabase/migrations/20261029_memory.sql`, `20261030_planning.sql`, `20261031_kv.sql` — geheugen, lesplanning en server-opslag (draaien automatisch)
+- `supabase/migrations/20261101_cron.sql` — ECO-klok: de database roept de functie elke 5 minuten aan (ochtendbriefing)
+- `eco-sw.js` — service worker, alleen voor pushmeldingen (geen offline-cache)
 - `scripts/brightspace/sync.mjs` + `.github/workflows/brightspace-sync.yml` — Brightspace-roosterpagina's elke ochtend ophalen
 - `widget/eco-widget.js` + `widget/installeer.js` — iPhone-widget voor Scriptable
 - `archief/lerenisleuk/` — de oude site; terug met `scripts/switch-si## Automatisch uitrollen (aanbevolen)
@@ -215,6 +217,22 @@ De route via de Opdrachten-app wel: die vraagt jou eenmalig toestemming en geeft
 Voorbeeld "Hé Siri, Eco" met je agenda en herinneringen erbij: voeg vóór stap 2 toe
 *Zoek agenda-activiteiten* (vandaag) en *Zoek herinneringen* (niet voltooid), en zet in het `message`-veld:
 `Mijn agenda vandaag: [Agenda-activiteiten] — Open herinneringen: [Herinneringen] — Vraag: [Gedicteerde tekst]`.
+
+## Ochtendbriefing met melding (gratis)
+Elke ochtend (standaard **07:30**) maakt ECO je briefing: lessen en afspraken van vandaag (Brightspace-planning gaat voor het
+rooster, met lessen die eerder of later beginnen), het weer met een tip en de actiepunten uit het dagrapport. Je krijgt een
+melding *☀️ Je briefing staat klaar*; tik erop → ECO opent → tik op **☀️ TIK VOOR JE BRIEFING** en hij leest hem voor.
+Je kunt ook altijd zelf vragen: "Geef mijn briefing" of "Hoe ziet mijn dag eruit?".
+
+Aanzetten op de iPhone (eenmalig, iOS 16.4 of nieuwer):
+1. Open sekibar.nl in **Safari** → deelknop → **Zet op beginscherm** (meldingen werken op iPhone alleen vanuit de app op je beginscherm).
+2. Open **ECO vanaf je beginscherm** → ☰ MENU → BEDIENING → kies de tijd → tik **MELDINGEN UIT** → **Sta toe**.
+3. Je krijgt meteen een testmelding en de knop wordt **MELDINGEN AAN**. Nog een keer tikken zet ze op dit apparaat uit.
+
+Hoe het werkt: de database (pg_cron + pg_net, migratie `20261101_cron.sql`) roept de functie elke 5 minuten aan met een
+willekeurige cron-sleutel die alleen in de server-opslag staat. Op de ingestelde tijd (tot 2 uur later, als de telefoon uit
+stond) maakt de functie de briefing, bewaart hem en stuurt de melding via Web Push. De VAPID-sleutels maakt de functie zelf aan
+en bewaart ze in de server-opslag: **geen secrets nodig**. Eén melding per dag, ook als de klok vaker tikt.
 
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip

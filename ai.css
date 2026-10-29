@@ -160,6 +160,12 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .panel.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:center}
 .controls>.win-h{grid-column:1/-1}
 .controls .link{text-align:left}
+.push-row{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.push-row input{background:rgba(0,20,30,.6);border:1px solid var(--cd);color:var(--c2);font-family:var(--f-mono);font-size:.8rem;padding:.2rem .4rem;outline:none;color-scheme:dark}
+.push-row input:focus{border-color:var(--c)}
+#pushBtn[data-on="1"]{color:#5dffb0}
+.push-msg{grid-column:1/-1;font-size:.7rem;min-height:0}
+.push-msg:empty{display:none}
 .switch{display:flex;align-items:center;gap:6px;font-family:var(--f-head);font-size:.58rem;letter-spacing:.2em;color:var(--muted);cursor:pointer}
 .switch input{position:absolute;opacity:0}
 .switch i{width:26px;height:12px;border:1px solid var(--cd);position:relative}
