@@ -11,7 +11,7 @@ export async function eco(body) {
     signal: AbortSignal.timeout(170000), // de functie stopt zelf na ~150 s
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`ECO ${r.status}: ${String(j.error ?? "").slice(0, 200)}`);
+  if (!r.ok) throw new Error(`ECO ${r.status}: ${String(j.error ?? "").slice(0, 300)}`);
   return j;
 }
 

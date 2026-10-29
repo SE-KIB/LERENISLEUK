@@ -10,6 +10,7 @@ if (!pages.length) { await status(false, "geen Rooster-pagina's ingesteld (ROOST
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ storageState: state, viewport: { width: 1600, height: 1000 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const b64 = (s) => Buffer.from(s).toString("base64");
+const WEKEN = 6; // alleen de komende weken lezen: veel sneller en betrouwbaarder; de robot draait elke dag
 
 // Tekst van de pagina en van ingesloten frames (Brightspace toont inhoud vaak in een iframe), plus screenshots.
 async function capture(page) {
@@ -53,17 +54,20 @@ for (const p of pages) {
     // daarna elke screenshot apart (rode afwijkende tijden, opmaak). Elk stuk vervangt alleen de dagen die erin staan.
     const tekst = files.filter((f) => f.mime === "text/plain"), shots = files.filter((f) => f.mime !== "text/plain");
     let gelukt = 0;
-    const stapFouten = [];
-    for (const deel of [tekst, ...shots.map((f) => [f])].filter((d) => d.length)) {
-      try { await eco({ planning: { vak: p.vak, files: deel } }); gelukt++; }
-      catch (e) { stapFouten.push(String(e.message).split("\n")[0]); }
+    const lees = (deel) => eco({ planning: { vak: p.vak, files: deel, weken: WEKEN } });
+    const mislukt = [], stapFouten = [];
+    for (const deel of [tekst, ...shots.map((f) => [f])].filter((d) => d.length)) await lees(deel).then(() => gelukt++, () => mislukt.push(deel));
+    // Gemini is soms even druk (503) of traag: mislukte delen na een halve minuut nog één keer.
+    if (mislukt.length) {
+      await new Promise((r) => setTimeout(r, 30000));
+      for (const deel of mislukt) await lees(deel).then(() => gelukt++, (e) => stapFouten.push(String(e.message).split("\n")[0]));
     }
     if (!gelukt) throw new Error(stapFouten[0] || "niets gelezen");
     if (stapFouten.length) deels.push(`${p.vak}: ${stapFouten.length} van ${gelukt + stapFouten.length} delen niet gelezen`);
     klaar++;
     console.log(`Vak ${klaar}/${pages.length}: ${gelukt} van ${gelukt + stapFouten.length} delen gelezen.`);
   } catch (e) {
-    fouten.push(`${p.vak}: ${String(e.message).split("\n")[0].replace(/https?:\/\/\S+/g, "(link)").slice(0, 120)}`);
+    fouten.push(`${p.vak}: ${String(e.message).split("\n")[0].replace(/https?:\/\/\S+/g, "(link)").slice(0, 240)}`);
     console.log(`Vak ${klaar + fouten.length}/${pages.length} mislukt.`);
   } finally { await page.close(); }
 }

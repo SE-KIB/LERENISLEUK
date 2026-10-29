@@ -1060,9 +1060,23 @@ const PLANNING_SCHEMA = {
   },
   required: ["lessen"],
 };
-async function planningImport(who: Who, vak: string, files: { mime: string; data: string }[]) {
+// Gemini-fout kort en op één regel (de robot toont alleen de eerste regel), bv. "3.8-flash 429 quotum op".
+const kortModel = (model: string) => model.replace(/^gemini-/, "");
+function geminiFout(model: string, status: number, body: string) {
+  let uitleg = "";
+  try {
+    const e = JSON.parse(body).error ?? {};
+    uitleg = ({ RESOURCE_EXHAUSTED: "quotum op", UNAVAILABLE: "druk", DEADLINE_EXCEEDED: "te traag", INVALID_ARGUMENT: "ongeldig verzoek" } as Record<string, string>)[e.status] ?? String(e.message ?? "");
+  } catch { uitleg = body; }
+  return `${kortModel(model)} ${status}${uitleg ? " " + uitleg.replace(/\s+/g, " ").slice(0, 60) : ""}`;
+}
+async function planningImport(who: Who, vak: string, files: { mime: string; data: string }[], weken = 0) {
   const vandaag = localParts(Date.now()).datum, jaar = +vandaag.slice(0, 4), maand = +vandaag.slice(5, 7);
   const start = maand >= 8 ? jaar : jaar - 1;
+  // De robot leest alleen de komende weken (vanaf maandag van deze week): veel minder uitvoer, dus sneller en betrouwbaarder.
+  const plus = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const van = weken > 0 ? plus(vandaag, -((new Date(`${vandaag}T12:00:00Z`).getUTCDay() + 6) % 7)) : "";
+  const tot = weken > 0 ? plus(van, weken * 7 - 1) : "";
   const instructie = `Je krijgt screenshots of een PDF van een lesplanning (rooster) uit Brightspace voor het vak "${vak}". Vandaag is ${vandaag}. ` +
     `Het studiejaar loopt van september ${start} tot en met augustus ${start + 1}: september tot en met december = ${start}, januari tot en met augustus = ${start + 1}. ` +
     `Zet elke ingeplande activiteit om naar één rij met datum (YYYY-MM-DD), start en eind (HH:MM, 24-uurs), titel, soort en opmerking. Regels: ` +
@@ -1071,38 +1085,46 @@ async function planningImport(who: Who, vak: string, files: { mime: string; data
     `3) Een cel met twee activiteiten met elk een eigen tijd wordt twee rijen. Lege cellen sla je over, ook vakanties. ` +
     `4) soort: les (college, werkcollege, practicum, gastcollege, vragenuur, feedbacksessie), zelfstudie (zelfstudie, groepswerk, oefeningen zonder docent), toets, deadline (inleveren), vervalt, overig. ` +
     `5) Inleverdeadlines zonder tijd krijgen start en eind null. 6) opmerking: docentnaam of bijzonderheid, bv. "afwijkende tijd". ` +
-    `7) Verzin niets: wat je niet goed kunt lezen of wat buiten beeld valt laat je weg. Zelfde activiteit op meerdere screenshots maar één keer.`;
+    `7) Verzin niets: wat je niet goed kunt lezen of wat buiten beeld valt laat je weg. Zelfde activiteit op meerdere screenshots maar één keer.` +
+    (van ? ` 8) Neem alleen activiteiten op van ${van} tot en met ${tot}; alles daarbuiten laat je weg.` : "");
   const parts: any[] = [{ text: instructie }, ...files.map((f) => f.mime === "text/plain"
     ? { text: `Tekst en tabellen van de Brightspace-pagina:\n${new TextDecoder().decode(b64bytes(f.data)).slice(0, 60000)}` }
     : { inlineData: { mimeType: f.mime, data: f.data } })];
-  let last = "";
+  const fouten: string[] = []; // per model één korte regel, zodat in ECO te zien is wat er misging
   // De functie mag hooguit ~150 s duren: Gemini krijgt een vaste denktijd en samen hooguit 135 s, zodat er altijd een antwoord komt.
+  // Elk model heeft een eigen gratis quotum; het eerste krijgt hooguit 70 s, zodat er tijd overblijft voor een reserve.
   const deadline = Date.now() + 135000;
-  const models = env("PLANNING_MODEL", "gemini-2.5-flash,gemini-flash-latest").split(",").map((m) => m.trim()).filter(Boolean);
+  const models = env("PLANNING_MODEL", "gemini-3.8-flash,gemini-3.6-flash,gemini-2.5-flash,gemini-3.5-flash-lite").split(",").map((m) => m.trim()).filter(Boolean);
   for (const [i, model] of models.entries()) {
-    const rest = deadline - Date.now();
-    if (rest < 25000) { last ||= "te weinig tijd over"; break; }
-    const denken = model.includes("2.5") ? { thinkingBudget: 2048 } : { thinkingLevel: "low" };
-    const vraag = (thinking: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json", responseSchema: PLANNING_SCHEMA, ...(thinking ? { thinkingConfig: thinking } : {}) } }),
-      signal: AbortSignal.timeout(Math.min(i === 0 ? 95000 : rest, rest - 5000)),
-    }).catch((e) => { last = `${model}: ${(e as Error)?.name === "TimeoutError" ? "te traag" : String(e)}`; return null; });
-    let r = await vraag(denken);
-    if (r?.status === 400) r = await vraag(null); // dit model kent die denk-instelling niet
+    if (deadline - Date.now() < 20000) { fouten.push("geen tijd meer voor de andere modellen"); break; }
+    let denken: unknown = model.includes("2.5") ? { thinkingBudget: 2048 } : { thinkingLevel: "low" };
+    const vraag = () => {
+      const rest = deadline - Date.now();
+      return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json", responseSchema: PLANNING_SCHEMA, ...(denken ? { thinkingConfig: denken } : {}) } }),
+        signal: AbortSignal.timeout(Math.max(1000, Math.min(i === 0 ? 70000 : rest, rest - 5000))),
+      }).catch((e) => { fouten.push(`${kortModel(model)} ${(e as Error)?.name === "TimeoutError" ? "te traag" : "netwerkfout"}`); return null; });
+    };
+    let r = await vraag();
+    if (r?.status === 400) { denken = null; r = await vraag(); } // dit model kent die denk-instelling niet
+    if (r && [500, 503].includes(r.status) && deadline - Date.now() > 40000) { await wait(2000); r = await vraag(); } // even druk: één keer opnieuw
     if (!r) continue;
-    if (!r.ok) { last = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`; console.warn("planning", last); continue; }
+    if (!r.ok) { const f = geminiFout(model, r.status, await r.text()); fouten.push(f); console.warn("planning", f); continue; }
     const text = ((await r.json()).candidates?.[0]?.content?.parts ?? []).filter((p: any) => p.text && !p.thought).map((p: any) => p.text).join("");
     let parsed: any;
-    try { parsed = JSON.parse(text); } catch { last = `${model}: geen geldige JSON`; continue; }
+    try { parsed = JSON.parse(text); } catch { fouten.push(`${kortModel(model)} geen geldige JSON`); continue; }
     const hhmm = (t: unknown) => { const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(t ?? "").trim()); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : null; };
     const seen = new Set<string>();
     const rows = (parsed.lessen ?? []).map((l: any) => ({
       user_id: who.userId, vak, datum: String(l.datum ?? "").slice(0, 10), start: hhmm(l.start), eind: hhmm(l.eind),
       titel: String(l.titel ?? "").trim().slice(0, 300), soort: String(l.soort ?? "les"), opmerking: l.opmerking ? String(l.opmerking).slice(0, 300) : null,
-    })).filter((l: any) => /^\d{4}-\d{2}-\d{2}$/.test(l.datum) && !isNaN(Date.parse(l.datum)) && l.titel)
+    })).filter((l: any) => /^\d{4}-\d{2}-\d{2}$/.test(l.datum) && !isNaN(Date.parse(l.datum)) && l.titel && (!van || (l.datum >= van && l.datum <= tot)))
       .filter((l: any) => { const k = `${l.datum}|${l.start}|${l.titel.toLowerCase()}`; if (seen.has(k)) return false; seen.add(k); return true; });
-    if (!rows.length) { last = `${model}: geen lessen gevonden`; continue; }
+    if (!rows.length) {
+      if (van && Array.isArray(parsed.lessen)) return { vak, aantal: 0, van, tot, model }; // dit deel heeft niets in deze weken: geen fout
+      fouten.push(`${kortModel(model)} geen lessen gevonden`); continue;
+    }
     // Alleen de dagen die in deze upload staan vervangen (zo kun je een brede tabel in delen uploaden).
     const dagen = [...new Set(rows.map((l: any) => l.datum))];
     const del = await who.db.from("ai_planning").delete().eq("user_id", who.userId).eq("vak", vak).in("datum", dagen);
@@ -1112,7 +1134,7 @@ async function planningImport(who: Who, vak: string, files: { mime: string; data
     for (const k of [...ctxCache.keys()]) if (k.startsWith("agenda:") || k.startsWith("vocab:")) ctxCache.delete(k);
     return { vak, aantal: rows.length, van: dagen.sort()[0], tot: dagen.sort().at(-1), model };
   }
-  throw Object.assign(new Error(`Planning lezen lukte niet: ${last}`), { status: 502 });
+  throw Object.assign(new Error(`Planning lezen lukte niet: ${fouten.join("; ") || "onbekende fout"}`), { status: 502 });
 }
 
 // ---------- iPhone-widget (Scriptable): volgende lessen, weer met tip, actiepunten ----------
@@ -2631,7 +2653,7 @@ Deno.serve(async (req) => {
       if (!vak) return json({ error: "Geef de naam van het vak" }, 400);
       if (!files.length) return json({ error: "Geen afbeelding of PDF ontvangen" }, 400);
       if (!env("GEMINI_API_KEY")) return json({ error: "GEMINI_API_KEY ontbreekt" }, 501);
-      return json(await planningImport({ db: admin, userId }, vak, files));
+      return json(await planningImport({ db: admin, userId }, vak, files, Math.min(26, Math.max(0, Math.floor(Number(pl.weken) || 0)))));
     } catch (e) { console.error("planning", e); return fail(e); }
   }
 

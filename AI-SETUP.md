@@ -115,7 +115,11 @@ zelfstudie, toetsen en inleverdata. Die planning is daarna **leidend**: de roost
 Opnieuw uploaden vervangt alleen de dagen die op de nieuwe screenshots staan. Wissen kan met ✕ naast de vaknaam.
 
 **Brightspace automatisch bijwerken (gratis):** elke ochtend om 06:20 opent GitHub Actions met Playwright je Rooster-pagina's
-in Brightspace en zet ECO de planning bij (zelfde import als + PLANNING). Eenmalig instellen:
+in Brightspace en zet ECO de planning bij (zelfde import als + PLANNING, maar alleen de komende 6 weken: dat gaat sneller en
+betrouwbaarder). Gemini leest per vak eerst de tekst en dan elke screenshot apart; is Gemini even druk of is het gratis quotum van
+een model op, dan probeert ECO het volgende model (`PLANNING_MODEL`, standaard `gemini-3.8-flash`, `gemini-3.6-flash`,
+`gemini-2.5-flash`, `gemini-3.5-flash-lite`) en de robot probeert mislukte delen na een halve minuut nog één keer. Wat er
+misging zie je kort per model bij BRIGHTSPACE (bv. "3.8-flash 429 quotum op"). Eenmalig instellen:
 1. **Sleutel:** verzin een lange geheime tekst. Zet hem in Supabase als secret `JARVIS_KEY` én in GitHub → repository
    **LERENISLEUK** → Settings → Secrets and variables → Actions → **New repository secret** `JARVIS_KEY` (dezelfde waarde).
 2. **Pagina's:** open in Brightspace de Rooster-pagina van een vak, kopieer het adres, en kies in ECO **ROOSTER → + PAGINA**.
