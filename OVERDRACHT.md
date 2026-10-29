@@ -1,4 +1,4 @@
-# Overdracht ECO + NOVA (bijgewerkt 29 okt 2026)
+# Overdracht ECO + NOVA (bijgewerkt 29 okt 2026, na de stem-fix)
 
 Lees dit eerst. Site: sekibar.nl · repo SE-KIB/LERENISLEUK · `main` = live.
 
@@ -31,16 +31,14 @@ Lees dit eerst. Site: sekibar.nl · repo SE-KIB/LERENISLEUK · `main` = live.
   **Hij installeert nova-7 zelf** (download: https://github.com/SE-KIB/LERENISLEUK/releases/latest/download/NOVA.exe);
   daarna komen updates vanzelf.
 
-## Eerst doen: NOVA's stem (lelijk en slecht verstaanbaar)
-Waarschijnlijk valt NOVA terug op een **Engelse Windows-stem** (pyttsx3/SAPI) die Nederlands voorleest. Plan:
-1. In SYSTEEMSTATUS tonen welke stem sprak (Gemini / Piper / Windows) en waarom hij terugviel.
-2. Online: ECO's Gemini-stem gestreamd afspelen (`{ tts, stream: true }` → `audio/l16`, 24 kHz, little-endian).
-3. Offline: **Piper** i.p.v. SAPI: `piper-tts==1.7.0` (win_amd64-wheel bestaat), stem **nl_BE-nathalie-medium**
-   (93% verstaanbaar in een Vosk-test; nl_BE-rdh 73%; nl_NL-mls is slecht), van
-   `huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx(.json)`.
-   Downloaden zodra NOVA online is (zoals Vosk). API: `PiperVoice.load(onnx).synthesize(tekst)` → delen met
-   `.audio_int16_bytes`, 22050 Hz (0,4 s voor een zin op CPU).
-4. Nooit een Engelse stem voor Nederlandse tekst; liever alleen tekst met een tip.
+## NOVA's stem (gedaan, PR #118)
+- **Online:** ECO's Gemini-stem gestreamd (`{ tts, stream: true }` → `audio/l16`, 24 kHz): klinkt na het eerste stukje.
+- **Anders:** Piper `piper-tts==1.7.0` met **nl_BE-nathalie-medium** (93% verstaanbaar in een Vosk-test), ~63 MB in
+  `%APPDATA%\NOVA\stem`, downloadt vanzelf zodra NOVA online is (zoals Vosk). Daarna alleen een **Nederlandse** Windows-stem;
+  **nooit een Engelse stem** (dan alleen tekst, met de reden in het transcript).
+- **SYSTEEMSTATUS → STEM** toont welke stem sprak; ⚠ = teruggevallen, reden bij aanwijzen en in het transcript.
+- De bouwstraat test Piper in de echte exe (zelftest maakt een zin met nathalie).
+- **Nog te checken door Serkan:** klinkt NOVA nu goed? Staat er bij STEM "GEMINI (ECO)" zonder ⚠? Zo niet: de reden doorgeven.
 
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone

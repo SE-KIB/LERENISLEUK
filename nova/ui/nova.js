@@ -132,6 +132,9 @@ function zetStatus(s) {
   $("stModel").textContent = s.model;
   $("stOllama").textContent = s.lokaal; $("stOllama").className = s.lokaal_ok ? "ok" : "warn";
   $("stSpraak").textContent = s.spraak || "—";
+  $("stStem").textContent = (s.stem || "—") + (s.stem_reden ? " ⚠" : "");
+  $("stStem").className = s.stem_soort || "";
+  $("stStem").title = s.stem_reden || "";
   $("stNaam").textContent = s.naam || "—";
   $("brein").textContent = s.modus === "online" ? "ECO-BREIN" : s.modus === "offline" ? s.model.toUpperCase() : "—";
   $("laptop").textContent = `${s.naam} · v${s.versie}`;

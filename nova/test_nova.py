@@ -1,8 +1,11 @@
 """Tests voor NOVA zonder Windows: nagebootste ECO-server en Ollama. Draaien: python -m unittest -v test_nova"""
 import json
+import sys
 import tempfile
 import threading
+import types
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -90,7 +93,7 @@ class TestEcoEnBrug(unittest.TestCase):
                 if nv["actie"] == "geheugen":
                     return h.antwoord(200, {"feiten": ["Serkan studeert aan de HHS"], "agenda": "morgen Water 08:45", "lijstjes": ""})
             if isinstance(body, dict) and "tts" in body:
-                return h.antwoord(200, b"\x00\x01" * 100, "audio/pcm", {"x-audio-rate": "24000"})
+                return h.antwoord(200, b"\x00\x01" * 100, "audio/l16;rate=24000", {"x-audio-rate": "24000"})
             if isinstance(body, dict) and body.get("stream"):
                 sse = "".join(f"data: {json.dumps(e)}\n\n" for e in ({"t": "conv", "id": "conv-1"}, {"t": "tool", "name": "pc"}, {"t": "delta", "text": "Spotify "}, {"t": "delta", "text": "staat aan."}, {"t": "done"}))
                 return h.antwoord(200, sse.encode(), "text/event-stream")
@@ -110,8 +113,9 @@ class TestEcoEnBrug(unittest.TestCase):
 
     def test_tts_en_geheugen(self):
         eco = core.Eco(self.cfg)
-        pcm, rate = eco.tts("hallo")
-        self.assertEqual((len(pcm), rate), (200, 24000))
+        rate, r = eco.tts_stroom("hallo")
+        with r:
+            self.assertEqual((len(b"".join(r.iter_content(4800))), rate), (200, 24000))
         self.assertIn("HHS", eco.geheugen()["feiten"][0])
 
     def test_brug_voert_uit_en_meldt(self):
@@ -222,33 +226,12 @@ class TestApp(unittest.TestCase):
         self.assertEqual(app.conv, "c1")
 
     def test_spreken_eindigt_in_stand_by(self):
-        import nova
-        import nova_stem
-
-        class NepUI:
-            def __init__(self):
-                self.ev = []
-
-            def __getattr__(self, naam):
-                return lambda *a: self.ev.append((naam,) + a)
-
-        ui = NepUI()
-        app = nova.NovaApp(ui)
-        app.cfg.update(eco_sleutel="x", stem=True)
-        app.brug.online = True
-        app.eco.tts = lambda t: (b"\x00\x00" * 10, 24000)
-        oud = nova_stem.speel_pcm
-        nova_stem.speel_pcm = lambda pcm, rate: None
-        try:
+        ui, app = nep_app(online=True)
+        app.eco.tts_stroom = lambda t: (24000, NepAntwoord([b"\x00\x00" * 10]))
+        with nep_geluid():
             app.spreek("hallo")
-            for _ in range(50):
-                if ui.ev and ui.ev[-1] == ("staat", "idle"):
-                    break
-                import time
-                time.sleep(0.02)
-        finally:
-            nova_stem.speel_pcm = oud
-        self.assertEqual(ui.ev, [("staat", "speaking"), ("staat", "idle")])
+            wacht_op(lambda: ui.ev and ui.ev[-1] == ("staat", "idle"))
+        self.assertEqual([e for e in ui.ev if e[0] == "staat"], [("staat", "speaking"), ("staat", "idle")])
 
     def test_interface_bestanden(self):
         import nova
@@ -256,6 +239,180 @@ class TestApp(unittest.TestCase):
         for f in ("index.html", "nova.js", "nova.css"):
             self.assertTrue((ui / f).exists(), f)
         self.assertIn("NICE OPERATING VARIANT AGENT", (ui / "index.html").read_text(encoding="utf-8"))
+
+
+class NepUI:
+    def __init__(self):
+        self.ev = []
+
+    def __getattr__(self, naam):
+        return lambda *a: self.ev.append((naam,) + a)
+
+
+def nep_app(online):
+    import nova
+    ui = NepUI()
+    app = nova.NovaApp(ui)
+    app.cfg.update(eco_sleutel="x", stem=True)
+    app.brug.online = online
+    return ui, app
+
+
+def wacht_op(f, s=2.0):
+    import time
+    eind = time.time() + s
+    while not f() and time.time() < eind:
+        time.sleep(0.02)
+
+
+class NepAntwoord:
+    """Een gestreamd antwoord van ECO's stem; `fout` = de stroom breekt na de stukjes af."""
+
+    def __init__(self, stukjes, fout=None):
+        self.stukjes, self.fout, self.dicht = stukjes, fout, False
+
+    def iter_content(self, n):
+        yield from self.stukjes
+        if self.fout:
+            raise self.fout
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.dicht = True
+
+
+class NepStroom:
+    gespeeld = []
+
+    def __init__(self, samplerate, channels, dtype):
+        self.rate = samplerate
+
+    def start(self): pass
+    def stop(self): pass
+    def abort(self): pass
+    def close(self): pass
+
+    def write(self, data):
+        NepStroom.gespeeld.append(bytes(data))
+
+
+def nep_geluid():
+    NepStroom.gespeeld = []
+    return mock.patch.dict(sys.modules, {"sounddevice": types.SimpleNamespace(RawOutputStream=NepStroom, stop=lambda: None)})
+
+
+class NepMotor:
+    def __init__(self, stemmen):
+        self.stemmen, self.gezegd, self.instelling = stemmen, [], {}
+
+    def getProperty(self, k): return self.stemmen
+    def setProperty(self, k, v): self.instelling[k] = v
+    def say(self, t): self.gezegd.append(t)
+    def runAndWait(self): pass
+
+
+def nep_pyttsx3(motor):
+    return mock.patch.dict(sys.modules, {"pyttsx3": types.SimpleNamespace(init=lambda: motor)})
+
+
+ENGELS = types.SimpleNamespace(id=r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0", name="Microsoft Zira Desktop - English (United States)", languages=[])
+NEDERLANDS = types.SimpleNamespace(id=r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_NL-NL_FRANK_11.0", name="Microsoft Frank - Dutch (Netherlands)", languages=[])
+
+
+class TestNovaStem(unittest.TestCase):
+    """Welke stem NOVA gebruikt: ECO's stem, dan Piper, dan een Nederlandse Windows-stem; nooit een Engelse."""
+
+    def setUp(self):
+        stem.nieuw_spreken()
+
+    def test_eco_stem_gestreamd(self):
+        ui, app = nep_app(online=True)
+        stukjes = [b"\x01" * 4801, b"\x02" * 9599, b"\x03" * 7]  # rare grenzen, midden in samples
+        app.eco.tts_stroom = lambda t: (24000, NepAntwoord(stukjes))
+        with nep_geluid():
+            self.assertEqual(app.spreek_met_stem("hallo"), ("GEMINI (ECO)", ""))
+        gespeeld = b"".join(NepStroom.gespeeld)
+        self.assertEqual(gespeeld, b"".join(stukjes)[:len(gespeeld)])
+        self.assertEqual(len(gespeeld), 14406)  # alles, op het halve sample na
+        self.assertTrue(all(len(d) % 2 == 0 for d in NepStroom.gespeeld))
+
+    def test_eco_stem_mislukt_dan_piper(self):
+        ui, app = nep_app(online=True)
+
+        def stuk(t):
+            raise core.EcoFout("ECO 502: Gemini-stem niet beschikbaar")
+        app.eco.tts_stroom = stuk
+        gezegd = []
+        with mock.patch.object(stem, "piper_klaar", lambda: True), mock.patch.object(stem, "piper_spreek", gezegd.append):
+            naam, reden = app.spreek_met_stem("hallo")
+            app.stem_gebruikt(naam, reden)
+        self.assertEqual((naam, gezegd), ("PIPER (NATHALIE)", ["hallo"]))
+        self.assertIn("Gemini-stem niet beschikbaar", reden)
+        self.assertEqual(app.stem_status()["stem_soort"], "warn")
+        self.assertTrue(any(e[0] == "sys" and "piper" in e[1] for e in ui.ev))
+
+    def test_halverwege_weg_geen_tweede_stem(self):
+        ui, app = nep_app(online=True)
+        app.eco.tts_stroom = lambda t: (24000, NepAntwoord([b"\x00" * 48000], fout=ConnectionError("stroom brak af")))
+        gezegd = []
+        with nep_geluid(), mock.patch.object(stem, "piper_klaar", lambda: True), mock.patch.object(stem, "piper_spreek", gezegd.append):
+            naam, reden = app.spreek_met_stem("hallo")
+        self.assertEqual((naam, gezegd), ("GEMINI (ECO)", []))
+        self.assertIn("halverwege", reden)
+
+    def test_nooit_een_engelse_stem(self):
+        ui, app = nep_app(online=False)
+        motor = NepMotor([ENGELS])
+        with nep_pyttsx3(motor), mock.patch.object(stem, "piper_klaar", lambda: False):
+            naam, reden = app.spreek_met_stem("Goedemorgen Serkan")
+            app.stem_gebruikt(naam, reden)
+        self.assertEqual(motor.gezegd, [])
+        self.assertEqual(naam, "GEEN — ALLEEN TEKST")
+        self.assertIn("gedownload", reden)
+        self.assertEqual(app.stem_status()["stem_soort"], "bad")
+
+    def test_nederlandse_windows_stem(self):
+        motor = NepMotor([ENGELS, NEDERLANDS])
+        with nep_pyttsx3(motor):
+            self.assertTrue(stem.windows_stem("hallo"))
+        self.assertEqual((motor.gezegd, motor.instelling["voice"]), (["hallo"], NEDERLANDS.id))
+
+    def test_onderbroken_geen_andere_stem(self):
+        ui, app = nep_app(online=True)
+
+        def onderbreek(t):
+            stem.stop_spelen()
+            return 24000, NepAntwoord([b"\x00" * 48000])
+        app.eco.tts_stroom = onderbreek
+        gezegd = []
+        with nep_geluid(), mock.patch.object(stem, "piper_klaar", lambda: True), mock.patch.object(stem, "piper_spreek", gezegd.append):
+            app.spreek_met_stem("hallo")
+        self.assertEqual((NepStroom.gespeeld, gezegd), ([], []))
+
+    def test_piper_downloaden(self):
+        bestanden = {"/nl_BE-nathalie-medium.onnx": b"MODEL" * 1000, "/nl_BE-nathalie-medium.onnx.json": b'{"audio": {"sample_rate": 22050}}'}
+
+        def behandel(h, methode, body):
+            return h.antwoord(200, bestanden[h.path], "application/octet-stream") if h.path in bestanden else h.antwoord(404, {})
+        srv = NepServer(behandel)
+        try:
+            with mock.patch.object(stem, "PIPER_MAP", Path(tempfile.mkdtemp()) / "stem"):
+                self.assertFalse(stem.piper_klaar())
+                voortgang = []
+                stem.piper_downloaden(voortgang.append, url=srv.url + "/")
+                self.assertTrue(stem.piper_klaar())
+                self.assertEqual((stem.PIPER_MAP / "nl_BE-nathalie-medium.onnx").read_bytes(), bestanden["/nl_BE-nathalie-medium.onnx"])
+                self.assertEqual(list(stem.PIPER_MAP.glob("*.deel")), [])
+                self.assertEqual(voortgang[-1], 1.0)
+        finally:
+            srv.stop()
+
+    @unittest.skipUnless(__import__("importlib").util.find_spec("piper"), "piper-tts niet geïnstalleerd")
+    def test_piper_uitspraak(self):
+        with mock.patch.object(stem, "PIPER_MAP", Path(tempfile.mkdtemp())):
+            self.assertIn("uitspraak werkt", stem.piper_proef())
 
 
 class TestUpdate(unittest.TestCase):
