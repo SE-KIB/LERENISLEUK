@@ -404,7 +404,13 @@ function entry(role, text, time = hhmmss()) {
   div.className = "entry " + role;
   div.innerHTML = `<div class="meta">${role === "user" ? "SERKAN" : "E.C.O."} · ${time}</div><div class="body"></div>`;
   const body = div.lastChild;
-  if (role === "assistant") body.innerHTML = md(text); else body.textContent = text;
+  if (role === "assistant") body.innerHTML = md(text);
+  else {
+    body.textContent = text;
+    // Verkeerd verstaan? Tik op je bericht om het te verbeteren en opnieuw te sturen.
+    div.title = "Tik om te verbeteren";
+    div.onclick = () => { $("input").value = body.textContent; $("input").focus(); $("input").dispatchEvent(new Event("input")); };
+  }
   $("messages").append(div);
   $("messages").scrollTop = $("messages").scrollHeight;
   return body;
@@ -483,7 +489,7 @@ let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ong
 async function ask({ text = "", audio = null }) {
   const my = ++turn;
   const t0 = performance.now();
-  let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, done = null;
+  let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, unsure = false, done = null;
   stopSpeaking();
   speech.open = true; speech.fromAsk = true;
   let audioAt = 0;
@@ -522,7 +528,17 @@ async function ask({ text = "", audio = null }) {
       if (my !== turn) return;
       if (ev.t === "heard") {
         if (!ev.text) { heardNothing = true; setState("idle"); setCaption("Ik heb niets verstaan.", "user"); speech.open = false; convoNext(false); return; }
-        entry("user", ev.text); setCaption("› " + ev.text, "user");
+        const you = entry("user", ev.text); setCaption("› " + ev.text, "user");
+        if (ev.q) you.parentElement.title = `Tik om te verbeteren · zekerheid ${ev.q.logprob} · geen spraak ${ev.q.noSpeech}`;
+        if (ev.unsure) {
+          // Whisper twijfelt: niet raden, maar vragen om het nog eens te zeggen.
+          unsure = true;
+          you.parentElement.classList.add("unsure");
+          full = "Sorry, dat verstond ik niet goed. Wil je het nog een keer zeggen?";
+          body = entry("assistant", full); firstText = performance.now() - t0;
+          setCaption(full);
+          return;
+        }
         heardExit = /^(stop|stoppen|dank je( wel)?|bedankt|dat was (het|alles)|klaar|tot (straks|later|zo)|doei|later)[.!]*$/i.test(ev.text.trim());
         $("stVoice").textContent = "WHISPER";
       } else if (ev.t === "conv") {
@@ -541,7 +557,11 @@ async function ask({ text = "", audio = null }) {
       }
     });
     if (my !== turn) return;
-    if (!done) { if (heardNothing) return; throw new Error("verbinding viel weg"); }
+    if (!done) {
+      if (heardNothing) return;
+      if (unsure) { setState("idle"); speech.finish(full); return; }
+      throw new Error("verbinding viel weg");
+    }
     if (!full) full = done.reply || "";
     if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; }
     streaming = false;
