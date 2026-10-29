@@ -8,8 +8,11 @@ Browser (index.html + ai.js, GitHub Pages)
 Supabase Edge Function `ai-chat`  ── controleert login, daglimiet, slaat gesprek op
    │  geheime API-sleutel (alleen op de server)
    ▼
-Taalmodel (Groq, met Gemini als reserve)
+Taalmodel: Groq voor gewone vragen, Gemini voor denkwerk en foto's (allebei gratis)
 ```
+**Helemaal gratis.** ECO draait op gratis lagen: GitHub Pages (website), Supabase (database + server-functie),
+Groq (snel taalmodel + spraakherkenning) en Gemini (slim taalmodel, stem, webzoeken, foto's). Je hebt alleen twee
+gratis sleutels nodig: `GROQ_API_KEY` en `GEMINI_API_KEY`. Een betaald model (Claude) kan erbij, maar hoeft niet.
 De "eigen AI" is een eigen assistent: eigen website, eigen accounts, eigen gespreksgeschiedenis,
 eigen instructies (systeemprompt) en eigen limieten, bovenop een bestaand taalmodel. Zelf een model
 van nul trainen kost miljoenen en is niet nodig; het model is later te wisselen via `AI_MODEL`.
@@ -51,9 +54,10 @@ Opnemen stopt vanzelf na ~1,3 s stilte (na een lange zin 1,1 s). De opname gaat 
 nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browser. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
 
 ## Snelheid en stem (hoe ECO zo snel antwoordt)
-- **Snelle route:** korte, eenvoudige vragen gaan eerst naar `gpt-oss-20b` (~1000 tokens per seconde), moeilijke vragen
-  ("leg uit", "maak een plan", lange berichten) naar `gpt-oss-120b` met meer denktijd. Valt het snelle model uit, dan neemt 120b over.
-  Uitzetten of ander model: secret `GROQ_FAST_MODEL` (leeg = uit). Groq onthoudt het vaste begin van de prompt (promptcache).
+- **Twee banen:** gewone vragen en snelle opdrachten (agenda, weer, lijstjes, timers, muziek) gaan naar Groq `gpt-oss-120b`
+  (~500 tokens per seconde). Denkwerk ("waarom", "leg uit", "bereken", "vergelijk", huiswerk, plannen, vertalen, lange berichten)
+  en foto's gaan naar de **slimme baan**: Gemini die eerst nadenkt (zie *Welk AI-model?*). Groq onthoudt het vaste begin van de prompt (promptcache).
+  Een kleiner, nog sneller model voor korte vragen kan met secret `GROQ_FAST_MODEL` (bv. `openai/gpt-oss-20b`; standaard uit, want minder slim).
 - **Streaming:** het antwoord komt woord voor woord binnen. De eerste zin gaat al naar
   de stem terwijl de rest nog wordt geschreven; de stem zelf komt ook als stroom binnen en speelt direct af.
 - **Stem:** Gemini 3.8 Flash-Lite TTS (gratis laag, natuurlijk Nederlands, snel), daarna 3.8 Flash TTS en 2.5 als reserve
@@ -141,17 +145,29 @@ naar je mail, het dagrapport of hoe je dag eruitziet.
   wachtwoord. Supabase-secrets: `GMAIL_EMAIL` (je Gmail-adres) en `GMAIL_APP_PASSWORD`. ECO leest dan alleen-lezen via IMAP.
 - Ander onderwerp? Secret `DAGRAPPORT_QUERY`, bv. `subject:Dagrapport from:me` (Gmail-zoektaal).
 
-## Welk AI-model?
-ECO probeert eerst **Groq** (`openai/gpt-oss-120b`, dan `gpt-oss-20b`; instelbaar met `GROQ_MODEL`) en valt bij een
-storing terug op **Gemini** (`gemini-flash-latest`, dan `AI_MODEL_FALLBACKS`). Volgorde aan te passen met `AI_PROVIDERS`
-(bv. `groq,gemini,anthropic`); Claude werkt ook als `ANTHROPIC_API_KEY` bestaat. Elke aanroep heeft 10 seconden (`AI_TIMEOUT_MS`).
+## Welk AI-model? (gratis)
+- **Gewone vragen:** **Groq** `openai/gpt-oss-120b` (dan `gpt-oss-20b`; instelbaar met `GROQ_MODEL`). Razendsnel.
+- **Denkwerk en foto's (slimme baan):** **Gemini 3.8 Flash** met denktijd "medium" (dan `gemini-3.6-flash` en `gemini-2.5-flash`;
+  instelbaar met `SMART_MODEL`, leeg = uit). Veel slimmer dan gpt-oss, maar het eerste woord komt een paar seconden later
+  (in beeld: *Nadenken…*). Wachttijd op het eerste woord: 30 seconden (`SMART_TIMEOUT_MS`). Lukt Gemini niet (bv. quotum op),
+  dan antwoordt Groq met extra denktijd.
+- **Diep nadenken:** valt een moeilijke vraag toch bij Groq (bv. een korte rekensom of redenering), dan kan Groq zelf de tool
+  `diep_nadenken` gebruiken: Gemini werkt de vraag uit met veel denktijd, Groq vertelt het antwoord kort.
+- **Reserve bij een Groq-storing:** Gemini (`gemini-flash-latest`, dan `AI_MODEL_FALLBACKS`) met een beetje denktijd, ook gestreamd.
+  Elke Groq-aanroep heeft 10 seconden tot het eerste woord (`AI_TIMEOUT_MS`).
+- Volgorde aan te passen met `AI_PROVIDERS` (bv. `groq,gemini,anthropic`). Claude (betaald) werkt ook als `ANTHROPIC_API_KEY` bestaat,
+  maar is niet nodig. Vraag "welk model gebruik je?" en ECO vertelt welke baan antwoordde.
+
+**Grenzen van de gratis lagen:** Groq ongeveer 30 vragen per minuut en 1000 per dag per model; Gemini ongeveer 10 per minuut,
+het dagquotum per model zie je in AI Studio onder *Rate limit*. Voor één persoon is dat ruim genoeg; bij een storing of
+op = op neemt het andere model het over.
 
 **Gemini-sleutel (gratis laag):** https://aistudio.google.com → *Get API key* → *Create API key* →
 in Supabase als secret `GEMINI_API_KEY`. Let op: in de gratis laag mag Google je gesprekken gebruiken
 om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini Pro-abonnement geeft geen API-tegoed.
 
 ## Eenmalig instellen
-1. **Anthropic:** API-sleutel op https://console.anthropic.com (betaalmethode + uitgavelimiet instellen).
+1. **AI-sleutels (gratis):** `GROQ_API_KEY` en `GEMINI_API_KEY` (zie hierboven). Claude via https://console.anthropic.com is optioneel en betaald.
 2. **Database:** plak `supabase/migrations/20261028_ai.sql` in Supabase → SQL Editor → Run.
 3. **Jouw account:** Supabase → Authentication → Users → *Add user* (je e-mail + wachtwoord).
    Zet daarna Authentication → Providers → Email → *Allow new users to sign up* **uit**.
@@ -167,7 +183,7 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
      *Exchange authorization code for tokens* → kopieer de **refresh token**.
 5. **Secrets zetten en uitrollen** (`JARVIS_KEY` = zelfverzonnen lange geheime tekst):
    ```bash
-   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... ALLOWED_EMAILS=jij@voorbeeld.nl JARVIS_KEY=lang-geheim JARVIS_USER_ID=jouw-uid GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GOOGLE_REFRESH_TOKEN=...
+   supabase secrets set GROQ_API_KEY=gsk_... GEMINI_API_KEY=... ALLOWED_EMAILS=jij@voorbeeld.nl JARVIS_KEY=lang-geheim JARVIS_USER_ID=jouw-uid GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GOOGLE_REFRESH_TOKEN=...
    ```
    ```bash
    supabase functions deploy ai-chat --no-verify-jwt
