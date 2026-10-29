@@ -95,12 +95,14 @@
       </div>
       <div class="panel grow" data-win="archief">
         <div class="panel-h"><span>ARCHIEF</span><button type="button" id="newChat" class="link">+ NIEUW</button></div>
+        <input id="archZoek" class="arch-zoek" type="search" placeholder="Zoeken in gesprekken…" autocomplete="off" aria-label="Zoeken in gesprekken">
         <ul id="convList" class="conv-list"></ul>
       </div>
       <div class="panel controls" data-win="bediening" data-title="BEDIENING">
         <label class="switch"><input type="checkbox" id="speak" checked><i></i><span>STEM</span></label>
         <label class="switch"><input type="checkbox" id="sfx" checked><i></i><span>GELUID</span></label>
         <label class="switch" title="Handsfree: na elk antwoord luistert ECO vanzelf weer. Zeg &quot;stop&quot; of &quot;bedankt&quot; om te pauzeren."><input type="checkbox" id="convo"><i></i><span>GESPREK</span></label>
+        <label class="switch" title="Praat ertussen terwijl ECO praat: hij stopt meteen en luistert. (Op de iPhone klinkt ECO dan iets zachter.)"><input type="checkbox" id="barge"><i></i><span>ONDERBREKEN</span></label>
         <label class="switch" id="wakeSwitch" title="Zolang ECO open staat luistert hij naar &quot;Hé Eco&quot;. Zeg daarna je vraag, of zeg alles in één keer: &quot;Hé Eco, hoe laat begint water?&quot;"><input type="checkbox" id="wake"><i></i><span>HÉ ECO</span></label>
         <div class="push-row" title="Elke ochtend een melding als je briefing klaarstaat. Op iPhone: eerst ECO op je beginscherm zetten en daarvandaan openen."><button type="button" id="pushBtn" class="link">MELDINGEN UIT</button><input type="time" id="pushTime" value="07:30" aria-label="Tijd van de ochtendbriefing"></div>
         <p id="pushMsg" class="login-msg push-msg"></p>
@@ -128,8 +130,13 @@
         <button type="button" id="mic" class="mic" title="Spreek (spatie ingedrukt houden)" aria-label="Spreek">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         </button>
+        <button type="button" id="camBtn" class="mic cam" title="Foto toevoegen (camera of bibliotheek), of plak/sleep een afbeelding" aria-label="Foto toevoegen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9Zm3 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
+        </button>
+        <input type="file" id="camFile" accept="image/*" multiple hidden>
+        <div id="fotoChips" class="foto-chips" hidden></div>
         <span class="prompt">›</span>
-        <textarea id="input" rows="1" placeholder="Opdracht…" required maxlength="8000" enterkeyhint="send"></textarea>
+        <textarea id="input" rows="1" placeholder="Opdracht…" maxlength="8000" enterkeyhint="send"></textarea>
         <button type="submit" id="send" class="btn-primary" aria-label="Uitvoeren"><span>UITVOEREN</span></button>
       </form>
     </main>
