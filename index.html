@@ -130,6 +130,11 @@
       </div>
       <div id="timers" class="timers" aria-live="polite"></div>
       <div id="caption" class="caption" aria-live="polite"></div>
+      <div id="micMeter" class="mic-meter" hidden title="Live microfoonmeter: welke microfoon, hoe hard (dB), wat ECO hoort en of het geluid naar Gemini gaat. Het streepje is de grens voor stem.">
+        <div class="mm-row"><span id="mmName">MICROFOON</span><b id="mmState">—</b></div>
+        <div class="mm-bar"><span id="mmFill"></span><i id="mmPeak"></i><em></em></div>
+        <div class="mm-row mm-sub"><span id="mmDb">— dB</span><span id="mmSend">verbinden…</span></div>
+      </div>
       </div>
       <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
         <button type="button" id="mic" class="mic" title="Praat met ECO (live) — tik nog eens om te stoppen" aria-label="Spreek">

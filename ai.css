@@ -186,6 +186,19 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
   text-shadow:0 0 8px rgba(0,225,255,.45);padding:0 8px;overflow:auto;max-height:22vh}
 .caption.user{color:var(--muted);font-family:var(--f-mono);font-size:1rem}
 .caption.err{color:var(--red)}
+.mic-meter{width:min(420px,92%);margin:.35rem auto 0;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;color:var(--muted)}
+.mm-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.mm-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-row b{font-weight:400;white-space:nowrap}
+.mm-bar{position:relative;height:7px;margin:4px 0;background:rgba(0,225,255,.08);border:1px solid rgba(0,225,255,.18);border-radius:4px;overflow:hidden}
+.mm-bar span{position:absolute;inset:0 auto 0 0;width:0;background:var(--c);transition:width .08s linear}
+.mm-bar i{position:absolute;top:0;bottom:0;width:2px;left:0;background:#e9fdff;opacity:.8}
+.mm-bar em{position:absolute;top:-2px;bottom:-2px;left:33.3%;width:1px;background:var(--amber);opacity:.7}
+.mic-meter .ok{color:#5dffb0}.mm-bar span.ok{background:#5dffb0}
+.mic-meter .warn{color:var(--amber)}.mm-bar span.warn{background:var(--amber)}
+.mic-meter .bad{color:var(--red)}.mm-bar span.bad{background:var(--red)}
+.mic-meter .dim{color:var(--muted)}.mm-bar span.dim{background:rgba(0,225,255,.45)}
+.mm-sub{opacity:.85}
 .entry.user{cursor:pointer}
 .entry.user.unsure .body{opacity:.6;text-decoration:underline dotted;text-underline-offset:4px}
 .entry.user.unsure .body::after{content:"  (?)";color:var(--muted)}

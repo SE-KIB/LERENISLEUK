@@ -302,8 +302,11 @@ stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en 
   werkt en na 30 minuten verloopt. Elke ~10 minuten verbindt ECO ongemerkt opnieuw (sessiehervatting).
 - **Microfoon:** ECO controleert in de eerste seconden of er echt geluid binnenkomt. Geeft de microfoon alleen stilte (vaak bij
   Bluetooth in de auto: die microfoon gaat meestal alleen open bij een echt telefoongesprek), dan schakelt hij vanzelf naar de
-  iPhone-microfoon en onthoudt dat. Lukt niets, dan zegt hij dat en werkt hij op de gewone manier. Bij SYSTEEMSTATUS → SPRAAK
-  zie je tijdens een live gesprek een niveaumeter (LIVE ▮▮▯▯▯): beweegt die als je praat, dan hoort ECO je.
+  iPhone-microfoon en onthoudt dat. Lukt niets, dan zegt hij dat en werkt hij op de gewone manier.
+- **Microfoonmeter** (onder de ondertitel, ook op de telefoon): welke microfoon ECO gebruikt (en waarom, na een wissel), wat hij
+  hoort (STIL, ACHTERGRONDGELUID, STEM, ECO VERSTAAT JE, of ECO PRAAT · praat harder om te onderbreken, of ALLEEN STILTE ·
+  microfoon dicht?), een balk met het streepje als grens voor stem en een piekmarkering, het niveau in dB, en of het geluid echt
+  naar Gemini gaat (→ GEMINI 30 kB/s). Bij SYSTEEMSTATUS → SPRAAK staat het niveau in dB.
 - **Echo:** zonder oortjes kan de microfoon ECO's eigen stem horen. ECO laat tijdens zijn eigen stem alleen geluid door dat duidelijk
   harder is dan zijn echo; met oortjes werkt het het best.
 - **Terugval:** lukt Live niet (quotum op, storing), dan zegt ECO dat en werkt hij tien minuten op de gewone manier (Whisper +
