@@ -166,8 +166,9 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
 ECO opent dan op je iPhone, slaat het opstartscherm over en luistert direct (adres `https://sekibar.nl/#luister`).
 1. **Opdracht maken:** Opdrachten-app → **+** → actie **URL** met `https://sekibar.nl/#luister` → actie **Open URL's** →
    noem de opdracht **Start Eco**. Nu werkt **"Hé Siri, start Eco"** (of "open Eco", als je hem zo noemt).
-2. **"Hé Eco" zonder Siri (iOS 18):** Instellingen → Toegankelijkheid → **Vocale snelkoppelingen** (Vocal Shortcuts) → Stel in →
-   kies de opdracht **Start Eco** → zeg drie keer "Hé Eco". Daarna start "Hé Eco" de opdracht. Apple staat niet toe dat een
+2. **"Hé Eco" zonder Siri (iOS 18 of nieuwer):** Instellingen → Toegankelijkheid → **Spraakopdrachten** (Engels: Vocal Shortcuts;
+   blok *Spraak*, of zoek "Spraakopdrachten" in Instellingen) → Voeg handeling toe → bij *Opdrachten* kies **Start Eco** → zeg drie
+   keer "Hé Eco". Daarna start "Hé Eco" de opdracht. Werkt het in het Nederlands niet, zet de iPhone-taal dan tijdelijk op Engels. Apple staat niet toe dat een
    website of app zelf op de achtergrond naar een eigen wekwoord luistert; via deze iOS-functie kan het wel.
 3. **Microfoon zonder vragen:** Instellingen → Apps → Safari → **Microfoon** → *Sta toe* (of in Safari: aA → Website-instellingen
    → Microfoon → Sta toe). Vraagt iOS toch om een tik, dan verschijnt er een grote knop **TIK OM TE PRATEN**.
