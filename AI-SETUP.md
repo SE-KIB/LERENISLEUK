@@ -162,6 +162,20 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
    (`--no-verify-jwt` is nodig voor de Siri-sleutel; de functie controleert zelf de toegang.)
 6. **Live zetten:** branch samenvoegen in `main` → GitHub Pages.
 
+## "Hé Siri, start Eco" en "Hé Eco": ECO openen en meteen luisteren
+ECO opent dan op je iPhone, slaat het opstartscherm over en luistert direct (adres `https://sekibar.nl/#luister`).
+1. **Opdracht maken:** Opdrachten-app → **+** → actie **URL** met `https://sekibar.nl/#luister` → actie **Open URL's** →
+   noem de opdracht **Start Eco**. Nu werkt **"Hé Siri, start Eco"** (of "open Eco", als je hem zo noemt).
+2. **"Hé Eco" zonder Siri (iOS 18):** Instellingen → Toegankelijkheid → **Vocale snelkoppelingen** (Vocal Shortcuts) → Stel in →
+   kies de opdracht **Start Eco** → zeg drie keer "Hé Eco". Daarna start "Hé Eco" de opdracht. Apple staat niet toe dat een
+   website of app zelf op de achtergrond naar een eigen wekwoord luistert; via deze iOS-functie kan het wel.
+3. **Microfoon zonder vragen:** Instellingen → Apps → Safari → **Microfoon** → *Sta toe* (of in Safari: aA → Website-instellingen
+   → Microfoon → Sta toe). Vraagt iOS toch om een tik, dan verschijnt er een grote knop **TIK OM TE PRATEN**.
+
+**"Hé Eco" in ECO zelf:** zet bij BEDIENING **HÉ ECO** aan. Zolang ECO open staat (bijvoorbeeld op je laptop) luistert hij naar
+"Hé Eco" en daarna naar je vraag. Je mag ook alles in één keer zeggen: "Hé Eco, hoe laat begint water?". Hij luistert niet terwijl
+hij zelf praat. Werkt in Chrome, Edge en Safari, met internet; op de iPhone alleen met het scherm aan en ECO open.
+
 ## "Hé Siri, Eco" op de iPhone
 Opdrachten-app → nieuwe opdracht, naam **Eco**:
 1. *Dicteer tekst* (taal Nederlands).
