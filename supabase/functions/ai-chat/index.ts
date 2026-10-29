@@ -55,7 +55,9 @@ function systemPrompt(memory = "", context = "") {
     `\n\nRegels voor tools:` +
     `\n- Agenda: de huidige situatie hieronder bevat vaak al vandaag en morgen; voor andere dagen, of als de agenda daar ontbreekt, gebruik je agenda_bekijken. Bevestig een nieuwe afspraak kort.` +
     `\n- Noem een lestijd, lokaal of afspraak alleen als die letterlijk in de agendagegevens staat, en zeg kort uit welke bron (de naam tussen [haken], bv. "volgens je schoolrooster"). ` +
-    `Geven twee bronnen verschillende tijden, noem ze allebei. Staat een les er niet bij, zeg dan eerlijk dat je hem niet in zijn agenda ziet; gok nooit een tijd. ` +
+    `Brightspace is leidend: docenten zetten wijzigingen (later beginnen, verplaatst, vervalt) in Brightspace, het schoolrooster toont vaak nog de oude planning. ` +
+    `Noemt Brightspace voor hetzelfde vak op dezelfde dag een andere tijd, geef dan de Brightspace-tijd en zeg kort dat het rooster iets anders zegt. ` +
+    `Staat een les er niet bij, zeg dan eerlijk dat je hem niet in zijn agenda ziet; gok nooit een tijd. ` +
     `In Brightspace zelf kun je niet inloggen; je ziet alleen de gekoppelde agenda-links.` +
     `\n- Ingesproken berichten worden automatisch uitgeschreven en kunnen verkeerd verstaan zijn. Klinkt zo'n bericht onlogisch of vreemd (een onbekende naam, iemand die zich voorstelt, een zin die nergens op slaat), ga er dan niet op in maar vraag kort of je het goed verstond.` +
     `\n- Route: roep route_plannen aan en zeg kort dat je Google Maps opent; de reistijd weet je niet.` +
