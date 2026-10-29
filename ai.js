@@ -12,8 +12,13 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const T0 = Date.now();
 let currentConv = null, lastLatency = null, justLoggedIn = false, currentUserId = null;
 
-// Oude service worker van de vorige site opruimen.
-navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+// Oude service worker van de vorige site opruimen (eco-sw.js voor de meldingen blijft).
+navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => {
+  const w = r.active || r.waiting || r.installing;
+  if (!/\/eco-sw\.js$/.test(w?.scriptURL || "")) r.unregister();
+}));
+// Tik op de briefingmelding terwijl ECO al open staat.
+navigator.serviceWorker?.addEventListener("message", (e) => { if (e.data?.type === "briefing" && !$("app").hidden) briefing(); });
 
 // ---------- Toestand ----------
 const STATE_LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWERKEN", speaking: "SPREKEN", error: "STORING" };
@@ -172,7 +177,7 @@ async function boot() {
   let skip = false;
   $("boot").onclick = () => { skip = true; };
   try { if (sessionStorage.getItem("eco-booted")) skip = true; } catch { /* privé-venster */ }
-  if (/luister/i.test(location.hash + location.search)) skip = true; // geopend via Siri/Hé Eco: meteen klaar
+  if (/luister|briefing/i.test(location.hash + location.search)) skip = true; // geopend via Siri/Hé Eco/melding: meteen klaar
   const lines = [
     ["E.C.O. KERNEL v4.2.1 — SEKIBAR SYSTEMS", ""],
     ["Kernmodules laden", "OK"],
@@ -216,14 +221,18 @@ function render(session) {
   loadConversations();
   warm();
   startRooster();
-  if (!$("messages").children.length) {
+  setTimeout(loadPush, 1500);
+  const briefingNu = /briefing/i.test(location.hash);
+  if (!$("messages").children.length && !briefingNu) {
     const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
     typeCaption(text);
     if (justLoggedIn) { sfx.open(); say(text); }
   }
   justLoggedIn = false;
+  // Geopend vanuit de ochtendmelding (sekibar.nl/#briefing).
+  if (briefingNu) briefing();
   // Geopend met sekibar.nl/#luister (Siri-opdracht "Start Eco" of "Hé Eco"): meteen luisteren.
-  if (/luister/i.test(location.hash + location.search)) {
+  else if (/luister/i.test(location.hash + location.search)) {
     history.replaceState(null, "", location.pathname);
     autoListen();
   } else if (matchMedia("(min-width: 901px)").matches) $("input").focus();
@@ -237,6 +246,14 @@ function autoListen() {
   }, 400);
 }
 $("tapTalk").onclick = () => { $("tapTalk").hidden = true; unlockAudio(); unlockSpeech(); listen(); };
+// Ochtendbriefing (uit de pushmelding). Zonder tik mag iOS niet praten: dan eerst één grote knop.
+function briefing() {
+  if (/briefing/i.test(location.hash)) history.replaceState(null, "", location.pathname);
+  const go = () => { $("tapBrief").hidden = true; unlockAudio(); unlockSpeech(); ask({ text: "Geef mijn ochtendbriefing" }); };
+  if (!$("speak").checked || actx?.state === "running") return go();
+  $("tapBrief").hidden = false;
+  $("tapBrief").onclick = go;
+}
 let lastUserId;
 sb.auth.onAuthStateChange((_e, session) => {
   if ((session?.user.id ?? null) === lastUserId) return; // tokenverversing negeren
@@ -1378,6 +1395,59 @@ async function callFn(payload) {
   if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
   return data;
 }
+// ---------- Ochtendbriefing: pushmelding op je telefoon ----------
+const pushMsg = (t, cls = "") => { $("pushMsg").className = "login-msg push-msg " + cls; $("pushMsg").textContent = t; };
+const b64uBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+const pushOk = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+async function currentSub() {
+  if (!pushOk()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg && /\/eco-sw\.js$/.test((reg.active || reg.waiting || reg.installing)?.scriptURL || "") ? await reg.pushManager.getSubscription() : null;
+}
+async function loadPush() {
+  const [st, sub] = await Promise.all([callFn({ push: "status" }).catch(() => null), currentSub().catch(() => null)]);
+  if (st?.tijd) $("pushTime").value = st.tijd;
+  const on = !!(sub && st?.aan && Notification.permission === "granted");
+  $("pushBtn").textContent = on ? "MELDINGEN AAN" : "MELDINGEN UIT";
+  $("pushBtn").dataset.on = on ? "1" : "";
+  $("pushBtn").title = on ? "Tik om de meldingen op dit apparaat uit te zetten" : "Tik om elke ochtend een melding te krijgen als je briefing klaarstaat";
+}
+$("pushBtn").onclick = async () => {
+  if ($("pushBtn").dataset.on) {
+    const sub = await currentSub().catch(() => null);
+    await sub?.unsubscribe().catch(() => {});
+    await callFn({ push: { actie: "stop", endpoint: sub?.endpoint || "" } }).catch(() => {});
+    pushMsg("Meldingen op dit apparaat staan uit.");
+    return loadPush();
+  }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (!pushOk()) {
+    return pushMsg(ios && !standalone ? "Op iPhone: tik in Safari op Delen → Zet op beginscherm, open ECO vanaf je beginscherm en tik dan hier opnieuw." : "Deze browser ondersteunt geen meldingen.", "err");
+  }
+  try {
+    pushMsg("Toestemming vragen…");
+    const perm = await Notification.requestPermission(); // moet direct in de tik (iOS)
+    if (perm !== "granted") return pushMsg(ios ? "Geen toestemming. Zet meldingen voor ECO aan via Instellingen → Meldingen → ECO." : "Geen toestemming voor meldingen.", "err");
+    const reg = await navigator.serviceWorker.register("eco-sw.js");
+    await navigator.serviceWorker.ready;
+    const { publicKey } = await callFn({ push: "sleutel" });
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && b64uBytes(publicKey).join() !== new Uint8Array(sub.options?.applicationServerKey || []).join()) { await sub.unsubscribe().catch(() => {}); sub = null; }
+    sub ||= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(publicKey) });
+    const tijd = $("pushTime").value || "07:30";
+    await callFn({ push: { actie: "abonneer", sub: sub.toJSON(), tijd } });
+    const t = await callFn({ push: { actie: "test" } });
+    if (t.verstuurd) pushMsg(`Aan. Elke ochtend om ${tijd} je briefing; er komt nu een testmelding.`, "ok");
+    else pushMsg(`Aangemeld, maar de testmelding lukte niet: ${(t.fouten || [t.fout]).filter(Boolean).join("; ")}`, "err");
+  } catch (e) { pushMsg("Meldingen aanzetten mislukt: " + e.message, "err"); }
+  loadPush();
+};
+$("pushTime").onchange = () => {
+  if (!/^\d{2}:\d{2}$/.test($("pushTime").value)) return;
+  callFn({ push: { actie: "instellen", tijd: $("pushTime").value } }).then((r) => pushMsg(`Briefing elke ochtend om ${r.tijd}.`, "ok")).catch((e) => pushMsg(e.message, "err"));
+};
+
 const labMsg = (t, cls = "") => { $("labMsg").className = "login-msg " + cls; $("labMsg").textContent = t; };
 let labAudio = null;
 const GEM_STYLES = {
