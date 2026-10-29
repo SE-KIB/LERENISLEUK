@@ -8,13 +8,15 @@ on:
   push:
     branches: [main]
     paths: ["nova/**", ".github/workflows/nova-build.yml"]
+  pull_request:
+    paths: ["nova/**", ".github/workflows/nova-build.yml"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: nova-build
+  group: nova-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,6 +45,7 @@ jobs:
           Get-Content "$env:APPDATA\NOVA\zelftest.txt"
           if ($p.ExitCode -ne 0) { throw "zelftest faalde (code $($p.ExitCode))" }
       - name: Als download klaarzetten
+        if: github.event_name != 'pull_request'  # bij een PR alleen bouwen en testen
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nova-v1.0.${{ github.run_number }}
