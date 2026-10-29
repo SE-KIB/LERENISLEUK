@@ -151,13 +151,13 @@
         <button type="button" id="mic" class="mic" title="Praat met ECO (live) — tik nog eens om te stoppen" aria-label="Spreek">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         </button>
-        <button type="button" id="camBtn" class="mic cam" title="Foto toevoegen (camera of bibliotheek), of plak/sleep een afbeelding" aria-label="Foto toevoegen">
+        <button type="button" id="camBtn" class="mic cam" title="Foto of PDF toevoegen (camera, bibliotheek of bestanden), of plak/sleep een afbeelding of PDF" aria-label="Foto of PDF toevoegen">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9Zm3 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
         </button>
         <button type="button" id="zieBtn" class="mic cam zie" title="Laat ECO meekijken tijdens een live gesprek: je scherm (computer) of je camera (telefoon). Tik nog eens om te stoppen." aria-label="Laat ECO meekijken" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 8.6 1 12c1.7 3.4 5.5 7 11 7s9.3-3.6 11-7c-1.7-3.4-5.5-7-11-7Zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2.2a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
         </button>
-        <input type="file" id="camFile" accept="image/*" multiple hidden>
+        <input type="file" id="camFile" accept="image/*,application/pdf" multiple hidden>
         <div id="fotoChips" class="foto-chips" hidden></div>
         <span class="prompt">›</span>
         <textarea id="input" rows="1" placeholder="Opdracht…" maxlength="8000" enterkeyhint="send"></textarea>

@@ -1030,7 +1030,8 @@ async function ask({ text = "", audio = null }) {
   };
   speech.onFirstAudio = (ms) => { audioAt = ms - t0; showLat(); };
   setState("thinking"); sfx.send();
-  if (text || (imgs.length && !audio)) { fotoThumbs(entry("user", text || "📷"), imgs); setCaption("› " + (text || "📷 foto"), "user"); }
+  const bijlage = imgs.some((f) => f.mime === "application/pdf") ? "📄 document" : "📷 foto";
+  if (text || (imgs.length && !audio)) { fotoThumbs(entry("user", text || bijlage.slice(0, 2)), imgs); setCaption("› " + (text || bijlage), "user"); }
   else setCaption("Uitschrijven…", "user");
   let streaming = true;
   let final = false; // na het slot geen late (requestAnimationFrame) render meer: die zou de knop eronder wissen
@@ -1148,14 +1149,17 @@ $("chatForm").onsubmit = async (e) => {
   }
 };
 
-// ---------- Foto's bij een vraag (camera, bibliotheek, plakken of slepen) ----------
-let fotos = []; // { mime, data, url }
+// ---------- Foto's en PDF's bij een vraag (camera, bibliotheek, bestanden, plakken of slepen) ----------
+let fotos = []; // { mime, data, url } of { mime: "application/pdf", data, naam }
 const takeFotos = () => { const f = fotos; fotos = []; renderFotos(); return f; };
 function fotoThumbs(body, imgs) {
   if (!body || !imgs?.length) return;
   const box = document.createElement("div");
   box.className = "fotos";
-  for (const f of imgs) { const img = document.createElement("img"); img.src = f.url; img.alt = "foto"; box.append(img); }
+  for (const f of imgs) {
+    if (f.mime === "application/pdf") { const d = document.createElement("span"); d.className = "doc"; d.textContent = "📄 " + f.naam; box.append(d); continue; }
+    const img = document.createElement("img"); img.src = f.url; img.alt = "foto"; box.append(img);
+  }
   body.prepend(box);
 }
 // Verkleinen naar hooguit 1600 px (JPEG): snel te versturen en scherp genoeg voor tekst op een foto.
@@ -1170,10 +1174,16 @@ async function verklein(file, max = 1600) {
   const url = c.toDataURL("image/jpeg", 0.82);
   return { mime: "image/jpeg", data: url.split(",")[1], url };
 }
+const isPdf = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
 async function addFotos(files) {
-  for (const f of [...files].filter((f) => f && (f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name || "")))) {
-    if (fotos.length >= 3) { typeCaption("Hooguit drie foto's per vraag.", "err"); break; }
-    try { fotos.push(await verklein(f)); } catch (e) { typeCaption("Foto lezen mislukt: " + e.message, "err"); }
+  for (const f of [...files].filter((f) => f && (f.type.startsWith("image/") || isPdf(f) || /\.(heic|heif)$/i.test(f.name || "")))) {
+    if (fotos.length >= 3) { typeCaption("Hooguit drie foto's of PDF's per vraag.", "err"); break; }
+    try {
+      if (isPdf(f)) {
+        if (f.size > 8e6) throw new Error(`${f.name} is te groot (max 8 MB)`);
+        fotos.push({ mime: "application/pdf", data: await toB64(f), naam: f.name || "document.pdf" });
+      } else fotos.push(await verklein(f));
+    } catch (e) { typeCaption((isPdf(f) ? "PDF" : "Foto") + " lezen mislukt: " + e.message, "err"); }
   }
   renderFotos();
   if (fotos.length) { sfx.tick(); if (matchMedia("(min-width: 901px)").matches) $("input").focus(); }
@@ -1183,11 +1193,17 @@ function renderFotos() {
   box.innerHTML = "";
   box.hidden = !fotos.length;
   $("camBtn").classList.toggle("has", fotos.length > 0);
-  $("input").placeholder = fotos.length ? "Vraag iets over de foto…" : "Opdracht…";
+  $("input").placeholder = fotos.some((f) => f.mime === "application/pdf") ? "Vraag iets over het document…" : fotos.length ? "Vraag iets over de foto…" : "Opdracht…";
   fotos.forEach((f, i) => {
     const fig = document.createElement("figure");
-    fig.innerHTML = `<img alt="foto"><button type="button" aria-label="Foto weghalen">✕</button>`;
-    fig.querySelector("img").src = f.url;
+    if (f.mime === "application/pdf") {
+      fig.className = "pdf";
+      fig.title = f.naam;
+      fig.innerHTML = `<span>PDF</span><button type="button" aria-label="PDF weghalen">✕</button>`;
+    } else {
+      fig.innerHTML = `<img alt="foto"><button type="button" aria-label="Foto weghalen">✕</button>`;
+      fig.querySelector("img").src = f.url;
+    }
     fig.querySelector("button").onclick = () => { fotos.splice(i, 1); renderFotos(); };
     box.append(fig);
   });
@@ -1195,7 +1211,7 @@ function renderFotos() {
 $("camBtn").onclick = () => $("camFile").click();
 $("camFile").onchange = async () => { await addFotos($("camFile").files); $("camFile").value = ""; };
 $("input").addEventListener("paste", (e) => {
-  const files = [...(e.clipboardData?.items ?? [])].filter((i) => i.type.startsWith("image/")).map((i) => i.getAsFile());
+  const files = [...(e.clipboardData?.items ?? [])].filter((i) => i.type.startsWith("image/") || i.type === "application/pdf").map((i) => i.getAsFile());
   if (files.length) { e.preventDefault(); addFotos(files); }
 });
 $("chatForm").addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); $("chatForm").classList.add("drop"); } });

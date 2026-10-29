@@ -275,6 +275,12 @@ def maak_uitvoerder(beschrijf_beeld=None):
             return resultaat("gedaan", gevonden=[str(p) for p in hits]) if hits else resultaat("gedaan", gevonden=[], uitleg="niets gevonden")
         if actie == "bestand_openen":
             return bestand_openen(a.get("naam", ""))
+        if actie == "bestand_lezen":
+            import nova_doc
+            return nova_doc.bestand_lezen(a.get("naam", ""), bestand_zoeken)
+        if actie == "document_maken":
+            import nova_doc
+            return nova_doc.document_maken(a.get("naam", "") or a.get("titel", ""), a.get("tekst", ""), a.get("soort", "pdf"))
         if actie == "screenshot":
             try:
                 beeld = screenshot_jpeg()

@@ -30,6 +30,10 @@ praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen,
 - **Eerlijk:** NOVA zegt alleen "gedaan" als hij het kon controleren (bv. Spotify draait echt); anders zegt hij dat hij het probeerde.
 - **Offline** weet NOVA wat ECO over je onthoudt en je agenda van de laatste keer online; weer, nieuws en mail kunnen dan niet.
   De Nederlandse spraakherkenning voor offline (Vosk, ~40 MB) haalt NOVA vanzelf op zodra hij online is.
+- **Documenten:** "lees mijn verslag water", "wat staat er in de PDF van de toets?": NOVA leest pdf, Word, Excel, PowerPoint en
+  tekstbestanden (uit Bureaublad, Documenten, Downloads, OneDrive, …) en het brein vat samen of beantwoordt je vraag. "Maak een PDF
+  (of Word-document) met deze samenvatting": komt in **Documenten\NOVA**, gaat meteen open en overschrijft nooit iets. Werkt ook offline
+  en vanaf je iPhone via ECO. Een gescande PDF zonder tekst: open hem en vraag "wat staat er op mijn scherm?".
 - **Stem:** online ECO's eigen stem (Gemini), die al klinkt terwijl hij nog binnenkomt. Lukt die niet, of ben je offline, dan
   **Piper** met de Vlaamse stem *nathalie* (goed verstaanbaar, ~63 MB, haalt NOVA vanzelf op zodra hij online is). Daarna alleen
   een **Nederlandse** Windows-stem; een Engelse stem gebruikt NOVA nooit, dan antwoordt hij alleen met tekst.
@@ -47,7 +51,8 @@ praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen,
 - **"Ollama draait niet":** start Ollama (staat na installatie rechtsonder bij de klok) en kies opnieuw MODEL DOWNLOADEN.
 
 ## Voor ontwikkelaars
-Code: `nova/` (`nova.py` venster, `nova_core.py` ECO-verbinding/brug/lokaal brein, `nova_pc.py` pc-acties, `nova_stem.py` stem:
+Code: `nova/` (`nova.py` venster, `nova_core.py` ECO-verbinding/brug/lokaal brein, `nova_pc.py` pc-acties, `nova_doc.py` documenten
+lezen/maken (pypdf, python-docx, openpyxl, python-pptx, fpdf2), `nova_stem.py` stem:
 opnemen, Vosk, ECO's stem als stroom (`{ tts, stream: true }` → `audio/l16`, 24 kHz), Piper `nl_BE-nathalie-medium` in `%APPDATA%\NOVA\stem`).
 Tests: `cd nova && python -m unittest -v test_nova`. De brug: NOVA belt ECO's functie met `{ nova: { actie: "wacht" } }`
 (long-poll, ~25 s), voert opdrachten uit de wachtrij uit en meldt ze terug met `{ actie: "klaar" }`; ECO's tool `pc` wacht daarop.
