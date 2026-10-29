@@ -157,6 +157,9 @@ naar je mail, het dagrapport of hoe je dag eruitziet.
 
 ## Welk AI-model? (gratis)
 - **Gewone vragen:** **Groq** `openai/gpt-oss-120b` (dan `gpt-oss-20b`; instelbaar met `GROQ_MODEL`). Razendsnel.
+  **Qwen 3.8** (het model dat sommige mensen lokaal draaien) staat gratis bij Groq als `qwen/qwen3.8-27b` (preview). Wil je dat proberen:
+  secret `GROQ_MODEL` = `qwen/qwen3.8-27b,openai/gpt-oss-120b` (Qwen eerst, gpt-oss als reserve). ECO verbergt het denken van Qwen, zodat
+  het niet wordt voorgelezen. Lokaal draaien vraagt een videokaart met 24 GB; via Groq hoeft dat niet.
 - **Denkwerk en foto's (slimme baan):** **Gemini 3.8 Flash** met denktijd "medium" (dan `gemini-3.6-flash` en `gemini-2.5-flash`;
   instelbaar met `SMART_MODEL`, leeg = uit). Veel slimmer dan gpt-oss, maar het eerste woord komt een paar seconden later
   (in beeld: *Nadenken…*). Wachttijd op het eerste woord: 30 seconden (`SMART_TIMEOUT_MS`). Lukt Gemini niet (bv. quotum op),
@@ -309,6 +312,10 @@ stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en 
 - **Wat ECO weet en kan:** zijn karakter, wat hij over je onthoudt, je agenda van vandaag en morgen (Brightspace gaat voor), het weer
   en je lijstjes. Tools werken tijdens het gesprek (timer, lijstjes, agenda, Spotify, WhatsApp, diep nadenken, …); ECO praat
   ondertussen door. Actuele dingen zoekt hij op met Google Search. Elke beurt komt in het archief ("🎙️ live · …").
+- **Meekijken** (oogknop naast de camera, alleen tijdens een live gesprek): op de computer deel je je scherm, op de telefoon je camera.
+  ECO krijgt ongeveer één beeld per seconde en je vraagt gewoon "wat zie je?", "lees dit voor" of "help me met deze opdracht".
+  Je ziet een klein voorbeeld van wat ECO ziet; nog een tik of "stop delen" in de browser stopt het. Tijdens het meekijken hangt ECO
+  pas na drie minuten stilte op.
 - **Typen** tijdens een live gesprek: ECO antwoordt hardop in hetzelfde gesprek. Met een foto gaat de vraag via de gewone weg.
 - **Veilig:** de echte `GEMINI_API_KEY` blijft op de server; de app krijgt per gesprek een tijdelijke code die alleen voor Live
   werkt en na 30 minuten verloopt. Elke ~10 minuten verbindt ECO ongemerkt opnieuw (sessiehervatting).

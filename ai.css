@@ -224,6 +224,8 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .mic.cam{width:38px;height:38px;margin-bottom:2px}
 .mic.cam.has{border-color:#5dffb0;background:rgba(93,255,176,.14)}
 .mic.cam.has svg{fill:#5dffb0}
+.mic.zie.aan{border-color:#5dffb0;background:rgba(93,255,176,.16);box-shadow:0 0 14px rgba(93,255,176,.5)}.mic.zie.aan svg{fill:#5dffb0}
+.zie-preview{display:block;width:min(180px,40%);margin:.4rem auto 0;border:1px solid #5dffb0;border-radius:6px;box-shadow:0 0 12px rgba(93,255,176,.35);background:#000}
 .foto-chips{position:absolute;left:8px;bottom:calc(100% + 6px);display:flex;gap:6px;z-index:4}
 .foto-chips[hidden]{display:none}
 .foto-chips figure{position:relative;margin:0;width:56px;height:56px;border:1px solid var(--c);background:#02121a}

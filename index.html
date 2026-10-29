@@ -140,6 +140,7 @@
       </div>
       <div id="timers" class="timers" aria-live="polite"></div>
       <div id="caption" class="caption" aria-live="polite"></div>
+      <video id="ziePreview" class="zie-preview" muted playsinline hidden title="Dit ziet ECO"></video>
       <div id="micMeter" class="mic-meter" hidden title="Live microfoonmeter: welke microfoon, hoe hard (dB), wat ECO hoort en of het geluid naar Gemini gaat. Het streepje is de grens voor stem.">
         <div class="mm-row"><span id="mmName">MICROFOON</span><b id="mmState">—</b></div>
         <div class="mm-bar"><span id="mmFill"></span><i id="mmPeak"></i><em></em></div>
@@ -152,6 +153,9 @@
         </button>
         <button type="button" id="camBtn" class="mic cam" title="Foto toevoegen (camera of bibliotheek), of plak/sleep een afbeelding" aria-label="Foto toevoegen">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9Zm3 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
+        </button>
+        <button type="button" id="zieBtn" class="mic cam zie" title="Laat ECO meekijken tijdens een live gesprek: je scherm (computer) of je camera (telefoon). Tik nog eens om te stoppen." aria-label="Laat ECO meekijken" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 8.6 1 12c1.7 3.4 5.5 7 11 7s9.3-3.6 11-7c-1.7-3.4-5.5-7-11-7Zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2.2a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"/></svg>
         </button>
         <input type="file" id="camFile" accept="image/*" multiple hidden>
         <div id="fotoChips" class="foto-chips" hidden></div>
