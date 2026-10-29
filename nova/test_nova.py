@@ -221,6 +221,35 @@ class TestApp(unittest.TestCase):
         self.assertEqual([e[0] for e in ui.ev], ["staat", "jij", "tool", "nova_start", "delta", "delta", "nova_eind", "staat"])
         self.assertEqual(app.conv, "c1")
 
+    def test_spreken_eindigt_in_stand_by(self):
+        import nova
+        import nova_stem
+
+        class NepUI:
+            def __init__(self):
+                self.ev = []
+
+            def __getattr__(self, naam):
+                return lambda *a: self.ev.append((naam,) + a)
+
+        ui = NepUI()
+        app = nova.NovaApp(ui)
+        app.cfg.update(eco_sleutel="x", stem=True)
+        app.brug.online = True
+        app.eco.tts = lambda t: (b"\x00\x00" * 10, 24000)
+        oud = nova_stem.speel_pcm
+        nova_stem.speel_pcm = lambda pcm, rate: None
+        try:
+            app.spreek("hallo")
+            for _ in range(50):
+                if ui.ev and ui.ev[-1] == ("staat", "idle"):
+                    break
+                import time
+                time.sleep(0.02)
+        finally:
+            nova_stem.speel_pcm = oud
+        self.assertEqual(ui.ev, [("staat", "speaking"), ("staat", "idle")])
+
     def test_interface_bestanden(self):
         import nova
         ui = nova.ui_map()

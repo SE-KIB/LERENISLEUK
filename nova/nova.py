@@ -195,17 +195,17 @@ class NovaApp:
                 self.ui.staat("speaking")
                 try:
                     if self.brug.online and self.eco.klaar:
-                        pcm, rate = self.eco.tts(tekst[:1500])
-                        stem.speel_pcm(pcm, rate)
-                        return
-                except Exception:
-                    pass
-                try:
+                        try:
+                            pcm, rate = self.eco.tts(tekst[:1500])
+                            stem.speel_pcm(pcm, rate)
+                            return
+                        except Exception:
+                            pass  # ECO's stem lukt niet: dan de stem van Windows
                     stem.windows_stem(tekst[:1500])
                 except Exception:
                     pass
                 finally:
-                    self.ui.staat("idle")
+                    self.ui.staat("idle")  # altijd terug naar stand-by, ook na ECO's stem
         threading.Thread(target=doe, daemon=True).start()
 
     def beschrijf_beeld(self, jpeg_b64: str) -> str:
@@ -319,8 +319,14 @@ class Api:
 def start_web(webview) -> None:
     ui = WebUI()
     app = NovaApp(ui)
+    breed, hoog = 1320, 860
+    try:  # niet groter dan het scherm
+        scherm = webview.screens[0]
+        breed, hoog = min(breed, scherm.width - 40), min(hoog, scherm.height - 80)
+    except Exception:
+        pass
     venster = webview.create_window("NOVA — Nice Operating Variant Agent", url=str(ui_map() / "index.html"), js_api=Api(app, ui),
-                                    width=1320, height=840, min_size=(1000, 640), background_color="#01070c")
+                                    width=breed, height=hoog, min_size=(900, 600), background_color="#01070c")
     ui.window = venster
     app.start()
     try:
