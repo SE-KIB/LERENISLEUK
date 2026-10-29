@@ -211,6 +211,7 @@ function render(session) {
   requestAnimationFrame(initLayout);
   loadConversations();
   warm();
+  startRooster();
   if (!$("messages").children.length) {
     const text = `${greeting()}, Serkan. Alle systemen zijn operationeel. Waarmee kan ik helpen?`;
     typeCaption(text);
@@ -368,6 +369,54 @@ async function loadWeather() {
     $("wxTip").textContent = careTip(w);
   } catch { $("wxDesc").textContent = "Weer tijdelijk niet beschikbaar"; }
 }
+
+// ---------- Rooster: wat ECO op een dag in je agenda's ziet (per bron, ter controle naast Brightspace) ----------
+let rsOffset = 0, rsTimer = null;
+const rsDate = () => new Date(Date.now() + rsOffset * 86400000);
+async function loadRooster() {
+  const d = rsDate(), dag = d.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+  $("rsDay").textContent = rsOffset === 0 ? "VANDAAG" : rsOffset === 1 ? "MORGEN" : rsOffset === -1 ? "GISTEREN"
+    : d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam", weekday: "short", day: "numeric", month: "short" }).toUpperCase();
+  const list = $("rsList");
+  const li = (cls, text) => { const el = document.createElement("li"); el.className = cls; el.textContent = text; return el; };
+  try {
+    const data = await callFn({ agenda: dag });
+    if (dag !== rsDate().toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" })) return; // intussen andere dag gekozen
+    const items = [], notes = [];
+    for (const [bron, v] of Object.entries(data.bronnen || {})) {
+      const events = Array.isArray(v) ? v : v?.afspraken;
+      if (!events) { if (v?.fout) notes.push(`${bron}: ${v.fout}`); continue; }
+      for (const e of events) items.push({ ...e, bron });
+      for (const b of v?.bijzonderheden || []) notes.push(b);
+    }
+    const hm = (t) => /(\d\d:\d\d)/.exec(t || "")?.[1] || "";
+    items.sort((a, b) => hm(a.start).localeCompare(hm(b.start)));
+    list.replaceChildren();
+    if (data.fout) list.append(li("empty", data.fout));
+    else if (!items.length) list.append(li("empty", "Niets gepland"));
+    for (const e of items) {
+      const el = document.createElement("li");
+      if (/^\(vervallen\)/.test(e.titel) || e.soort === "vervalt") el.className = "off";
+      const time = document.createElement("time");
+      time.textContent = /hele dag/.test(e.start) ? "HELE DAG" : `${hm(e.start)}${hm(e.eind) ? "–" + hm(e.eind) : ""}`;
+      const title = document.createElement("span");
+      title.textContent = e.titel + (e.locatie ? ` · ${e.locatie}` : "");
+      const meta = document.createElement("small");
+      meta.textContent = String(e.bron).toUpperCase();
+      for (const extra of [e.soort, e.afwijking, e.verzet].filter(Boolean)) {
+        const em = document.createElement("em"); em.textContent = ` · ${extra}`; meta.append(em);
+      }
+      if (e.ruw) el.title = `Ruw uit de link: ${e.ruw}`;
+      el.append(time, title, meta);
+      list.append(el);
+    }
+    for (const n of notes) list.append(li("note", n));
+  } catch (err) { list.replaceChildren(li("empty", "Rooster niet beschikbaar: " + err.message)); }
+}
+$("rsPrev").onclick = () => { rsOffset--; loadRooster(); };
+$("rsNext").onclick = () => { rsOffset++; loadRooster(); };
+$("rsDay").onclick = () => { rsOffset = 0; loadRooster(); };
+function startRooster() { loadRooster(); clearInterval(rsTimer); rsTimer = setInterval(() => { if (document.visibilityState === "visible") loadRooster(); }, 10 * 60000); }
 
 // ---------- Geheugen (PROFIEL) ----------
 async function loadMemory() {
@@ -545,6 +594,7 @@ async function ask({ text = "", audio = null }) {
         currentConv = ev.id; $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
       } else if (ev.t === "tool") {
         if (!full) setCaption((TOOL_LABEL[ev.name] || "Bezig") + "…", "tool");
+        if (ev.name === "afspraak_maken") setTimeout(loadRooster, 4000);
       } else if (ev.t === "delta") {
         if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; sfx.reply(); }
         full += ev.text;
