@@ -111,7 +111,9 @@ new ResizeObserver(sizeViz).observe(viz);
 function drawViz(t) {
   const st = document.body.dataset.state;
   energyTarget = { idle: 0.06, listening: 0.45, thinking: 0.25, speaking: 0.35, error: 0.1 }[st] ?? 0.05;
-  energy += (energyTarget - energy) * 0.04;
+  // Tijdgebaseerd (niet per beeldje), zodat de balk ook op een trage of zuinige telefoon binnen ~2 s op 0% staat in stand-by.
+  const dt = Math.min(1000, t - (drawViz.last ?? t)); drawViz.last = t;
+  energy += (energyTarget - energy) * (1 - Math.exp(-dt / 400));
   const w = viz.width, h = viz.height, cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.41;
   vctx.clearRect(0, 0, w, h);
   const color = st === "listening" ? "255,177,42" : st === "error" ? "255,77,77" : "0,225,255";
@@ -129,7 +131,7 @@ function drawViz(t) {
     vctx.lineTo(cx + Math.cos(a) * (R + len), cy + Math.sin(a) * (R + len));
     vctx.stroke();
   }
-  const pct = Math.round(Math.min(1, energy / 0.45) * 100);
+  const pct = Math.round(Math.max(0, Math.min(1, (energy - 0.06) / 0.39)) * 100); // stand-by (0.06) = 0%
   if (pct !== drawViz.pct) { drawViz.pct = pct; $("meterFill").style.width = `${Math.max(3, pct)}%`; $("meterPct").textContent = `${pct}%`; }
   if (!REDUCED) requestAnimationFrame(drawViz);
 }
@@ -572,10 +574,15 @@ async function loadBs() {
   } catch { $("bsStatus").textContent = "niet beschikbaar"; }
 }
 $("bsPage").onclick = async () => {
-  const vak = (prompt("Voor welk vak is deze Rooster-pagina?") || "").trim();
+  let vak = (prompt("Stap 1 van 2. Hoe heet het vak? (bv. Water in de Stedelijke Delta)") || "").trim();
   if (!vak) return;
-  const url = (prompt("Plak de link van de Rooster-pagina in Brightspace (open de pagina en kopieer het adres):") || "").trim();
+  let url = "";
+  if (/^https?:\/\//i.test(vak)) { url = vak; vak = (prompt("Dat was een link. Hoe heet het vak?") || "").trim(); if (!vak) return; }
+  else url = (prompt("Stap 2 van 2. Plak de link van de Rooster-pagina van dit vak (open die pagina in Brightspace en kopieer het adres):") || "").trim();
   if (!url) return;
+  if (/\/d2l\/home\/?$/i.test(url) || !/\/d2l\/(le|lor)\//i.test(url)) {
+    if (!confirm("Dit lijkt de startpagina van Brightspace, niet de Rooster-pagina van een vak. Open in Brightspace het vak → de pagina 'Rooster' en kopieer dát adres. Toch opslaan?")) return;
+  }
   try {
     const r = await callFn({ bs: { actie: "pages", pages: [...bsPages, { vak, url }] } });
     if (r.pages.length === bsPages.length) alert("Die link wordt niet herkend: hij moet beginnen met https://brightspace.hhs.nl/");
@@ -715,10 +722,25 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 $("input").addEventListener("focus", warm); // je gaat typen: server alvast klaarzetten
 
 let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ongeldig
+// Stand van de interface, zodat ECO vragen over zichzelf kan beantwoorden.
+const uiState = () => ({ stem: $("speak").checked, geluid: $("sfx").checked, gespreksmodus: !!$("convo")?.checked, he_eco: !!$("wake")?.checked,
+  versie: $("version").textContent.trim(), scherm: matchMedia("(min-width: 901px)").matches ? "computer" : "telefoon" });
+// ECO bedient zijn eigen interface (tool "interface").
+function applyUi(ev, afterDone) {
+  const set = (id, on) => { const el = $(id); if (el && el.checked !== on) { el.checked = on; el.dispatchEvent(new Event("change")); } };
+  if (ev.onderdeel === "stem") { set("speak", ev.aan); if (!ev.aan) stopSpeaking(); }
+  else if (ev.onderdeel === "geluid") set("sfx", ev.aan);
+  else if (ev.onderdeel === "gespreksmodus") set("convo", ev.aan);
+  else if (ev.onderdeel === "he_eco") set("wake", ev.aan);
+  else if (ev.onderdeel === "menu") setDrawer(true);
+  else if (ev.onderdeel === "nieuw_gesprek") afterDone.push(() => $("newChat").click());
+  else if (ev.onderdeel === "archief") afterDone.push(() => loadConversations());
+}
 async function ask({ text = "", audio = null }) {
   const my = ++turn;
   const t0 = performance.now();
   let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, unsure = false, done = null;
+  const afterDone = [];
   stopSpeaking();
   speech.open = true; speech.fromAsk = true;
   let audioAt = 0, modelFirst = null;
@@ -747,10 +769,11 @@ async function ask({ text = "", audio = null }) {
       fd.append("chat", "1");
       if (currentConv) fd.append("conversationId", currentConv);
       if (myLoc) { fd.append("lat", myLoc.lat); fd.append("lon", myLoc.lon); }
+      fd.append("ui", JSON.stringify(uiState()));
       res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(false), body: fd });
       if (res.status === 501) { whisper = false; setState("idle"); if (Rec) listenBrowser(); return; }
     } else {
-      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc, stream: true }) });
+      res = await fetch(FUNCTION_URL, { method: "POST", headers: await authHeaders(), body: JSON.stringify({ conversationId: currentConv, message: text, loc: myLoc, stream: true, ui: uiState() }) });
     }
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Fout ${res.status}`);
     await readEvents(res, (ev) => {
@@ -772,6 +795,8 @@ async function ask({ text = "", audio = null }) {
         $("stVoice").textContent = "WHISPER";
       } else if (ev.t === "conv") {
         currentConv = ev.id; $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
+      } else if (ev.t === "ui") {
+        applyUi(ev, afterDone);
       } else if (ev.t === "tool") {
         if (!full) setCaption((TOOL_LABEL[ev.name] || "Bezig") + "…", "tool");
         if (ev.name === "afspraak_maken") setTimeout(loadRooster, 4000);
@@ -808,8 +833,10 @@ async function ask({ text = "", audio = null }) {
       body.append(a);
       setTimeout(() => { location.href = done.open; }, 1800); // eerst laten voorlezen, dan Maps openen
     }
+    if (done.convDeleted) { currentConv = null; $("convId").textContent = "—"; }
     loadConversations();
     if (done.memoryChanged) loadMemory();
+    afterDone.forEach((f) => setTimeout(f, 300));
   } catch (err) {
     if (my !== turn) return;
     speech.open = false; speech.fromAsk = false;

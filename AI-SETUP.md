@@ -68,6 +68,14 @@ nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browse
   **Tijd:** hoe laat het nu ergens anders is.
 - Moeilijke vragen ("leg uit", "vergelijk", "maak een plan") krijgen automatisch iets meer denktijd.
 
+## ECO over zichzelf: archief, status en interface
+- **Gesprekken opruimen:** "Verwijder mijn gesprekken over Tokio", "verwijder alles ouder dan een week" of "verwijder dit gesprek".
+  ECO noemt eerst hoeveel gesprekken het zijn en vraagt of je het zeker weet; pas na jouw "ja" (in een volgend bericht) wist hij ze.
+  Het huidige gesprek blijft staan, tenzij je er uitdrukkelijk om vraagt.
+- **Vragen over zichzelf:** "Welke stem gebruik je?", "Is Brightspace gekoppeld?", "Hoeveel gesprekken heb ik?", "Welk model gebruik je?".
+- **Interface bedienen:** "Zet je stem uit", "zet gespreksmodus aan", "zet Hé Eco aan", "begin een nieuw gesprek", "open het menu".
+- ACTIVITEIT (SYSTEEMSTATUS) staat in stand-by op 0% en loopt op tijdens luisteren, denken en praten.
+
 ## Apple-agenda (iCloud)
 1. https://account.apple.com → Inloggen en beveiliging → App-specifieke wachtwoorden → **+** → naam `ECO` → kopieer.
 2. Supabase-secrets: `ICLOUD_EMAIL` (Apple ID) en `ICLOUD_APP_PASSWORD` (het wachtwoord). Optioneel `ICLOUD_CALENDAR`
