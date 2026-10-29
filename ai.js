@@ -338,8 +338,9 @@ function render(session) {
   loadTimers();
   setTimeout(loadPush, 1500);
   setTimeout(loadSpotify, 1700);
-  const briefingNu = /briefing/i.test(location.hash);
-  if (!$("messages").children.length && !briefingNu) greet(justLoggedIn);
+  const briefingNu = /briefing/i.test(location.hash), luisterNu = /luister/i.test(location.hash + location.search);
+  const liveNu = !briefingNu && !luisterNu && liveWanted();
+  if (!$("messages").children.length && !briefingNu) greet(justLoggedIn && !liveNu);
   justLoggedIn = false;
   if (spNotice) setTimeout(() => typeCaption(spNotice), 600);
   // Geopend vanuit de ochtendmelding (sekibar.nl/#briefing).
@@ -348,9 +349,11 @@ function render(session) {
   else if (/luister/i.test(location.hash + location.search)) {
     history.replaceState(null, "", location.pathname);
     autoListen();
-  } else if (matchMedia("(min-width: 901px)").matches) $("input").focus();
+  } else if (liveNu) setTimeout(() => liveStart("", true), 900); // Live is de standaard: meteen praten
+  else if (matchMedia("(min-width: 901px)").matches) $("input").focus();
 }
 function autoListen() {
+  if (liveWanted()) return void setTimeout(() => liveStart(), 400);
   setCaption("Ik luister…", "user");
   setTimeout(() => {
     listen();
@@ -358,7 +361,7 @@ function autoListen() {
     setTimeout(() => { if (!recording && !rec) $("tapTalk").hidden = false; }, 1800);
   }, 400);
 }
-$("tapTalk").onclick = () => { $("tapTalk").hidden = true; unlockAudio(); unlockSpeech(); listen(); };
+$("tapTalk").onclick = () => { $("tapTalk").hidden = true; hervat(); unlockAudio(); unlockSpeech(); if (liveWanted()) liveStart(); else listen(); };
 // Ochtendbriefing (uit de pushmelding). Zonder tik mag iOS niet praten: dan eerst één grote knop.
 function briefing() {
   if (/briefing/i.test(location.hash)) history.replaceState(null, "", location.pathname);
@@ -1059,6 +1062,8 @@ async function ask({ text = "", audio = null }) {
       if (my !== turn) return;
       if (ev.t === "heard") {
         if (!ev.text) { heardNothing = true; setState("idle"); setCaption("Ik heb niets verstaan.", "user"); speech.open = false; convoNext(false); return; }
+        if (!imgs.length && isStop(ev.text)) { entry("user", ev.text); stopLuisteren(); return; }
+        if (!imgs.length && isEcho(ev.text)) { stopLuisteren("Ik hoorde mezelf terug, dus ik wacht even. Tik op de microfoon om verder te praten (met oortjes gaat het beter)."); return; }
         const you = entry("user", ev.text); setCaption("› " + ev.text, "user");
         fotoThumbs(you, imgs);
         if (ev.q) you.parentElement.title = `Tik om te verbeteren · zekerheid ${ev.q.logprob} · geen spraak ${ev.q.noSpeech}`;
@@ -1071,7 +1076,7 @@ async function ask({ text = "", audio = null }) {
           setCaption(full);
           return;
         }
-        heardExit = /^(stop|stoppen|dank je( wel)?|bedankt|dat was (het|alles)|klaar|tot (straks|later|zo)|doei|later)[.!]*$/i.test(ev.text.trim());
+        heardExit = isStop(ev.text);
         $("stVoice").textContent = "WHISPER";
       } else if (ev.t === "conv") {
         currentConv = ev.id; $("convId").textContent = currentConv.slice(0, 8).toUpperCase();
@@ -1104,6 +1109,7 @@ async function ask({ text = "", audio = null }) {
     render();
     final = true;
     if (heardExit) convo.paused = true; // vóór finish(): met de stem uit eindigt de beurt meteen
+    lastEco = full;
     speech.finish(full);
     lastLatency = Math.round(performance.now() - t0);
     showLat();
@@ -1133,7 +1139,9 @@ $("chatForm").onsubmit = async (e) => {
   e.preventDefault();
   const text = $("input").value.trim();
   if (!text && !fotos.length) return;
-  $("input").value = ""; $("input").style.height = "auto"; $("send").disabled = true;
+  $("input").value = ""; $("input").style.height = "auto";
+  if (live.on && text && !fotos.length) return liveText(text); // ECO antwoordt hardop in het live gesprek
+  $("send").disabled = true;
   try { await ask({ text }); } finally {
     $("send").disabled = false;
     if (matchMedia("(min-width: 901px)").matches) $("input").focus();
@@ -1381,6 +1389,7 @@ const speech = {
 };
 // Los iets uitspreken (begroeting, Stemlab): eerste zin apart, rest erachteraan.
 function say(text) {
+  lastEco = text;
   if (!$("speak").checked) { if (document.body.dataset.state !== "error") setState("idle"); return; }
   stopSpeaking();
   speech.open = true;
@@ -1397,6 +1406,33 @@ function stopSpeaking() {
 }
 speechSynthesis?.getVoices();
 
+// ---------- "Stop" betekent stop: niet meer luisteren tot je zelf weer op de microfoon tikt ----------
+// Herkent ook "oké stop", "stop maar", "laat maar", "dat was het", maar niet "stop de muziek", "bedankt, hoe laat is het" of een vraag.
+let luisterPauze = false, lastEco = "";
+const woorden = (t) => t.toLowerCase().replace(/[^a-zà-ÿ0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+const STOP = "stop|stoppen|hou op|houd op|genoeg|laat maar|klaar|dat was (?:het|alles)|bedankt|dank je(?: wel)?|tot (?:straks|later|zo|morgen)|doei|welterusten|niet meer luisteren|(?:wees|ben) stil|stil maar";
+const VUL = new Set("oke oké ok eco echo maar nu even alsjeblieft alstublieft hoor dan ja nee prima goed top super nou he hè hé hey hoi mee met luisteren het is ik ben we zijn wel eh uh".split(" "));
+function isStop(t) {
+  const z = woorden(t).join(" ");
+  if (!z || /\?/.test(t) || !new RegExp(`\\b(?:${STOP})\\b`).test(z)) return false;
+  return woorden(z.replace(new RegExp(`\\b(?:${STOP})\\b`, "g"), " ")).every((x) => VUL.has(x)); // niets anders gezegd dan stoppen
+}
+// Hoort de microfoon ECO zelf terug (speaker zonder oortjes), dan niet daarop antwoorden: anders praat hij tegen zichzelf.
+function isEcho(t) {
+  const w = woorden(t), eco = new Set(woorden(lastEco));
+  return w.length >= 4 && eco.size > 0 && w.filter((x) => eco.has(x)).length / w.length >= 0.7;
+}
+function stopLuisteren(msg = "Oké, ik stop met luisteren. Tik op de microfoon als je me weer nodig hebt.") {
+  luisterPauze = true; convo.paused = false;
+  turn++; // een lopende vraag vervalt
+  wakeStop(); bargeStop(); stopSpeaking();
+  if (rec || recording) stopListening();
+  if (live?.on) liveStop();
+  setState("idle"); sfx.send();
+  setCaption(msg, "user");
+}
+const hervat = () => { luisterPauze = false; };
+
 // ---------- Gespreksmodus: na elk antwoord vanzelf weer luisteren (handsfree) ----------
 const convo = { get on() { return $("convo")?.checked; }, paused: false };
 try { if ($("convo")) $("convo").checked = localStorage.getItem("eco-convo") === "1"; } catch { /* geen opslag */ }
@@ -1406,7 +1442,7 @@ $("convo")?.addEventListener("change", (e) => {
   if (e.target.checked && document.body.dataset.state === "idle") { unlockAudio(); listen(); }
 });
 function convoNext(answered) {
-  if (!convo.on || !whisper && !Rec) return;
+  if (!convo.on || luisterPauze || !whisper && !Rec) return;
   if (convo.paused || !answered) { convo.paused = false; setCaption("Gespreksmodus wacht. Tik op de microfoon om verder te gaan.", "user"); return; }
   setTimeout(() => { if (convo.on && document.body.dataset.state === "idle" && !rec && !recording) listen(); }, 350);
 }
@@ -1416,7 +1452,7 @@ function convoNext(answered) {
 // ("Hé Eco, hoe laat begint water?"), dan gaat de rest meteen als vraag naar ECO.
 var wakeRec = null, wakeTimer = null, wakeFails = 0;
 const WAKE = /(?:^|\b)(?:h[eé]+[jy]?|hoi|hallo|ok[eé]?|yo)[\s,!.]*(?:eco|echo|ecco|eko|ekko|ego|eggo)\b[\s,!.]*(.*)$/i;
-const wakeOn = () => !!(Rec && $("wake")?.checked && !$("app").hidden && document.visibilityState === "visible");
+const wakeOn = () => !!(Rec && $("wake")?.checked && !$("app").hidden && document.visibilityState === "visible" && !live?.on && !luisterPauze);
 function wakeOnState(s) {
   clearTimeout(wakeTimer);
   if (s === "idle") wakeTimer = setTimeout(wakeStart, 700); else wakeStop();
@@ -1428,7 +1464,9 @@ function wakeStart() {
   r.lang = "nl-NL"; r.continuous = true; r.interimResults = false;
   r.onresult = (e) => {
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const m = WAKE.exec(e.results[i][0].transcript.trim());
+      const heard = e.results[i][0].transcript.trim();
+      if (isStop(heard)) { stopLuisteren("Oké, ik luister niet meer mee. Tik op de microfoon als je me nodig hebt."); return; }
+      const m = WAKE.exec(heard);
       if (m) { wakeFails = 0; wakeHit(m[1].trim()); return; }
     }
   };
@@ -1454,14 +1492,16 @@ function wakeStop() {
 function wakeHit(rest) {
   wakeStop();
   sfx.listen();
-  if (rest.replace(/[^a-zà-ÿ0-9]/gi, "").length > 3) { setCaption("› " + rest, "user"); ask({ text: rest }); }
+  const vraag = rest.replace(/[^a-zà-ÿ0-9]/gi, "").length > 3 ? rest : "";
+  if (liveWanted()) return liveStart(vraag);
+  if (vraag) { setCaption("› " + rest, "user"); ask({ text: rest }); }
   else listen();
 }
 if (!Rec && $("wakeSwitch")) $("wakeSwitch").hidden = true;
 try { if ($("wake")) $("wake").checked = localStorage.getItem("eco-wake") === "1"; } catch { /* geen opslag */ }
 $("wake")?.addEventListener("change", (e) => {
   try { localStorage.setItem("eco-wake", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
-  if (e.target.checked) { unlockAudio(); wakeStart(); setCaption("Zeg \"Hé Eco\" als je iets wilt vragen.", "user"); }
+  if (e.target.checked) { hervat(); unlockAudio(); wakeStart(); setCaption("Zeg \"Hé Eco\" als je iets wilt vragen.", "user"); }
   else { wakeStop(); document.body.dataset.wake = "off"; }
 });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeStart(); else wakeStop(); });
@@ -1469,7 +1509,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 // ---------- Onderbreken: praat ertussen terwijl ECO praat ----------
 // Tijdens het praten luistert ECO mee (met echo-onderdrukking). Klinkt er duidelijk een stem bovenop zijn eigen
 // echo, dan stopt hij meteen met praten en neemt hij je vraag op, met dezelfde microfoon (geen nieuwe toestemming).
-const bargeOn = () => !!$("barge")?.checked && CAN_RECORD_EARLY;
+const bargeOn = () => !!$("barge")?.checked && CAN_RECORD_EARLY && !live?.on;
 const barge = { stream: null, src: null, raf: 0, starting: false };
 try { if ($("barge")) $("barge").checked = localStorage.getItem("eco-barge") !== "0"; } catch { if ($("barge")) $("barge").checked = true; }
 $("barge")?.addEventListener("change", (e) => {
@@ -1525,6 +1565,278 @@ function bargeHit() {
   if (!s) return;
   listen(s);
 }
+
+// ---------- Live-gesprek (Gemini Live): realtime praten, zoals Tony Stark met JARVIS ----------
+// De server geeft een tijdelijke toegangscode plus ECO's karakter, geheugen, agenda en tools; daarna praat de browser
+// rechtstreeks met Gemini via een WebSocket: microfoon erin (16 kHz), stem eruit (24 kHz), onderbreken kan altijd.
+// Tools voert de server uit; elke beurt komt in het archief. Lukt Live niet, dan werkt ECO op de gewone manier.
+var live = { on: false, ready: false };
+let liveBrokenUntil = 0, liveWorkletUrl = "";
+const LIVE_WORKLET = 'class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor("eco-mic",P)';
+const liveWanted = () => !!$("live")?.checked && Date.now() > liveBrokenUntil && !!(navigator.mediaDevices?.getUserMedia && window.WebSocket);
+try { if ($("live")) $("live").checked = localStorage.getItem("eco-live") !== "0"; } catch { /* geen opslag */ }
+$("live")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-live", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  liveBrokenUntil = 0;
+  if (!e.target.checked && live.on) liveStop("Live staat uit; ik werk weer op de gewone manier.");
+});
+const b64Bytes = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
+const liveSend = (msg) => { if (live.ready && live.ws?.readyState === 1) live.ws.send(JSON.stringify(msg)); };
+
+async function liveStart(firstText = "", vanzelf = false) {
+  if (live.on) { if (firstText) liveText(firstText); return; }
+  wakeStop(); bargeStop(); stopSpeaking(); if (rec || recording) stopListening();
+  turn++; // een lopende gewone vraag vervalt
+  live = { on: true, ready: false, firstText, handle: "", userText: "", ecoText: "", userEl: null, ecoEl: null, lastActivity: Date.now(), tries: 0, cancelled: new Set() };
+  $("tapTalk").hidden = true;
+  $("mic").classList.add("on", "live");
+  setState("thinking"); setCaption("Live verbinden…", "user");
+  try {
+    // Eerst de microfoon: zolang die opneemt, mag de iPhone ook geluid afspelen.
+    live.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    audioOut();
+    try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch { /* oudere Safari */ }
+    await Promise.race([actx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 800))]);
+    if (actx.state !== "running") throw Object.assign(new Error("tik eerst op het scherm"), { tik: true });
+    live.cfg = await callFn({ live: "start", loc: myLoc });
+    if (!live.on) return;
+    await liveConnect();
+    await liveMic();
+    live.idle = setInterval(liveIdle, 5000);
+    setState("listening"); sfx.listen();
+    $("stVoice").textContent = "LIVE"; $("stVoice").className = "ok";
+    $("stModel").textContent = "LIVE";
+    setCaption("● LIVE — praat maar, ik luister.", "user");
+    if (live.firstText) liveText(live.firstText);
+  } catch (e) {
+    if (e.tik) { liveStop(); $("tapTalk").textContent = "🎙️ TIK OM LIVE TE PRATEN"; $("tapTalk").hidden = false; return; }
+    if (!live.on) return;
+    // Geen microfoon (geen toestemming of geen apparaat): dan helpt de gewone manier ook niet.
+    if (/NotAllowed|NotFound|NotReadable|Permission|device/i.test(`${e.name} ${e.message}`)) {
+      return liveStop(vanzelf ? "Tik op de microfoon om live te praten, of typ je vraag." : "Live heeft de microfoon nodig: geef ECO toestemming in de instellingen, of typ je vraag.", !vanzelf);
+    }
+    liveBrokenUntil = Date.now() + 10 * 60000; // tien minuten de gewone manier
+    liveStop(`Live lukt nu niet (${e.message}); ik luister op de gewone manier.`, true);
+    setTimeout(() => listen(), 600);
+  }
+}
+
+// WebSocket openen (v1beta volgens de documentatie, v1alpha als terugval) en wachten op setupComplete.
+function liveConnect() {
+  return new Promise((resolve, reject) => {
+    const { token, api, setup } = live.cfg;
+    const versies = api === "v1alpha" ? ["v1alpha"] : ["v1beta", "v1alpha"];
+    const probeer = (i) => {
+      const ws = new WebSocket(`wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${versies[i]}.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(token)}`);
+      ws.binaryType = "arraybuffer";
+      let klaar = false;
+      const timer = setTimeout(() => { if (!klaar) { try { ws.close(); } catch { /* al dicht */ } } }, 12000);
+      ws.onopen = () => ws.send(JSON.stringify({ setup: { ...setup, sessionResumption: live.handle ? { handle: live.handle } : {} } }));
+      ws.onmessage = (m) => {
+        let msg;
+        try { msg = JSON.parse(typeof m.data === "string" ? m.data : new TextDecoder().decode(m.data)); } catch { return; }
+        if (msg.setupComplete && !klaar) {
+          klaar = true; clearTimeout(timer);
+          const oud = live.ws; live.ws = ws; live.ready = true;
+          if (oud && oud !== ws) try { oud.close(1000); } catch { /* al dicht */ }
+          resolve();
+        }
+        if (live.ws === ws) liveMessage(msg);
+      };
+      ws.onclose = (ev) => {
+        clearTimeout(timer);
+        if (!klaar) return i + 1 < versies.length && ev.code !== 1000 ? probeer(i + 1) : reject(new Error(ev.reason || `verbinding geweigerd (${ev.code})`));
+        if (live.ws === ws) liveClosed();
+      };
+    };
+    probeer(0);
+  });
+}
+
+// Microfoon → 16 kHz PCM in stukjes van 80 ms.
+async function liveMic() {
+  const src = actx.createMediaStreamSource(live.stream), stap = actx.sampleRate / 16000, stil = actx.createGain();
+  stil.gain.value = 0; stil.connect(actx.destination);
+  let carry = new Float32Array(0), t = 0, pending = new Int16Array(1280), n = 0;
+  let echo = 0, burst = 0, luid = 0, openTot = 0;
+  const frames = (f) => {
+    if (!live.ready) return;
+    // Praat ECO zelf? Leer eerst hoe hard zijn eigen echo binnenkomt en stuur alleen stem die daar duidelijk bovenuit komt;
+    // de rest gaat als stilte, zodat hij zichzelf niet onderbreekt of tegen zichzelf gaat praten.
+    if (pcmSources.size) {
+      const nu = performance.now(), dt = f.length / actx.sampleRate * 1000;
+      const rms = Math.sqrt(f.reduce((a, v) => a + v * v, 0) / f.length);
+      if (!burst) { burst = nu; echo = 0; luid = 0; }
+      if (nu - burst < 500) echo = Math.max(echo, rms);
+      else if (rms > Math.min(0.15, Math.max(0.02, echo * 2.6))) { luid += dt; if (luid > 150) openTot = nu + 800; }
+      else { luid = Math.max(0, luid - dt * 0.6); echo = Math.max(rms, echo * 0.997); }
+      if (nu >= openTot) f = new Float32Array(f.length);
+    } else burst = 0;
+    const data = new Float32Array(carry.length + f.length); data.set(carry); data.set(f, carry.length);
+    let piek = 0;
+    for (; t + 1 < data.length; t += stap) {
+      const i = t | 0, v = Math.max(-1, Math.min(1, data[i] + (data[i + 1] - data[i]) * (t - i)));
+      piek = Math.max(piek, Math.abs(v));
+      pending[n++] = v * 32767;
+      if (n === pending.length) { liveSend({ realtimeInput: { audio: { data: b64Bytes(new Uint8Array(pending.buffer)), mimeType: "audio/pcm;rate=16000" } } }); n = 0; }
+    }
+    const keep = Math.floor(t); carry = data.slice(keep); t -= keep;
+    if (document.body.dataset.state === "listening") bump(Math.min(0.5, piek * 0.8));
+  };
+  let node;
+  try {
+    if (!liveWorkletUrl) { liveWorkletUrl = URL.createObjectURL(new Blob([LIVE_WORKLET], { type: "application/javascript" })); await actx.audioWorklet.addModule(liveWorkletUrl); }
+    node = new AudioWorkletNode(actx, "eco-mic");
+    node.port.onmessage = (e) => frames(e.data);
+  } catch { // oudere browsers
+    node = actx.createScriptProcessor(4096, 1, 1);
+    node.onaudioprocess = (e) => frames(e.inputBuffer.getChannelData(0));
+  }
+  src.connect(node); node.connect(stil);
+  live.nodes = [src, node, stil];
+}
+
+function liveMessage(msg) {
+  const upd = msg.sessionResumptionUpdate;
+  if (upd?.resumable && upd.newHandle) live.handle = upd.newHandle;
+  if (msg.goAway) liveReconnect();
+  if (msg.toolCall) liveTools(msg.toolCall.functionCalls || []);
+  for (const id of msg.toolCallCancellation?.ids || []) live.cancelled.add(id);
+  const sc = msg.serverContent;
+  if (!sc) return;
+  live.lastActivity = Date.now();
+  if (sc.interrupted) liveFlush();
+  if (sc.inputTranscription?.text) liveUser(sc.inputTranscription.text);
+  for (const p of sc.modelTurn?.parts || []) if (p.inlineData?.data) livePlay(p.inlineData.data);
+  if (sc.outputTranscription?.text) liveEco(sc.outputTranscription.text);
+  if (sc.turnComplete) liveTurnDone();
+}
+function liveUser(t) {
+  live.userText += t;
+  if (isStop(live.userText)) { const u = live.userText; live.userText = ""; entry("user", u.trim()); return stopLuisteren("Oké, ik stop. Tik op de microfoon als je me weer nodig hebt."); }
+  live.userEl ||= entry("user", "");
+  live.userEl.textContent = live.userText.trim();
+  if (!live.ecoText) setCaption("› " + live.userText.trim(), "user");
+}
+function liveEco(t) {
+  live.ecoText += t;
+  live.ecoEl ||= entry("assistant", "");
+  live.ecoEl.innerHTML = md(visible(live.ecoText, true));
+  $("messages").scrollTop = $("messages").scrollHeight;
+  setCaption(visible(live.ecoText, true).trim());
+}
+// 24 kHz PCM van Gemini naadloos achter elkaar afspelen (zelfde uitgang en visualisatie als de gewone stem).
+function livePlay(b64) {
+  if (!$("speak").checked) return;
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), n = bytes.length >> 1;
+  if (!n) return;
+  const dv = new DataView(bytes.buffer), buf = actx.createBuffer(1, n, 24000), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = dv.getInt16(i * 2, true) / 32768;
+  const src = actx.createBufferSource();
+  src.buffer = buf; src.connect(audioOut());
+  const at = Math.max(actx.currentTime + (pcmEnd > actx.currentTime ? 0 : 0.06), pcmEnd);
+  src.start(at); pcmEnd = at + buf.duration;
+  pcmSources.add(src);
+  src.onended = () => { pcmSources.delete(src); if (live.on && !pcmSources.size && document.body.dataset.state === "speaking") setState("listening"); };
+  speakingNow();
+}
+// Onderbroken: meteen stil zijn.
+function liveFlush() {
+  for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
+  pcmSources.clear(); pcmEnd = 0;
+  if (live.on) setState("listening");
+}
+function liveTurnDone() {
+  const user = live.userText.trim(), eco = live.ecoText.trim();
+  live.userText = ""; live.ecoText = ""; live.userEl = null; live.ecoEl = null;
+  if (user || eco) callFn({ live: { actie: "opslaan", convId: currentConv, user, assistant: eco } }).then((r) => {
+    if (r.convId && r.convId !== currentConv) { currentConv = r.convId; $("convId").textContent = currentConv.slice(0, 8).toUpperCase(); }
+    loadConversations();
+  }).catch(() => {});
+  lastEco = eco || lastEco;
+  if (user && isStop(user)) {
+    const rest = actx ? Math.max(0, pcmEnd - actx.currentTime) * 1000 : 0;
+    setTimeout(() => live.on && liveStop("Live gesprek gestopt. Tik op de microfoon om verder te praten."), rest + 400);
+  }
+}
+// Een minuut niets gezegd en niets te horen: ophangen (spaart batterij en het gratis quotum).
+function liveIdle() {
+  if (!live.on || pcmSources.size) return;
+  if (Date.now() - live.lastActivity > 60000) liveStop("Live gesprek gepauzeerd na een minuut stilte. Tik op de microfoon om verder te praten.");
+}
+
+// Tools: de server voert ze uit; ECO praat ondertussen door (NON_BLOCKING) en vertelt het resultaat zodra het er is.
+function liveTools(calls) {
+  for (const fc of calls) {
+    live.lastActivity = Date.now();
+    if (!live.ecoText) setCaption((TOOL_LABEL[fc.name] || "Bezig") + "…", "tool");
+    callFn({ live: { actie: "tool", name: fc.name, args: fc.args || {}, convId: currentConv, ui: uiState() } })
+      .then((r) => { liveEffects(r); return r.result; }, (e) => ({ fout: e.message }))
+      .then((result) => {
+        live.lastActivity = Date.now();
+        if (live.cancelled.has(fc.id)) return;
+        liveSend({ toolResponse: { functionResponses: [{ id: fc.id, name: fc.name, response: { result, scheduling: "WHEN_IDLE" } }] } });
+      });
+  }
+}
+function liveEffects(r) {
+  const after = [];
+  for (const ev of r.events || []) applyUi(ev, after);
+  after.forEach((f) => setTimeout(f, 300));
+  if (r.memoryChanged) loadMemory();
+  if (r.convDeleted) { currentConv = null; $("convId").textContent = "—"; }
+  if (r.open) { // Google Maps, WhatsApp of Spotify: eerst laten uitpraten, dan de app openen
+    const a = document.createElement("a"), mobiel = matchMedia("(pointer: coarse)").matches;
+    a.href = r.open; a.className = "action"; a.textContent = r.openLabel || "▶ OPENEN";
+    if (!mobiel) { a.target = "_blank"; a.rel = "noopener"; }
+    (live.ecoEl || entry("assistant", "")).append(a);
+    setTimeout(() => { if (mobiel) location.href = r.openApp || r.open; else window.open(r.open, "_blank", "noopener"); }, 2500);
+  }
+}
+// Getypte tekst in een live gesprek: ECO antwoordt hardop in hetzelfde gesprek.
+function liveText(text) {
+  if (!live.ready) { live.firstText = text; return; }
+  live.userText = `${live.userText.trim()} ${text} `.trimStart();
+  live.userEl ||= entry("user", "");
+  live.userEl.textContent = live.userText.trim();
+  liveSend({ realtimeInput: { text } });
+}
+
+// Gemini sluit de verbinding na ongeveer tien minuten: met de hervattingscode ongemerkt verder.
+async function liveReconnect() {
+  if (!live.on || live.reconnecting) return;
+  live.reconnecting = true;
+  try { await liveConnect(); }
+  catch {
+    try { live.cfg = await callFn({ live: "start", loc: myLoc }); await liveConnect(); } // code verlopen: nieuwe code, zelfde gesprek
+    catch (e) { liveStop(`Live-verbinding viel weg (${e.message}). Tik op de microfoon om opnieuw te beginnen.`, true); }
+  }
+  live.reconnecting = false;
+}
+function liveClosed() {
+  if (!live.on) return;
+  live.ready = false;
+  if (live.tries++ < 2) liveReconnect();
+  else liveStop("Live-verbinding viel weg. Tik op de microfoon om opnieuw te beginnen.", true);
+}
+function liveStop(msg = "", fout = false) {
+  if (!live.on && !msg) return;
+  const { userText, ecoText } = live;
+  live.on = false; live.ready = false;
+  clearInterval(live.idle);
+  try { live.ws?.close(1000); } catch { /* al dicht */ }
+  for (const n of live.nodes || []) { try { n.disconnect(); } catch { /* al los */ } }
+  live.stream?.getTracks().forEach((t) => t.stop());
+  for (const s of pcmSources) { try { s.stop(); } catch { /* al gestopt */ } }
+  pcmSources.clear(); pcmEnd = 0;
+  try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch { /* oudere Safari */ }
+  if (userText?.trim() || ecoText?.trim()) callFn({ live: { actie: "opslaan", convId: currentConv, user: userText, assistant: ecoText } }).then(() => loadConversations()).catch(() => {});
+  $("mic").classList.remove("on", "live");
+  initStatus();
+  setState("idle");
+  if (msg) setCaption(msg, fout ? "err" : "user");
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && live.on) liveStop(); });
 
 // ---------- Spraak in ----------
 // Voorkeur: opnemen en laten uitschrijven door Whisper (Groq) via de Edge Function — verstaat Nederlands
@@ -1631,11 +1943,11 @@ function listenBrowser() {
   micOn(true);
   rec.start();
 }
-$("mic").onclick = () => (rec || recording ? stopListening() : listen());
+$("mic").onclick = () => { if (live.on) return liveStop("Live gesprek gestopt."); if (rec || recording) return stopListening(); hervat(); if (liveWanted()) liveStart(); else listen(); };
 // Spatie ingedrukt houden buiten het tekstvak = praten.
 addEventListener("keydown", (e) => {
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target?.isContentEditable;
-  if (e.code === "Space" && !typing && !$("app").hidden && $("voiceLab").hidden && !e.repeat) { e.preventDefault(); listen(); }
+  if (e.code === "Space" && !typing && !$("app").hidden && $("voiceLab").hidden && !e.repeat) { e.preventDefault(); if (live.on) return; if (liveWanted()) liveStart(); else listen(); }
 });
 addEventListener("keyup", (e) => { if (e.code === "Space" && (rec || recording)) stopListening(); });
 
