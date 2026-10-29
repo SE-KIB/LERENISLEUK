@@ -80,7 +80,9 @@ ECO leest deze agenda's mee (alleen-lezen; herhalingen worden uitgevouwen). Houd
    (de naam moet "Brightspace" bevatten, dan herkent ECO de items als opdrachten en deadlines).
 ECO ziet daarna wat docenten in de Brightspace-agenda zetten. Lesplanning die alleen als document in een cursus staat,
 kan ECO niet lezen: Brightspace zit achter je HHS-login met tweestapsverificatie, en je schoolwachtwoord in ECO bewaren
-is onveilig. ECO noemt bij een lestijd altijd de bron ("volgens je schoolrooster"); geven twee bronnen iets anders, dan noemt hij beide.
+is onveilig. ECO noemt bij een lestijd altijd de bron ("volgens je schoolrooster"). **Brightspace is leidend:** docenten zetten wijzigingen
+(later beginnen, verplaatst, vervalt) in Brightspace, terwijl MyTimetable vaak nog de oude planning toont. Noemt Brightspace een
+andere tijd voor hetzelfde vak, dan geeft ECO die tijd en zegt hij dat het rooster iets anders zegt.
 
 **Controleren wat ECO ziet:** het paneel **ROOSTER** (onder het transcript) toont per dag alle afspraken per bron. Houd je vinger
 of muis op een les om de ruwe tijd uit de link te zien. Wijkt die af van Brightspace/MyTimetable, stuur dan een screenshot van beide.
