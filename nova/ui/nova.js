@@ -158,6 +158,12 @@ window.nova = {
     else if (e.t === "status") { zetStatus(e); }
     else if (e.t === "staat") { setState(e.s); $("mic").classList.toggle("on", e.s === "listening"); }
     else if (e.t === "melding") { $("setMsg").textContent = e.tekst; $("setMsg").className = "login-msg push-msg " + (e.soort || ""); }
+    else if (e.t === "update") { // een nieuwe NOVA: vragen, en tijdens het bijwerken de voortgang tonen
+      $("updateBalk").hidden = !e.tag;
+      const bezig = e.voortgang !== null && e.voortgang !== undefined;
+      $("updateTekst").textContent = bezig ? `Bijwerken naar ${e.tag}… ${Math.round(e.voortgang * 100)}%` : `Er is een nieuwe NOVA (${e.tag}). Nu bijwerken?`;
+      $("updateJa").hidden = $("updateLater").hidden = bezig;
+    }
   },
 };
 
@@ -175,6 +181,8 @@ $("mic").onclick = () => api() && api().mic();
 addEventListener("keydown", (e) => { if (e.ctrlKey && e.code === "Space") { e.preventDefault(); $("mic").click(); } });
 $("opslaan").onclick = () => api() && api().opslaan({ eco_sleutel: $("sleutel").value, naam: $("naam").value, model: $("model").value, stem: $("stem").checked });
 $("download").onclick = () => api() && api().download($("model").value);
+$("updateJa").onclick = () => { if (api()) { api().update(true); $("updateTekst").textContent = "Bijwerken…"; $("updateJa").hidden = $("updateLater").hidden = true; } };
+$("updateLater").onclick = () => api() && api().update(false);
 $("stem").onchange = () => $("opslaan").click();
 document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api() && api().brein(b.dataset.brein); });
 window.addEventListener("pywebviewready", async () => {

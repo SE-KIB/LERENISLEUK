@@ -15,3 +15,8 @@
 .entry.sys .body{color:var(--muted);font-family:var(--f-mono);font-size:.8rem}
 .entry.fout .body{color:var(--red)}
 .hud{grid-template-columns:270px 1fr 340px}
+.center{position:relative}
+.nova-update{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;
+  padding:8px 12px;background:rgba(2,18,26,.92);border:1px solid var(--c);box-shadow:0 0 18px rgba(0,225,255,.25);font-family:var(--f-mono);font-size:.8rem;color:var(--c2);white-space:nowrap}
+.nova-update[hidden]{display:none}
+.nova-update #updateJa{background:var(--c);color:#01070c;border-color:var(--c)}

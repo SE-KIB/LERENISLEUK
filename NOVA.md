@@ -15,9 +15,10 @@ bedienen, ook vanaf je iPhone, zolang NOVA draait.
 3. **NOVA's eigen brein (aanrader):** installeer **Ollama** van https://ollama.com/download/windows en start het. Kies in NOVA **⚙ → MODEL
    DOWNLOADEN**. Standaard is dat `qwen3.5:9b` (ongeveer 6 GB; past in de 8 GB van je RTX PRO). Slimmer maar trager: `gpt-oss:20b` of
    `gemma4:26b` (die lopen deels via je werkgeheugen).
-4. **Bijwerken gaat vanzelf:** NOVA kijkt bij het starten en elke 6 uur of er een nieuwere versie op GitHub staat, downloadt en
-   controleert die, vervangt zichzelf en start opnieuw (nooit midden in een gesprek). Je instellingen blijven bewaard.
-5. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
+4. **Bijwerken:** zodra NOVA verbonden is (en daarna elk uur) kijkt hij of er een nieuwere versie op GitHub staat. Zo ja, dan
+   vraagt hij het: bovenin verschijnt **NU BIJWERKEN / LATER** en NOVA zegt het hardop. Klik, typ of zeg "ja" (of "doe maar"), dan
+   downloadt en controleert hij de nieuwe versie (met voortgang), vervangt zichzelf en start meteen opnieuw. Bij "later" vraagt hij
+   het over 4 uur weer. Je instellingen blijven bewaard.
 
 ## Gebruiken
 - **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, NOVA-model, Ollama, spraak, stem), BEDIENING

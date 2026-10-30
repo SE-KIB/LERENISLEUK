@@ -1,6 +1,6 @@
-"""NOVA werkt zichzelf bij: bij het starten en daarna elke 6 uur kijken of er op GitHub een nieuwere NOVA.exe staat.
+"""NOVA werkt zichzelf bij: zodra NOVA verbonden is (en daarna elk uur) kijken of er op GitHub een nieuwere NOVA.exe staat.
 
-Zo ja: downloaden, de SHA-256 controleren (GitHub geeft die per bestand), het draaiende NOVA.exe hernoemen naar
+Zo ja: NOVA vraagt het Serkan; zegt hij ja, dan meteen downloaden, de SHA-256 controleren (GitHub geeft die per bestand), het draaiende NOVA.exe hernoemen naar
 NOVA.oud.exe (Windows staat hernoemen van een draaiend programma toe), de nieuwe neerzetten en opnieuw starten.
 Bij de volgende start ruimt NOVA het oude bestand op. Alleen in de gebouwde exe, niet bij ontwikkelen.
 """
@@ -48,7 +48,7 @@ def opruimen(exe: Path) -> None:
         pass  # nog in gebruik: volgende keer
 
 
-def bijwerken(exe: Path, build: int, info: dict, herstart=True) -> bool:
+def bijwerken(exe: Path, build: int, info: dict, herstart=True, on_voortgang=None) -> bool:
     """Vervangt exe door de nieuwe versie. Geeft True als er bijgewerkt is (dan moet NOVA stoppen)."""
     if info["build"] <= build:
         return False
@@ -57,9 +57,13 @@ def bijwerken(exe: Path, build: int, info: dict, herstart=True) -> bool:
     with requests.get(info["url"], stream=True, timeout=120) as r:
         r.raise_for_status()
         with open(nieuw, "wb") as f:
+            totaal, binnen = int(r.headers.get("content-length") or info.get("grootte") or 0), 0
             for stuk in r.iter_content(1 << 16):
                 f.write(stuk)
                 h.update(stuk)
+                binnen += len(stuk)
+                if on_voortgang and totaal:
+                    on_voortgang(min(1.0, binnen / totaal))
     if info["sha256"] and h.hexdigest() != info["sha256"]:
         nieuw.unlink(missing_ok=True)
         raise RuntimeError("download klopt niet (SHA-256 wijkt af); niet bijgewerkt")

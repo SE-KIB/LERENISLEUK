@@ -31,7 +31,8 @@ punten, ongeteste functies en technische klussen (Brightspace-robot op tijd, tes
 - Laptop: Intel Core Ultra 7 255H, 32 GB, NVIDIA RTX PRO 1000 Blackwell **8 GB**. Ollama + `qwen3.5:9b` geïnstalleerd en getest.
 - Code `nova/` (Python), uitleg **NOVA.md**. Online "Verbonden" → ECO-brein; offline eigen brein (Ollama).
   ECO-tool `pc` bedient de laptop via een long-poll-brug (`{ nova: { actie: "wacht" } }`), ook vanaf de iPhone.
-  Zelfde HUD als ECO (WebView2), PC-ACTIES-paneel, automatische updates (vanaf release **nova-7**).
+  Zelfde HUD als ECO (WebView2), PC-ACTIES-paneel, updates (vanaf release **nova-7**; vanaf PR #126 vraagt NOVA eerst
+  "nu bijwerken?" zodra hij verbonden is en een nieuwe versie ziet, en doet het bij "ja" meteen).
 - Serkan draait nu nog een oudere NOVA (zonder automatische update) met ECO-sleutel, status VERBONDEN.
   **Hij installeert nova-7 zelf** (download: https://github.com/SE-KIB/LERENISLEUK/releases/latest/download/NOVA.exe);
   daarna komen updates vanzelf.
