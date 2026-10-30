@@ -182,7 +182,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 ## Vervolg na chat 30 okt (klappen, werkmodus, MAXCODE, beveiliging)
 **Jij (Serkan) instellen**
 - Dagrapport (keuze 3): `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` in Supabase-secrets (stappen in "Nog open").
-- Mistral (keuze 4): `MISTRAL_API_KEY` in Supabase-secrets.
+- Mistral (keuze 4): ❌ laten zitten (30 okt): sleutels vragen nu minimaal €10 betaling. Niet meer voorstellen; de code mag blijven (doet niets zonder sleutel).
 - Laptop-app herstarten → "ja" bij bijwerken (klappen, werkmodus, modelnamen).
 - `NOVA_KEY` (eigen laptopsleutel): zodra de laptop er is; dan eerst bouwen (zeg "doe de laptopsleutel").
 - Eerder al: widget opnieuw in Scriptable, opdracht "ECO TV" op de iPhone, Brightspace-agendalink in `AGENDA_FEEDS`.
