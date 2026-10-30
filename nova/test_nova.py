@@ -606,6 +606,9 @@ class TestKlappen(unittest.TestCase):
         app.bezig = False
         with app.spreek_slot:  # ECO praat: dan hoort hij zichzelf niet
             self.assertFalse(app.klap_mag())
+        app.spreekt = True  # het antwoord is klaar en de stem start zo: ook dan niet
+        self.assertFalse(app.klap_mag())
+        app.spreekt = False
         app.cfg["klappen"] = False
         self.assertFalse(app.klap_mag())
 

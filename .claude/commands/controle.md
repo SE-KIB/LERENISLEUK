@@ -60,8 +60,12 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
    - Voeg een workflow `eco-tests.yml` toe die op elke PR draait. Chromium en Playwright zijn in de cloudomgeving al
      geïnstalleerd; installeer ze in GitHub Actions zelf.
 3. 🟡 (30 okt, PR #133: robot-sleutel gerepareerd — een verkeerde `x-jarvis-key` naast een login telde als robot en gaf zo de
-   Brightspace-sessie; nu alleen een kloppende sleutel, vergeleken in vaste tijd, met test. `web_lezen`-SSRF getest. De rest van
-   de lijst hieronder staat nog open.) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
+   Brightspace-sessie; nu alleen een kloppende sleutel, vergeleken in vaste tijd, met test. MAXCODE-ronde 30 okt (PR #134):
+   `web_lezen` weigert ook nip.io/sslip.io-achtige namen en namen die via DNS naar een intern adres wijzen (`openbaarAdres`,
+   met test); nagelopen en in orde: `x-cron-key` (≥32 tekens, vaste tijd), Spotify-`state` (eenmalig, 10 min), push alleen naar
+   echte push-hosts, RLS op ai_items/ai_timers/ai_contacts/ai_planning (ai_kv bewust zonder policies), de `pc`-brug (login of
+   sleutel; alleen vaste acties), de `tv`-tool (adressen ge-encodeerd, alleen http(s)), prompt-injectie-regels in de systeemprompt.
+   Nog niet: een volledige tweede-AI-review van alle PR's sinds #87.) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
    (skill `code-review`, niveau high), met beveiliging voorop:
    - Spotify-terugkeer zonder login (eenmalige `state`).
    - `x-cron-key`.
