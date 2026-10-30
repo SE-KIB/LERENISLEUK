@@ -67,6 +67,12 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
   `airplay_aan`, `airplay_uit`, via de opdracht **ECO TV** (Shortcuts, "Stel afspeelbestemming in"). Stappen in AI-SETUP.md.
   **Serkan moet die opdracht nog maken.**
 
+## Controlelijst `/controle` (30 okt, PR #125)
+- Gedaan: **B4** workflows naar de nieuwste Node 24-versies, **B5** AI-SETUP.md opgeruimd.
+- Nog open: **A** (status nalopen), **B1** Brightspace-robot via de ECO-klok (Serkan moet `GITHUB_DISPATCH_TOKEN` maken),
+  **B2** ECO-tests + `eco-tests.yml`, **B3** code-review met beveiliging voorop, **B6** `website-monitor.yml` weg? (gevraagd),
+  **C** testvragen (gesteld op 30 okt, antwoorden afwachten), **D** herinneringen (gegeven op 30 okt).
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met

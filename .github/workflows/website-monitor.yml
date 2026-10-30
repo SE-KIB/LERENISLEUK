@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Repo uitchecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Site ophalen en vergelijken
         id: diff

@@ -188,7 +188,6 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
 2. **Database:** plak `supabase/migrations/20261028_ai.sql` in Supabase → SQL Editor → Run.
 3. **Jouw account:** Supabase → Authentication → Users → *Add user* (je e-mail + wachtwoord).
    Zet daarna Authentication → Providers → Email → *Allow new users to sign up* **uit**.
-   Kopieer je User UID (nodig voor Siri).
 4. **Google Agenda koppelen:**
    - https://console.cloud.google.com → nieuw project → *Google Calendar API* én *Gmail API* inschakelen.
    - OAuth-toestemmingsscherm: type *External*, jezelf als testgebruiker toevoegen, en daarna
@@ -200,7 +199,7 @@ om modellen te verbeteren; met facturering aan (betaalde laag) niet. Een Gemini 
      *Exchange authorization code for tokens* → kopieer de **refresh token**.
 5. **Secrets zetten en uitrollen** (`JARVIS_KEY` = zelfverzonnen lange geheime tekst):
    ```bash
-   supabase secrets set GROQ_API_KEY=gsk_... GEMINI_API_KEY=... ALLOWED_EMAILS=jij@voorbeeld.nl JARVIS_KEY=lang-geheim JARVIS_USER_ID=jouw-uid GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GOOGLE_REFRESH_TOKEN=...
+   supabase secrets set GROQ_API_KEY=gsk_... GEMINI_API_KEY=... ALLOWED_EMAILS=jij@voorbeeld.nl JARVIS_KEY=lang-geheim GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GOOGLE_REFRESH_TOKEN=...
    ```
    ```bash
    supabase functions deploy ai-chat --no-verify-jwt
@@ -433,7 +432,9 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 - **Meer gratis reserve (besloten 29 okt):** wordt het gratis quotum van Groq/Gemini vaak bereikt, dan Mistral toevoegen als extra
   gratis reserve rechtstreeks in de functie (secret `MISTRAL_API_KEY`, gratis te maken). **Geen OmniRoute:** dat moet dag en nacht
   op een eigen server draaien, vraagt per dienst een eigen account, en een deel van de routes valt in een grijs gebied qua voorwaarden.
-- Meer tools: weer, lampen/thermostaat (Home Assistant), notities, iCloud-agenda rechtstreeks (CalDAV met app-specifiek wachtwoord).
-- Geheugen: vaste feiten over jou die ECO onthoudt.
-- Betere stem: een TTS-dienst (bv. ElevenLabs) voor een echte ECO-stem.
+- **Lampen en thermostaat** (Home Assistant of de app van het merk): eerst het merk van de lampen weten.
+- **Studieplanner** (leerschema voor toetsen en deadlines) en **avondoverzicht** (melding met morgen en open taken).
+- Uit het oorspronkelijke plan, nog niet gebouwd: **verbruiksoverzicht**, **statuspagina** en een **spaarstand** voor de HUD.
 - Wake-word ("Eco") op een altijd-aan apparaat, bv. een Raspberry Pi.
+- Bestaan al (niet meer bouwen): weer, lijstjes en notities, iCloud-agenda, geheugen (PROFIEL), een betere stem (Gemini-stem of
+  ElevenLabs via het STEMLAB), webpagina's en PDF's lezen, documenten op de laptop (NOVA) en de tv (Spotify/AirPlay).

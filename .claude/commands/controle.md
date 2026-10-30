@@ -68,13 +68,11 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
    - RLS op `ai_items`, `ai_timers`, `ai_contacts`, `ai_planning` (`ai_kv` heeft bewust geen policies).
    - Prompt-injectie via mail, web, foto's en pdf's.
    Los echte fouten op met een test erbij.
-4. **Workflows bijwerken.** Node 20 stopt. Werk `actions/checkout`, `actions/setup-node`, `actions/setup-python` en
-   `supabase/setup-cli` bij naar de nieuwste versie. Controleer eerst dat die versie bestaat.
-5. **Docs opruimen in `AI-SETUP.md`.**
-   - Haal "Kopieer je User UID (nodig voor Siri)" weg, en `JARVIS_USER_ID` uit het voorbeeldcommando; die zijn niet meer nodig.
-   - Werk de lijst "Volgende stappen (ideeën)" bij: notities, geheugen en een betere stem bestaan al.
-6. **Oude `website-monitor.yml`** (van de vorige site, staat uit). Vraag Serkan of hij weg mag. Weer aanzetten zou bij
-   elke update een issue openen.
+4. ✅ **Workflows bijwerken** (30 okt, PR #125): `checkout@v7`, `setup-node@v7`, `setup-python@v7`, `upload-artifact@v7`,
+   `action-gh-release@v3` (allemaal Node 24) en `supabase/setup-cli@v3` (composite); validate-lessons draait nu op Node 22.
+5. ✅ **Docs opgeruimd in `AI-SETUP.md`** (30 okt, PR #125): User UID en `JARVIS_USER_ID` weg; "Volgende stappen" bijgewerkt.
+6. **Oude `website-monitor.yml`** (van de vorige site, staat uit). Gevraagd aan Serkan op 30 okt; nog geen antwoord.
+   Weer aanzetten zou bij elke update een issue openen.
 
 ## C. Vragen aan Serkan: is dit getest? (vraag het in één bericht, daarna oplossen wat niet werkt)
 - Start "speel mijn liked songs" vanzelf? (Staat Spotify in slaap, dan start ECO hem binnen 30 s; logboek onder de knop
