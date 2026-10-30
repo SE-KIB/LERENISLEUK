@@ -94,6 +94,8 @@ klok(); setInterval(klok, 1000);
 
 // ---------- Toestand, ondertitel en transcript ----------
 const LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWERKEN", speaking: "SPREKEN", error: "STORING" };
+// Alleen de naam van het model in beeld ("QWEN", niet "qwen3.5:9b").
+const modelNaam = (m) => String(m || "—").split(":")[0].replace(/[\d.]+$/, "").toUpperCase();
 function setState(s) {
   document.body.dataset.state = s; $("stateLabel").textContent = LABEL[s] || s.toUpperCase();
   if (s === "idle") werk?.rust(); // werkmodus: na het antwoord schuift de reactor terug
@@ -206,7 +208,7 @@ function zetStatus(s) {
   $("stEco").textContent = s.eco; $("stEco").className = s.eco === "BEREIKBAAR" ? "ok" : "warn";
   document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === s.gekozen));
   if (s.brein_volgorde) inst.volgorde = { ...inst.volgorde, brein: s.brein_volgorde };
-  $("stModel").textContent = s.model;
+  $("stModel").textContent = modelNaam(s.model);
   $("stOllama").textContent = s.lokaal; $("stOllama").className = s.lokaal_ok ? "ok" : "warn";
   $("stSpraak").textContent = s.spraak || "—";
   $("stKlap").textContent = s.klappen || "—"; $("stKlap").title = s.klappen_reden || "";
@@ -215,7 +217,7 @@ function zetStatus(s) {
   $("stStem").className = s.stem_soort || "";
   $("stStem").title = s.stem_reden || "";
   $("stNaam").textContent = s.naam || "—";
-  $("brein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? `N.O.V.A. · ${s.model.toUpperCase()}` : "—";
+  $("brein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? "N.O.V.A." : "—";
   $("laptop").textContent = `${s.naam} · v${s.versie}`;
   $("brandVer").textContent = `v${s.versie}`;
 }

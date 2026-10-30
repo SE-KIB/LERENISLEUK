@@ -288,8 +288,12 @@ body[data-state=listening] .reactor-label span{color:#6b3c00}
 .hud.free .cmd>.win-h .win-btns{margin:0}
 .grip{font-size:.9rem;letter-spacing:-.1em;color:var(--c)}
 /* Inklap-docks aan de zijkant */
-.dock{position:fixed;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:6px}
+/* Ingeklapte panelen: lipjes langs de rand, elk op een eigen hoogte (--y), versleepbaar en naar de andere rand te slepen */
+.dock{position:fixed;top:0;bottom:0;width:0;z-index:20}
 .dock.l{left:0}.dock.r{right:0}
+.dock button{position:absolute;top:var(--y,50%);touch-action:none;cursor:grab}
+.dock button:active{cursor:grabbing}
+.dock.l button{left:0;translate:0 -50%}.dock.r button{right:0;translate:0 -50%}
 .dock button{writing-mode:vertical-rl;padding:12px 5px;border:1px solid var(--cd);background:rgba(0,30,45,.9);color:var(--c);
   font-family:var(--f-head);font-size:.56rem;letter-spacing:.25em;box-shadow:0 0 10px rgba(0,225,255,.15)}
 .dock.l button{border-left:0;transform:rotate(180deg)}

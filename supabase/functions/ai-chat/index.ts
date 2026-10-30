@@ -2537,13 +2537,13 @@ async function systeemCheck(who: Who, meta: Record<string, unknown>) {
     }),
     test("taalmodel", "Taalmodel", async () => {
       if (!groq) return uit("GROQ_API_KEY ontbreekt");
-      return (await groq).includes(GROQ_MODELS[0]) ? { ok: true, tekst: `Groq ${GROQ_MODELS[0].replace(/^.*\//, "")}` } : { ok: false, tekst: `${GROQ_MODELS[0]} niet beschikbaar` };
+      return (await groq).includes(GROQ_MODELS[0]) ? { ok: true, tekst: "Groq" } : { ok: false, tekst: `${GROQ_MODELS[0]} niet beschikbaar` };
     }),
     test("denken", "Denkwerk", async () => {
       if (!SMART) return uit(env("GEMINI_API_KEY") ? "uitgezet (SMART_MODEL leeg)" : "GEMINI_API_KEY ontbreekt");
       if ((geminiRust.get(SMART_MODELS[0]) ?? 0) > Date.now()) return { ok: false, tekst: "Gemini-quotum even op; Groq neemt het over" };
       await geminiModel(SMART_MODELS[0]);
-      return { ok: true, tekst: SMART_MODELS[0] };
+      return { ok: true, tekst: "Gemini" };
     }),
     test("spraak", "Spraakherkenning", async () => {
       if (!groq) return uit("browser (geen Groq-sleutel)");
@@ -2552,7 +2552,7 @@ async function systeemCheck(who: Who, meta: Record<string, unknown>) {
     test("live", "Live-gesprek", async () => {
       if (!env("GEMINI_API_KEY")) return uit("GEMINI_API_KEY ontbreekt");
       await geminiModel(LIVE_MODEL);
-      return { ok: true, tekst: LIVE_MODEL };
+      return { ok: true, tekst: "Gemini Live" };
     }),
     test("stem", "Stem", async () => {
       if (meta.eco_tts === "elevenlabs" && env("ELEVENLABS_API_KEY")) {
