@@ -455,12 +455,6 @@ select.lab-id option{background:#02121a;color:var(--c2)}
   body.drawer-open .scrim{opacity:1;pointer-events:auto}
   body.drawer-drag .left,body.drawer-drag .scrim{transition:none}
 
-  /* Panelen in- en uitklappen door op de titel te tikken */
-  .right .panel-h>span:first-child{cursor:pointer}
-  .right .panel-h>span:first-child::after{content:" ▾";color:var(--muted);font-size:.8em}
-  .right .panel.collapsed>.panel-h>span:first-child::after{content:" ▸"}
-  .right .panel.collapsed>:not(.panel-h){display:none!important}
-  .right .panel.collapsed>.panel-h{margin-bottom:0;border-bottom:0;padding-bottom:0}
 }
 @media (max-width:900px) and (prefers-reduced-motion:reduce){.left,.scrim{transition:none}}
 
@@ -534,3 +528,24 @@ body[data-werk=on] .hud .core .caption{flex:none;min-height:2.6em;max-height:5.6
 .panelen-terug:hover{opacity:1;box-shadow:var(--glow)}
 .panelen-terug[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.hud [data-win]{transition:none!important}.inst .inst-doos,.panelen-terug{animation:none}}
+
+/* Een antwoord dat blijft staan terwijl ECO weer luistert: iets gedimd */
+.caption.wacht{opacity:.7;transition:opacity .4s}
+
+/* iPhone: rustig en overzichtelijk */
+.mob-tabs{display:none}
+@media (max-width:900px){
+  .caption{display:block;-webkit-line-clamp:unset;font-size:1.05rem;line-height:1.45;max-height:38vh;overflow:auto;overscroll-behavior:contain;padding:0 4px;
+    -webkit-mask-image:linear-gradient(#000 85%,transparent);mask-image:linear-gradient(#000 85%,transparent)}
+  .caption:not(:empty){min-height:2.8em}
+  .mob-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px}
+  .mob-tabs::-webkit-scrollbar{display:none}
+  .mob-tabs button{flex:1 0 auto;background:rgba(0,20,30,.55);border:1px solid var(--cd);color:var(--muted);font:600 .62rem/1 var(--f-head);letter-spacing:.18em;
+    padding:.75rem .9rem;border-radius:999px;cursor:pointer;transition:color .2s,border-color .2s,background .2s;-webkit-tap-highlight-color:transparent}
+  .mob-tabs button[aria-pressed=true]{background:var(--c);border-color:var(--c);color:#01070c;box-shadow:var(--glow)}
+  .right>.panel[data-win]{display:none!important}
+  .right>.panel[data-win].mob-open{display:flex!important;flex-direction:column;animation:instIn .25s cubic-bezier(.2,.8,.2,1)}
+  .right .panel-h .win-btns{display:none}
+  .right>.panel.mob-open{max-height:55vh}
+  .right>.panel.mob-open[data-win=transcript]{max-height:60vh}
+}
