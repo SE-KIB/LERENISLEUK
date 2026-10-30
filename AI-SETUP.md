@@ -367,6 +367,22 @@ Gebruik je voor de developer-site een ander Spotify-account dan waarmee je luist
 *User Management* van de app. Spotify moet ergens open staan (telefoon of computer); staat hij nergens open, dan opent ECO de app.
 Ontkoppelen: tik op **SPOTIFY GEKOPPELD**.
 
+## Tv en AirPlay (muziek en video op je tv)
+- **Muziek op de tv:** "zet Drake op de tv" of "zet de muziek op de tv". ECO stuurt Spotify rechtstreeks naar de Spotify-app op je
+  tv (Spotify Connect; de tv moet aan staan met Spotify open). "Zet het terug op mijn telefoon" werkt ook.
+- **Video op de tv:** "zet de samenvatting van Feyenoord op de tv". Je iPhone zet AirPlay naar de tv en opent YouTube. Met een
+  (gratis) `YOUTUBE_API_KEY` in Supabase opent ECO meteen de juiste video, anders de zoekresultaten (dan tik je zelf op de video).
+- **AirPlay aan/uit:** "zet mijn iPhone op de tv" / "zet het terug op mijn iPhone". Ziet Spotify de tv niet, dan speelt ECO op
+  je iPhone en zet AirPlay naar de tv.
+- Een website mag AirPlay niet zelf omzetten; daarom gaat dit via één opdracht in de **Opdrachten**-app (eenmalig maken, 2 minuten):
+  1. Opdrachten → **+** → noem hem **ECO TV** (precies zo; een andere naam kan met secret `TV_OPDRACHT`).
+  2. Voeg **Als** toe: *Opdrachtinvoer* **is** `uit`.
+  3. Onder *Als*: **Stel afspeelbestemming in** → **iPhone**.
+  4. Onder *Anders*: **Stel afspeelbestemming in** → **je tv**, en daaronder nog een **Als**: *Opdrachtinvoer* **bevat** `:`
+     → **Open URL's** met *Opdrachtinvoer*.
+  5. Tik op ⓘ (details) → zet **Toon in deelpaneel** aan, zodat de opdracht tekst als invoer krijgt.
+  Test: zeg "zet mijn iPhone op de tv". De eerste keer vraagt iOS of ECO de opdracht mag openen: kies **Sta toe**.
+
 ## WhatsApp
 "Stuur Lisa via WhatsApp dat ik tien minuten later ben" → WhatsApp opent met het bericht al ingevuld voor Lisa; jij drukt op versturen.
 - ECO onthoudt nummers: "het nummer van Lisa is 06 12345678" (ook buitenlandse nummers met +32, +49, …). "Welke contacten ken je?",

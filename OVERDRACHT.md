@@ -56,6 +56,14 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
 - De widget **werkt zichzelf bij** (1× per dag van sekibar.nl/widget/eco-widget.js). Serkan moet het installatiescript nog één
   keer draaien om deze versie te krijgen; daarna nooit meer.
 
+## Verstaan en tv (PR #121, #122)
+- **#121:** ECO gooide duidelijke opdrachten weg ("ECO, open Spotify" → "(?) Sorry, dat verstond ik niet"). Nu Whisper's eigen
+  grenzen (-1.0) en een duidelijke opdracht/vraag gaat altijd door (behalve als Whisper zichzelf herhaalt).
+- **#122 Tv:** Serkan heeft een smart-tv met AirPlay en Spotify + YouTube op de tv. Spotify-tool kreeg `apparaat` (tv/telefoon/laptop/naam),
+  `overzetten` en `apparaten` (Spotify Connect). Nieuwe tool `tv`: `video` (YouTube; met `YOUTUBE_API_KEY` direct de video),
+  `airplay_aan`, `airplay_uit`, via de opdracht **ECO TV** (Shortcuts, "Stel afspeelbestemming in"). Stappen in AI-SETUP.md.
+  **Serkan moet die opdracht nog maken.**
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met
