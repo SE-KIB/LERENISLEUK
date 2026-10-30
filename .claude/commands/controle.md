@@ -40,7 +40,9 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
      dag geen kwaad doen; de import vervangt alleen dagen, dus dat zou al goed moeten zijn.
    - Laat ECO waarschuwen (BRIGHTSPACE-status, briefing, `eco_status`) als de laatste geslaagde ronde ouder is dan 36 uur.
      GitHub zet geplande workflows uit na 60 dagen zonder commits.
-2. **Tests terug in de repo, met CI.** De tests uit de vorige sessie stonden in een tijdelijke map en zijn weg.
+2. 🟡 (begonnen 30 okt, PR #133: `tests/functie_test.ts` (Deno: SSRF van web_lezen, werkmodus, interface, AI-volgorde,
+   Brightspace-ouderdom, handler) en `tests/website.test.mjs` (2× klappen, werkmodus, schakelaars, geen HTML-injectie),
+   workflow `eco-tests.yml` op elke PR. Nog te doen: de lijst hieronder.) **Tests terug in de repo, met CI.** De tests uit de vorige sessie stonden in een tijdelijke map en zijn weg.
    - Deno-tests voor de functie. Patroon: kopieer `index.ts`, vervang `import { createClient } …` door
      `const createClient = () => globalThis.__admin` en `Deno.serve(async (req) => {` door
      `globalThis.__handler = (async (req: Request) => {`. Gebruik een nep-database (`from().select().eq()…then`) en een
@@ -57,7 +59,9 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
      (nep-microfoon met `--use-file-for-fake-audio-capture`), Spotify-koppelknop en open-knop.
    - Voeg een workflow `eco-tests.yml` toe die op elke PR draait. Chromium en Playwright zijn in de cloudomgeving al
      geïnstalleerd; installeer ze in GitHub Actions zelf.
-3. **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
+3. 🟡 (30 okt, PR #133: robot-sleutel gerepareerd — een verkeerde `x-jarvis-key` naast een login telde als robot en gaf zo de
+   Brightspace-sessie; nu alleen een kloppende sleutel, vergeleken in vaste tijd, met test. `web_lezen`-SSRF getest. De rest van
+   de lijst hieronder staat nog open.) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
    (skill `code-review`, niveau high), met beveiliging voorop:
    - Spotify-terugkeer zonder login (eenmalige `state`).
    - `x-cron-key`.
