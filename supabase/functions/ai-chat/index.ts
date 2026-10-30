@@ -880,7 +880,8 @@ function mimeParse(raw: string): { head: (n: string) => string; text: string; ht
   const html = /^text\/html/i.test(ct);
   return { head, text: html ? htmlText(text) : text, html };
 }
-async function imapRapport(query: string) {
+// Alleen-lezen IMAP-sessie bij Gmail (app-wachtwoord): inloggen, "Alle berichten" openen (EXAMINE), dan doet `werk` de rest.
+async function imapSessie<T>(werk: (cmd: (c: string) => Promise<Uint8Array>) => Promise<T>): Promise<T> {
   const conn = await Deno.connectTls({ hostname: "imap.gmail.com", port: 993 });
   const enc = new TextEncoder(), dec = new TextDecoder();
   let buf = new Uint8Array(0), n = 0;
@@ -903,21 +904,57 @@ async function imapRapport(query: string) {
   try {
     while (!dec.decode(buf).includes("\r\n")) await read();
     buf = new Uint8Array(0);
-    const q = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-    await cmd(`LOGIN ${q(env("GMAIL_EMAIL"))} ${q(env("GMAIL_APP_PASSWORD").replace(/\s/g, ""))}`);
+    await cmd(`LOGIN ${imapQ(env("GMAIL_EMAIL"))} ${imapQ(env("GMAIL_APP_PASSWORD").replace(/\s/g, ""))}`);
     // "Alle berichten" heeft per taal een andere naam; zoek de map met kenmerk \All.
     const list = dec.decode(await cmd(`LIST "" "*"`));
     const all = /\* LIST \([^)]*\\All[^)]*\) "[^"]*" ("[^"]*"|\S+)/i.exec(list)?.[1] ?? `"[Gmail]/All Mail"`;
     await cmd(`EXAMINE ${all}`);
-    const ids = (/\* SEARCH([\d ]*)/.exec(dec.decode(await cmd(`UID SEARCH X-GM-RAW ${q(query)}`)))?.[1] ?? "").trim().split(/\s+/).filter(Boolean);
-    if (!ids.length) return null;
-    const res = await cmd(`UID FETCH ${ids[ids.length - 1]} (BODY.PEEK[])`);
-    const m = /\{(\d+)\}\r\n/.exec(dec.decode(res.subarray(0, 300)));
-    if (!m) throw new Error("IMAP: bericht niet ontvangen");
-    const start = m.index + m[0].length, msg = mimeParse(dec.decode(res.subarray(start, start + +m[1])));
+    const uit = await werk(cmd);
     await cmd("LOGOUT").catch(() => {});
-    return { onderwerp: mimeWords(msg.head("subject")), datum: msg.head("date"), tekst: msg.text.trim().slice(0, 5000) };
+    return uit;
   } finally { clearTimeout(timer); try { conn.close(); } catch { /* al dicht */ } }
+}
+const imapQ = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+const imapZoek = async (cmd: (c: string) => Promise<Uint8Array>, query: string) =>
+  (/\* SEARCH([\d ]*)/.exec(new TextDecoder().decode(await cmd(`UID SEARCH X-GM-RAW ${imapQ(query)}`)))?.[1] ?? "").trim().split(/\s+/).filter(Boolean);
+// Eén volledig bericht ophalen (BODY.PEEK: blijft ongelezen).
+async function imapBericht(cmd: (c: string) => Promise<Uint8Array>, uid: string) {
+  const res = await cmd(`UID FETCH ${uid} (BODY.PEEK[])`), dec = new TextDecoder();
+  const m = /\{(\d+)\}\r\n/.exec(dec.decode(res.subarray(0, 300)));
+  if (!m) return null;
+  const start = m.index + m[0].length;
+  return mimeParse(dec.decode(res.subarray(start, start + +m[1])));
+}
+async function imapRapport(query: string) {
+  return await imapSessie(async (cmd) => {
+    const ids = await imapZoek(cmd, query);
+    if (!ids.length) return null;
+    const msg = await imapBericht(cmd, ids[ids.length - 1]);
+    if (!msg) throw new Error("IMAP: bericht niet ontvangen");
+    return { onderwerp: mimeWords(msg.head("subject")), datum: msg.head("date"), tekst: msg.text.trim().slice(0, 5000) };
+  });
+}
+// mail_zoeken / mail_lezen zonder Google-koppeling: via het app-wachtwoord, alleen lezen. Ids zijn "imap:<uid>".
+async function imapMailZoeken(query: string, n: number) {
+  return await imapSessie(async (cmd) => {
+    const ids = (await imapZoek(cmd, query)).slice(-n).reverse(); // nieuwste eerst
+    const uit = [];
+    for (const uid of ids) {
+      const raw = new TextDecoder().decode(await cmd(`UID FETCH ${uid} (FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])`));
+      const kop = raw.slice(raw.indexOf("}\r\n") + 3), h = mimeParse(kop + "\r\n\r\n");
+      uit.push({ id: `imap:${uid}`, van: mimeWords(h.head("from")), onderwerp: mimeWords(h.head("subject")), datum: h.head("date"), ongelezen: !/\\Seen/.test(raw.slice(0, raw.indexOf("}"))) });
+    }
+    return uit;
+  });
+}
+async function imapMailLezen(id: string) {
+  const uid = /^imap:(\d+)$/.exec(id)?.[1];
+  if (!uid) return { fout: "onbekend mail-id" };
+  return await imapSessie(async (cmd) => {
+    const msg = await imapBericht(cmd, uid);
+    if (!msg) return { fout: "mail niet gevonden" };
+    return { van: mimeWords(msg.head("from")), onderwerp: mimeWords(msg.head("subject")), datum: msg.head("date"), tekst: msg.text.trim().slice(0, 6000) };
+  });
 }
 async function dagrapport(dag?: string) {
   const query = rapportQuery(dag);
@@ -2726,7 +2763,12 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
   if (name === "rekenen") { try { return { expressie: input.expressie, uitkomst: calc(String(input.expressie ?? "")) }; } catch (e) { return { fout: (e as Error).message }; } }
   if (name === "valuta") return await valuta(Number(input.bedrag), input.van, input.naar);
   if (name === "tijd") return await tijdIn(input.plaats);
-  if (!env("GOOGLE_REFRESH_TOKEN")) return { fout: "Google (mail) is nog niet gekoppeld." };
+  if (!env("GOOGLE_REFRESH_TOKEN")) {
+    // Geen Google-koppeling: zoeken en lezen kan ook via het app-wachtwoord (alleen lezen); een concept maken niet.
+    if (GMAIL_IMAP() && name === "mail_zoeken") return await imapMailZoeken(String(input.zoekterm ?? ""), Math.min(Number(input.aantal) || 5, 20));
+    if (GMAIL_IMAP() && name === "mail_lezen") return await imapMailLezen(String(input.id ?? ""));
+    return { fout: name === "mail_concept_maken" ? "Een concept maken kan alleen met de Google-koppeling; ECO kan je mail wel lezen en doorzoeken." : "Google (mail) is nog niet gekoppeld." };
+  }
   const token = await googleToken();
   const auth = { Authorization: `Bearer ${token}` };
   if (name === "mail_zoeken") {
