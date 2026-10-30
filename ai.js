@@ -1002,7 +1002,7 @@ var werk = {
     if (!this.aan() || !$("werk")) return;
     clearTimeout(this.timer);
     if (this.vers) { $("werkLijst").textContent = ""; this.kaarten.clear(); this.vers = false; }
-    if (!this.open()) flip(() => { document.body.dataset.werk = "on"; $("werk").hidden = false; });
+    if (!this.open()) { flip(() => { document.body.dataset.werk = "on"; $("werk").hidden = false; }); rustig(true); }
     const li = document.createElement("li");
     li.className = "werk-stap bezig";
     li.innerHTML = "<i></i><div><b></b><span></span><em></em></div><time></time>";
@@ -1040,6 +1040,7 @@ var werk = {
     clearTimeout(this.timer);
     if (!this.open()) return;
     flip(() => { document.body.dataset.werk = "off"; $("werk").hidden = true; });
+    rustig(false);
   },
 };
 function setCaption(text, cls = "") {
@@ -2710,3 +2711,52 @@ clock(); setInterval(clock, 1000);
 readouts();
 sizeViz(); requestAnimationFrame(drawViz);
 boot();
+
+// ---------- Instellingen: alles wat BEDIENING druk maakte, in één venster met tabbladen ----------
+const instOpen = (tab) => {
+  closeDrawer();
+  if (tab) instTab(tab);
+  $("instellingen").hidden = false;
+};
+const instDicht = () => { $("instellingen").hidden = true; };
+function instTab(naam) {
+  for (const b of document.querySelectorAll(".inst-tabs [data-tab]")) { b.classList.toggle("on", b.dataset.tab === naam); b.setAttribute("aria-selected", b.dataset.tab === naam); }
+  for (const s of document.querySelectorAll("#instellingen [data-blad]")) s.hidden = s.dataset.blad !== naam;
+  try { localStorage.setItem("eco-inst-tab", naam); } catch { /* geen opslag */ }
+}
+$("instOpen").onclick = () => { let t = "spraak"; try { t = localStorage.getItem("eco-inst-tab") || t; } catch { /* geen opslag */ } instOpen(t); };
+$("instSluit").onclick = instDicht;
+$("instellingen").addEventListener("click", (e) => { if (e.target === $("instellingen")) instDicht(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("instellingen").hidden) instDicht(); });
+for (const b of document.querySelectorAll(".inst-tabs [data-tab]")) b.onclick = () => instTab(b.dataset.tab);
+// Stemlab opent boven op de instellingen: die eerst dicht.
+$("labOpen").addEventListener("click", instDicht);
+
+// ---------- Rustig scherm: gaat ECO aan het werk (reactor in de hoek), dan schuiven de andere panelen soepel opzij ----------
+try { $("rustig").checked = localStorage.getItem("eco-rustig") !== "0"; } catch { /* geen opslag */ }
+$("rustig").addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-rustig", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  if (!e.target.checked) rustig(false);
+});
+function rustig(aan) {
+  const app = $("app");
+  if (aan && (!$("rustig")?.checked || !matchMedia("(min-width: 901px)").matches)) return;
+  if (aan) {
+    const breed = app.clientWidth;
+    for (const w of app.querySelectorAll("[data-win]")) {
+      if (w.dataset.win === "kern" || w.dataset.win === "cmd") continue;
+      const r = w.getBoundingClientRect(), links = r.left + r.width / 2 < breed / 2;
+      w.style.setProperty("--weg", `${links ? -(r.right + 40) : breed - r.left + 40}px`);
+    }
+  }
+  document.body.dataset.rustig = aan ? "on" : "off";
+  $("panelenTerug").hidden = !aan;
+}
+// Knop aan de rand: panelen even terughalen (ECO blijft gewoon doorwerken).
+{
+  const k = document.createElement("button");
+  k.type = "button"; k.id = "panelenTerug"; k.className = "panelen-terug"; k.hidden = true;
+  k.textContent = "PANELEN"; k.title = "Panelen terughalen";
+  k.onclick = () => rustig(false);
+  $("app").append(k);
+}

@@ -119,13 +119,28 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
   const stappen = await page.$$eval(".werk-stap", (l) => l.map((x) => x.className.replace("werk-stap ", "")));
   ok(stappen.join(",") === "ok,ok,mis,bezig", `${naam}: stappen ok/ok/mis/bezig (${stappen})`);
   ok(!(await page.$(".werk-stap img, .werk-stap a[href^='javascript']")), `${naam}: tekst van buiten wordt nooit HTML of een javascript-link`);
+  if (naam === "computer") {
+    ok(await page.$eval("body", (b) => b.dataset.rustig === "on"), "rustig scherm: panelen opzij zodra ECO werkt");
+    { const st = await page.$eval('[data-win="status"]', (w) => [getComputedStyle(w).opacity, getComputedStyle(w).pointerEvents, getComputedStyle(w).transform, w.className]); ok(+st[0] < 0.05 && st[1] === "none", `systeemstatus is weggeschoven (${st})`); }
+    ok(await page.$eval('[data-win="cmd"]', (w) => getComputedStyle(w).opacity === "1"), "opdrachtregel blijft");
+    ok(await page.$eval("#panelenTerug", (k) => !k.hidden), "knop PANELEN om ze terug te halen");
+  }
   await page.evaluate(() => { werk.klaarAlles(); werk.sluit(); });
   await page.waitForTimeout(650);
+  ok(await page.$eval("body", (b) => b.dataset.rustig !== "on"), `${naam}: panelen terug als ECO klaar is`);
   const terug = await plek();
   ok(Math.abs(terug.x - voor.x) < 3 && Math.abs(terug.width - voor.width) < 3, `${naam}: reactor terug op zijn plek`);
   ok(await page.$eval("#werk", (w) => w.hidden), `${naam}: werkpaneel weer dicht`);
   await page.evaluate(() => { document.getElementById("werkmodus").checked = false; werk.beurt(); werk.start({ name: "web_zoeken", id: "x" }); });
   ok(!(await page.$eval("#werk", (w) => !w.hidden)), `${naam}: WERKMODUS uit = geen paneel`);
+  // Instellingen: BEDIENING is rustig, de rest zit in een venster met tabbladen
+  ok(await page.$$eval('[data-win="bediening"] .switch', (l) => l.length) === 2, `${naam}: BEDIENING heeft alleen STEM en LIVE`);
+  await page.evaluate(() => document.getElementById("instOpen").click());
+  ok(await page.$eval("#instellingen", (m) => !m.hidden), `${naam}: INSTELLINGEN opent`);
+  await page.evaluate(() => document.querySelector('.inst-tabs [data-tab="microfoon"]').click());
+  ok(await page.$eval("#micSel", (e) => e.offsetParent !== null) && await page.$eval("#sfx", (e) => e.closest("[data-blad]").hidden), `${naam}: tabblad MICROFOON`);
+  await page.keyboard.press("Escape");
+  ok(await page.$eval("#instellingen", (m) => m.hidden), `${naam}: Escape sluit`);
   await page.close();
 }
 await browser.close();
