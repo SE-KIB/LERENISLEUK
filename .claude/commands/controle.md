@@ -42,7 +42,9 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
      GitHub zet geplande workflows uit na 60 dagen zonder commits.
 2. 🟡 (begonnen 30 okt, PR #133: `tests/functie_test.ts` (Deno: SSRF van web_lezen, werkmodus, interface, AI-volgorde,
    Brightspace-ouderdom, handler) en `tests/website.test.mjs` (2× klappen, werkmodus, schakelaars, geen HTML-injectie),
-   workflow `eco-tests.yml` op elke PR. Nog te doen: de lijst hieronder.) **Tests terug in de repo, met CI.** De tests uit de vorige sessie stonden in een tijdelijke map en zijn weg.
+   workflow `eco-tests.yml` op elke PR. Ronde 3 (30 okt): Web Push (RFC 8291 echt ontsleuteld, VAPID-handtekening,
+   alleen echte push-hosts), WhatsApp-nummers, planning-ronde, exfiltratie, robot. Nog te doen: cronTick-briefing, lijst/timer/
+   spotify-tools, foto's naar Gemini, meer UI.) **Tests terug in de repo, met CI.** De tests uit de vorige sessie stonden in een tijdelijke map en zijn weg.
    - Deno-tests voor de functie. Patroon: kopieer `index.ts`, vervang `import { createClient } …` door
      `const createClient = () => globalThis.__admin` en `Deno.serve(async (req) => {` door
      `globalThis.__handler = (async (req: Request) => {`. Gebruik een nep-database (`from().select().eq()…then`) en een
