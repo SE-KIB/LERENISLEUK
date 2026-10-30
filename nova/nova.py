@@ -135,6 +135,7 @@ class NovaApp:
         self.update_later_tot = 0.0
         self._update_nu = threading.Event()
         self.klap_fout = ""  # waarom 2× klappen niet werkt (geen microfoon), voor SYSTEEMSTATUS
+        self.spreekt = False  # al vóór de stem echt begint: dan opent 2× klappen de microfoon niet tussendoor
 
     def start(self):
         self.ui.herstel({"transcript": self.logboek.data["transcript"], "pc": self.logboek.data["pc"]})  # wat er de vorige keer stond
@@ -416,7 +417,7 @@ class NovaApp:
     def klap_mag(self) -> bool:
         """Alleen naar klappen luisteren als dat aan staat en ECO niets anders doet (niet tijdens een antwoord of terwijl hij
         praat: dan hoort hij zichzelf niet)."""
-        return self.cfg.get("klappen", True) is not False and not self.bezig and not self.spreek_slot.locked()
+        return self.cfg.get("klappen", True) is not False and not self.bezig and not self.spreekt and not self.spreek_slot.locked()
 
     def klap_lus(self, rondes=None):
         """Houdt op de achtergrond de microfoon open voor twee klappen. Het geluid blijft op de laptop en wordt meteen vergeten."""
@@ -551,7 +552,9 @@ class NovaApp:
                 except Exception as e:
                     self.stem_gebruikt("GEEN — ALLEEN TEKST", f"{type(e).__name__}: {e}")
                 finally:
+                    self.spreekt = False
                     self.ui.staat("idle")  # altijd terug naar stand-by, ook na ECO's stem
+        self.spreekt = True
         threading.Thread(target=doe, daemon=True).start()
 
     def spreek_met_stem(self, tekst):

@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, gelijkGeheim, robotStarten };\n";
+  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -39,11 +39,25 @@ const acties = (emit?: (ev: Record<string, unknown>) => void) => ({ userId: "u",
 
 Deno.test("web_lezen: geen interne adressen (SSRF), alleen http/https", () => {
   for (const slecht of ["http://localhost/", "http://127.0.0.1/", "http://10.0.0.5/", "http://192.168.1.1/", "http://169.254.169.254/latest",
-    "http://[::1]/", "file:///etc/passwd", "ftp://example.com/x", "http://user:pw@example.com/", "http://example.com:8080/", "intranet"]) {
+    "http://[::1]/", "file:///etc/passwd", "ftp://example.com/x", "http://user:pw@example.com/", "http://example.com:8080/", "intranet",
+    "http://2130706433/", "http://0x7f.1/", "http://127.0.0.1.nip.io/", "http://a.localtest.me/", "http://10.0.0.1.sslip.io/"]) {
     gelijk(m.webAdres(slecht), null, slecht);
   }
   gelijk(m.webAdres("nos.nl")?.href, "https://nos.nl/");
   gelijk(m.webAdres("https://www.ah.nl/winkel?x=1")?.hostname, "www.ah.nl");
+});
+
+Deno.test("web_lezen: een naam die naar een intern adres wijst wordt niet geopend", async () => {
+  const echt = Deno.resolveDns;
+  (Deno as any).resolveDns = async (naam: string, soort: string) => soort !== "A" ? [] : naam === "stiekem.voorbeeld.nl" ? ["10.1.2.3"] : ["93.184.215.14"];
+  try {
+    gelijk(await m.openbaarAdres(new URL("https://stiekem.voorbeeld.nl/")), false);
+    gelijk(await m.openbaarAdres(new URL("https://nos.nl/")), true);
+    (Deno as any).resolveDns = async () => { throw new Error("niet toegestaan"); };
+    gelijk(await m.openbaarAdres(new URL("https://nos.nl/")), true, "geen DNS: de naamcontrole blijft gelden");
+    (Deno as any).resolveDns = undefined;
+    gelijk(await m.openbaarAdres(new URL("https://nos.nl/")), true, "geen resolveDns in deze omgeving: niet crashen");
+  } finally { (Deno as any).resolveDns = echt; }
 });
 
 Deno.test("htmlNaarTekst: rare tekens laten hem niet crashen", () => {
@@ -116,8 +130,7 @@ Deno.test("robot-sleutel: alleen een kloppende sleutel geeft de Brightspace-sess
   gelijk((await vraag({ "x-jarvis-key": "fout" })).status, 401, "verkeerde sleutel");
   const goed = await vraag({ "x-jarvis-key": "robot-geheim" });
   gelijk(goed.status, 200, "goede sleutel");
-  gelijk(m.gelijkGeheim("abc", "abc"), true);
-  gelijk([m.gelijkGeheim("abc", "abd"), m.gelijkGeheim("abc", "abcd"), m.gelijkGeheim("", ""), m.gelijkGeheim("x", "")], [false, false, false, false]);
+  gelijk([m.safeEqual("abc", "abc"), m.safeEqual("abc", "abd"), m.safeEqual("abc", "abcd")], [true, false, false]);
 });
 
 Deno.test("Brightspace-robot: de klok start hem één keer per dag, alleen met token en als Brightspace gekoppeld is", async () => {
