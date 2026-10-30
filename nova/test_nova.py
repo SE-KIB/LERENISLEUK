@@ -220,7 +220,7 @@ class TestApp(unittest.TestCase):
         app = nova.NovaApp(ui)
         app.cfg.update(eco_sleutel="x", stem=False)
         app.brug.online = True
-        app.eco.chat = lambda t, c, on_delta, on_tool: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
+        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
         app.vraag("open spotify")
         self.assertEqual([e[0] for e in ui.ev], ["staat", "jij", "tool", "nova_start", "delta", "delta", "nova_eind", "staat"])
         self.assertEqual(app.conv, "c1")
@@ -524,6 +524,135 @@ class TestInstellingen(unittest.TestCase):
         self.assertEqual(gevraagd, ["hoe laat is het"])
 
 
+class TestKlappen(unittest.TestCase):
+    """2× klappen = ECO luistert. Nagebootst geluid: klappen, praten, muziek, applaus."""
+    R = 16000
+
+    def setUp(self):
+        self.rng = np.random.default_rng(1)
+
+    def stil(self, s, n=0.002):
+        return self.rng.normal(0, n, int(self.R * s))
+
+    def klap(self, luid=0.5):  # 2 ms aanzet, ~25 ms uitsterven, alle tonen door elkaar
+        t = np.arange(int(self.R * 0.08)) / self.R
+        return self.rng.normal(0, 1, len(t)) * luid * np.minimum(1, t / 0.002) * np.exp(-t / 0.025)
+
+    def stem(self, s):
+        t = np.arange(int(self.R * s)) / self.R
+        return 0.15 * (np.sin(2 * np.pi * 180 * t) + 0.5 * np.sin(2 * np.pi * 420 * t)) * (0.6 + 0.4 * np.sin(2 * np.pi * 4 * t))
+
+    def muziek(self, s):  # beat (tik) elke 0,5 s over een toon
+        t = np.arange(int(self.R * s)) / self.R
+        x = 0.1 * np.sin(2 * np.pi * 220 * t)
+        for b in np.arange(0, s, 0.5):
+            i, k = int(b * self.R), self.klap(0.4)
+            x[i:i + len(k)] += k[:len(x) - i]
+        return x
+
+    def pcm(self, delen):
+        return (np.clip(np.concatenate(delen), -1, 1) * 32767).astype(np.int16)
+
+    def treffers(self, delen):
+        import nova_klap
+        d, x = nova_klap.KlapDetector(self.R), self.pcm(delen)
+        return sum(d.voed(x[i:i + 512]) for i in range(0, len(x), 512))
+
+    def test_twee_klappen(self):
+        self.assertEqual(self.treffers([self.stil(1), self.klap(), self.stil(0.3), self.klap(), self.stil(1)]), 1)
+        self.assertEqual(self.treffers([self.stil(1, 0.004), self.klap(0.15), self.stil(0.4, 0.004), self.klap(0.15), self.stil(1, 0.004)]), 1)
+        self.assertEqual(self.treffers([self.stem(2), self.stil(0.6), self.klap(), self.stil(0.35), self.klap(), self.stil(1)]), 1)
+
+    def test_geen_klappen(self):
+        for naam, delen in {"één klap": [self.stil(1), self.klap(), self.stil(2)],
+                            "drie klappen": [self.stil(1), self.klap(), self.stil(0.25), self.klap(), self.stil(0.25), self.klap(), self.stil(1)],
+                            "te ver uit elkaar": [self.stil(1), self.klap(), self.stil(1.5), self.klap(), self.stil(1)],
+                            "echo": [self.stil(1), self.klap(), self.stil(0.03), self.klap(), self.stil(1)],
+                            "praten": [self.stil(0.5), self.stem(3), self.stil(1)],
+                            "muziek": [self.muziek(6)]}.items():
+            with self.subTest(naam):
+                self.assertEqual(self.treffers(delen), 0)
+
+    def nep_microfoon(self, x):
+        class Microfoon:
+            def __init__(self, samplerate, channels, dtype, blocksize, callback):
+                self.cb, self.n = callback, blocksize
+
+            def __enter__(self):
+                def speel():
+                    for i in range(0, len(x), self.n):
+                        self.cb(x[i:i + self.n].reshape(-1, 1), self.n, None, None)
+                threading.Thread(target=speel, daemon=True).start()
+                return self
+
+            def __exit__(self, *a):
+                pass
+        return mock.patch.dict(sys.modules, {"sounddevice": types.SimpleNamespace(InputStream=Microfoon)})
+
+    def test_klappen_start_luisteren(self):
+        ui, app = nep_app(online=True)
+        geluisterd = []
+        with self.nep_microfoon(self.pcm([self.stil(1), self.klap(), self.stil(0.3), self.klap(), self.stil(1)])), \
+                mock.patch.object(app, "luister", lambda: geluisterd.append(1)):
+            app.klap_lus(rondes=1)
+        self.assertEqual(geluisterd, [1])
+        self.assertIn(("sys", "👏👏 Ik luister."), ui.ev)
+
+    def test_niet_tijdens_antwoord_of_praten(self):
+        _, app = nep_app(online=True)
+        self.assertTrue(app.klap_mag())
+        app.bezig = True
+        self.assertFalse(app.klap_mag())
+        app.bezig = False
+        with app.spreek_slot:  # ECO praat: dan hoort hij zichzelf niet
+            self.assertFalse(app.klap_mag())
+        app.cfg["klappen"] = False
+        self.assertFalse(app.klap_mag())
+
+    def test_geen_microfoon(self):
+        ui, app = nep_app(online=True)
+
+        def kapot(*a, **k):
+            raise OSError("geen invoerapparaat")
+        with mock.patch.dict(sys.modules, {"sounddevice": types.SimpleNamespace(InputStream=kapot)}), mock.patch("time.sleep", lambda s: None):
+            app.klap_lus(rondes=1)
+        self.assertIn("geen invoerapparaat", app.klap_fout)
+        app.toon_status()
+        self.assertEqual([e for e in ui.ev if e[0] == "status"][-1][1]["klappen"], "GEEN MICROFOON")
+
+    def test_eco_zet_klappen_uit(self):  # "zet klappen uit" via ECO's tool interface
+        pad = Path(tempfile.mkdtemp()) / "config.json"
+        oud = core.bewaar_config
+        core.bewaar_config = lambda cfg, p=None: oud(cfg, pad)
+        try:
+            ui, app = nep_app(online=True)
+            app.cfg["stem"] = False
+            regels = ['data: {"t":"tool","name":"interface"}', "", 'data: {"t":"ui","onderdeel":"klappen","aan":false}', "",
+                      'data: {"t":"done","reply":"Klappen staat uit."}', ""]
+            r = types.SimpleNamespace(iter_lines=lambda decode_unicode=True: iter(regels), encoding=None)
+            with mock.patch.object(app.eco, "_post", lambda *a, **k: r):
+                app.vraag("zet klappen uit")
+            self.assertFalse(app.cfg["klappen"])
+            self.assertFalse([e for e in ui.ev if e[0] == "inst"][-1][1]["klappen"])
+            self.assertTrue(app.eco._ui()["klappen"] is False)
+        finally:
+            core.bewaar_config = oud
+
+    def test_instelling(self):
+        pad = Path(tempfile.mkdtemp()) / "config.json"
+        oud = core.bewaar_config
+        core.bewaar_config = lambda cfg, p=None: oud(cfg, pad)
+        try:
+            ui, app = nep_app(online=True)
+            self.assertTrue(app.inst()["klappen"])  # standaard aan
+            app.instellingen({"klappen": False})
+            self.assertFalse(core.laad_config(pad)["klappen"])
+            self.assertFalse(app.inst()["klappen"])
+            self.assertEqual([e for e in ui.ev if e[0] == "status"][-1][1]["klappen"], "UIT")
+        finally:
+            core.bewaar_config = oud
+
+
 class TestOnthouden(unittest.TestCase):
     """NOVA onthoudt het transcript, de PC-acties, het gesprek en de plek van het venster als hij uit en aan gaat."""
 
@@ -531,7 +660,7 @@ class TestOnthouden(unittest.TestCase):
         map_ = Path(tempfile.mkdtemp())
         ui, app = nep_app(online=True, map_=map_)
         app.cfg.update(stem=False)
-        app.eco.chat = lambda t, c, on_delta, on_tool: (on_delta("Het is 13:05."), ("Het is 13:05.", "conv-7"))[-1]
+        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None: (on_delta("Het is 13:05."), ("Het is 13:05.", "conv-7"))[-1]
         app.vraag("hoe laat is het")
         app.pc_actie("info", {})
         # NOVA uit en weer aan

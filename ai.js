@@ -43,7 +43,7 @@ const STATE_LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWE
 function setState(s) {
   document.body.dataset.state = s;
   $("stateLabel").textContent = STATE_LABEL[s];
-  wakeOnState(s); // "Hé Eco" luistert alleen in stand-by, niet terwijl ECO luistert, denkt of praat
+  wakeOnState(s); // 2× klappen luistert alleen in stand-by, niet terwijl ECO luistert, denkt of praat
   bargeOnState(s); // onderbreken: tijdens het praten luistert ECO of jij ertussen praat
 }
 
@@ -999,7 +999,7 @@ $("input").addEventListener("focus", warm); // je gaat typen: server alvast klaa
 
 let turn = 0; // nummer van de lopende vraag; een nieuwe vraag maakt de oude ongeldig
 // Stand van de interface, zodat ECO vragen over zichzelf kan beantwoorden.
-const uiState = () => ({ stem: $("speak").checked, geluid: $("sfx").checked, gespreksmodus: !!$("convo")?.checked, he_eco: !!$("wake")?.checked,
+const uiState = () => ({ stem: $("speak").checked, geluid: $("sfx").checked, gespreksmodus: !!$("convo")?.checked, klappen: !!$("klap")?.checked,
   versie: $("version").textContent.trim(), scherm: matchMedia("(min-width: 901px)").matches ? "computer" : "telefoon" });
 // ECO bedient zijn eigen interface (tool "interface").
 function applyUi(ev, afterDone) {
@@ -1007,7 +1007,7 @@ function applyUi(ev, afterDone) {
   if (ev.onderdeel === "stem") { set("speak", ev.aan); if (!ev.aan) stopSpeaking(); }
   else if (ev.onderdeel === "geluid") set("sfx", ev.aan);
   else if (ev.onderdeel === "gespreksmodus") set("convo", ev.aan);
-  else if (ev.onderdeel === "he_eco") set("wake", ev.aan);
+  else if (ev.onderdeel === "klappen" || ev.onderdeel === "he_eco") set("klap", ev.aan);
   else if (ev.onderdeel === "menu") setDrawer(true);
   else if (ev.onderdeel === "nieuw_gesprek") afterDone.push(() => $("newChat").click());
   else if (ev.onderdeel === "archief") afterDone.push(() => loadConversations());
@@ -1463,63 +1463,121 @@ function convoNext(answered) {
   setTimeout(() => { if (convo.on && document.body.dataset.state === "idle" && !rec && !recording) listen(); }, 350);
 }
 
-// ---------- "Hé Eco": wekwoord zolang ECO open staat (spraakherkenning van de browser) ----------
-// Zegt je "Hé Eco" (of "hey echo", "oké eco"), dan luistert ECO met Whisper naar je vraag. Zeg je alles in één adem
-// ("Hé Eco, hoe laat begint water?"), dan gaat de rest meteen als vraag naar ECO.
-var wakeRec = null, wakeTimer = null, wakeFails = 0;
-const WAKE = /(?:^|\b)(?:h[eé]+[jy]?|hoi|hallo|ok[eé]?|yo)[\s,!.]*(?:eco|echo|ecco|eko|ekko|ego|eggo)\b[\s,!.]*(.*)$/i;
-const wakeOn = () => !!(Rec && $("wake")?.checked && !$("app").hidden && document.visibilityState === "visible" && !live?.on && !luisterPauze);
-function wakeOnState(s) {
-  clearTimeout(wakeTimer);
-  if (s === "idle") wakeTimer = setTimeout(wakeStart, 700); else wakeStop();
-}
-function wakeStart() {
-  document.body.dataset.wake = wakeOn() ? "on" : "off";
-  if (!wakeOn() || wakeRec || rec || recording || document.body.dataset.state !== "idle") return;
-  const r = new Rec();
-  r.lang = "nl-NL"; r.continuous = true; r.interimResults = false;
-  r.onresult = (e) => {
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const heard = e.results[i][0].transcript.trim();
-      if (isStop(heard)) { stopLuisteren("Oké, ik luister niet meer mee. Tik op de microfoon als je me nodig hebt."); return; }
-      const m = WAKE.exec(heard);
-      if (m) { wakeFails = 0; wakeHit(m[1].trim()); return; }
+// ---------- 2× klappen: ECO luistert (in plaats van "Hé Eco") ----------
+// Zolang ECO open staat en niets doet, staat de microfoon open voor klappen. Dat wordt in de browser zelf herkend: het
+// geluid gaat nergens heen. Een klap is een korte, scherpe tik; er moeten er precies twee komen, 0,15 tot 0,8 s na elkaar,
+// in de stilte. Eén klap, applaus, praten of muziek tellen niet. Zelfde regels als nova/nova_klap.py (laptop-app).
+class KlapDetector {
+  constructor(rate) {
+    this.n = Math.round(rate * 0.01); this.buf = new Float32Array(this.n); this.i = 0; this.t = 0;
+    this.vloer = 0.003; this.vorige = 0; this.laatstHard = -10; this.staart = -10; this.kandidaat = null; this.klappen = [];
+  }
+  voed(x) { // geeft true op het moment dat er twee keer geklapt is
+    let raak = false;
+    for (let k = 0; k < x.length; k++) {
+      this.buf[this.i++] = x[k];
+      if (this.i === this.n) { this.i = 0; if (this.vak(this.buf)) raak = true; }
     }
-  };
-  r.onerror = (e) => {
-    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-      $("wake").checked = false; document.body.dataset.wake = "off";
-      setCaption("Hé Eco heeft toegang tot de microfoon nodig.", "err");
-    } else if (e.error !== "no-speech" && e.error !== "aborted") wakeFails++;
-  };
-  r.onend = () => {
-    if (wakeRec !== r) return;
-    wakeRec = null;
-    clearTimeout(wakeTimer);
-    wakeTimer = setTimeout(wakeStart, Math.min(8000, 300 + wakeFails * 1500)); // blijven luisteren, rustiger na fouten
-  };
-  try { r.start(); wakeRec = r; } catch { /* al bezig */ }
+    return raak;
+  }
+  vak(v) { // per 10 ms
+    this.t += 0.01;
+    let som = 0, wissel = 0;
+    for (let k = 0; k < v.length; k++) { som += v[k] * v[k]; if (k && (v[k] < 0) !== (v[k - 1] < 0)) wissel++; }
+    const rms = Math.sqrt(som / v.length) + 1e-9, zcr = wissel / (v.length - 1), drempel = Math.max(0.02, this.vloer * 6);
+    if (this.kandidaat) { // een korte tik (klap) of iets dat blijft (stem, muziek)?
+      this.kandidaat.piek = Math.max(this.kandidaat.piek, rms);
+      if (rms < this.kandidaat.piek * 0.25) { const begin = this.kandidaat.begin; this.kandidaat = null; this.staart = this.t + 0.15; return this.klap(begin); }
+      if (this.t - this.kandidaat.begin > 0.15) { this.kandidaat = null; this.klappen = []; this.laatstHard = this.t; }
+    } else if (rms > drempel && rms > this.vorige * 3 && zcr > 0.12) this.kandidaat = { begin: this.t, piek: rms };
+    else if (rms > drempel && (this.t > this.staart || rms > this.vorige * 1.2)) this.laatstHard = this.t; // hard maar geen klap (galm telt niet)
+    if (this.klappen.length && this.laatstHard > this.klappen[0]) this.klappen = []; // iets anders tussendoor: niet in de stilte
+    if (!this.kandidaat && rms < drempel) this.vloer += (Math.min(rms, 0.05) - this.vloer) * 0.02; // achtergrondgeluid volgen
+    this.vorige = rms;
+    if (this.klappen.length === 2 && !this.kandidaat && this.t - this.klappen[1] >= 0.35) { this.klappen = []; return true; } // geen derde klap
+    if (this.klappen.length === 1 && this.t - this.klappen[0] > 0.8) this.klappen = [];
+    return false;
+  }
+  klap(t) {
+    if (!this.klappen.length) { if (t - this.laatstHard >= 0.3) this.klappen = [t]; return false; }
+    const tussen = t - this.klappen[this.klappen.length - 1];
+    if (this.klappen.length === 1 && tussen >= 0.15 && tussen <= 0.8) this.klappen.push(t);
+    else { this.klappen = []; this.laatstHard = t; } // te snel, te laat of een derde klap: opnieuw
+    return false;
+  }
+}
+var wakeRec = null; // de open microfoon voor de klappen
+const klap = { nodes: [], timer: 0, starting: false, gebaar: false };
+const KAN_KLAPPEN = !!(navigator.mediaDevices?.getUserMedia && (window.AudioContext || window.webkitAudioContext));
+const wakeOn = () => !!(KAN_KLAPPEN && $("klap")?.checked && !$("app").hidden && document.visibilityState === "visible" && !live?.on && !luisterPauze);
+function wakeOnState(s) {
+  clearTimeout(klap.timer);
+  if (s === "idle") klap.timer = setTimeout(wakeStart, 700); else wakeStop();
+}
+async function micToegestaan() {
+  try { return (await navigator.permissions.query({ name: "microphone" })).state === "granted"; } catch { return false; }
+}
+async function wakeStart() {
+  document.body.dataset.wake = wakeOn() ? "on" : "off";
+  if (!wakeOn() || wakeRec || klap.starting || rec || recording || document.body.dataset.state !== "idle") return;
+  klap.starting = true;
+  let s;
+  try {
+    if (!klap.gebaar && !(await micToegestaan())) return; // nog geen toestemming: pas vragen na je eerste tik
+    // Zonder ruisonderdrukking en automatische versterking: die vlakken juist de scherpe tik van een klap af.
+    s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, ...micVoorkeur() } });
+  } catch (e) {
+    if (e?.name === "NotAllowedError") { $("klap").checked = false; document.body.dataset.wake = "off"; setCaption("2× klappen heeft toegang tot de microfoon nodig.", "err"); }
+    return;
+  } finally { klap.starting = false; }
+  if (!wakeOn() || wakeRec || rec || recording || document.body.dataset.state !== "idle") { s.getTracks().forEach((t) => t.stop()); return; }
+  wakeRec = s;
+  try {
+    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    actx.resume().catch(() => {});
+    const det = new KlapDetector(actx.sampleRate), src = actx.createMediaStreamSource(s), stil = actx.createGain();
+    stil.gain.value = 0;
+    const frames = (d) => { if (wakeRec === s && det.voed(d)) wakeHit(); };
+    let node;
+    try {
+      liveWorkletUrl ||= URL.createObjectURL(new Blob([LIVE_WORKLET], { type: "application/javascript" }));
+      if (!liveWorkletCtx.has(actx)) { await actx.audioWorklet.addModule(liveWorkletUrl); liveWorkletCtx.add(actx); }
+      node = new AudioWorkletNode(actx, "eco-mic");
+      node.port.onmessage = (e) => frames(e.data);
+    } catch { // oudere browsers
+      node = actx.createScriptProcessor(2048, 1, 1);
+      node.onaudioprocess = (e) => frames(e.inputBuffer.getChannelData(0));
+    }
+    if (wakeRec !== s) return void node.disconnect();
+    src.connect(node); node.connect(stil); stil.connect(actx.destination);
+    klap.nodes = [src, node, stil];
+  } catch { wakeStop(); }
 }
 function wakeStop() {
-  clearTimeout(wakeTimer);
-  const r = wakeRec; wakeRec = null;
-  try { r?.abort(); } catch { /* al gestopt */ }
+  clearTimeout(klap.timer);
+  for (const n of klap.nodes) { try { n.disconnect(); } catch { /* al los */ } }
+  klap.nodes = [];
+  const s = wakeRec; wakeRec = null;
+  s?.getTracks().forEach((t) => t.stop());
 }
-function wakeHit(rest) {
+function wakeHit() {
   wakeStop();
   sfx.listen();
-  const vraag = rest.replace(/[^a-zà-ÿ0-9]/gi, "").length > 3 ? rest : "";
-  if (liveWanted()) return liveStart(vraag);
-  if (vraag) { setCaption("› " + rest, "user"); ask({ text: rest }); }
-  else listen();
+  if (liveWanted()) return liveStart("");
+  listen();
 }
-if (!Rec && $("wakeSwitch")) $("wakeSwitch").hidden = true;
-try { if ($("wake")) $("wake").checked = localStorage.getItem("eco-wake") === "1"; } catch { /* geen opslag */ }
-$("wake")?.addEventListener("change", (e) => {
-  try { localStorage.setItem("eco-wake", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
-  if (e.target.checked) { hervat(); unlockAudio(); wakeStart(); setCaption("Zeg \"Hé Eco\" als je iets wilt vragen.", "user"); }
+if (!KAN_KLAPPEN && $("klapSwitch")) $("klapSwitch").hidden = true;
+try { // standaard aan op de computer; op de telefoon pas als je hem aanzet (een open microfoon onderbreekt daar andere muziek)
+  const k = localStorage.getItem("eco-klap") ?? (localStorage.getItem("eco-wake") === "1" || !matchMedia("(pointer: coarse)").matches ? "1" : "0");
+  if ($("klap")) $("klap").checked = k === "1";
+} catch { if ($("klap")) $("klap").checked = !matchMedia("(pointer: coarse)").matches; }
+$("klap")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-klap", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  if (e.target.checked) { klap.gebaar = true; hervat(); unlockAudio(); wakeStart(); setCaption("Klap 2× als je iets wilt vragen.", "user"); }
   else { wakeStop(); document.body.dataset.wake = "off"; }
 });
+// Na je eerste tik mag de browser de microfoon vragen en geluid verwerken.
+addEventListener("pointerdown", () => { klap.gebaar = true; actx?.resume?.().catch(() => {}); setTimeout(wakeStart, 1500); }, { once: true, capture: true });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeStart(); else wakeStop(); });
 
 // ---------- Onderbreken: praat ertussen terwijl ECO praat ----------
@@ -1613,7 +1671,7 @@ async function liveStart(firstText = "", vanzelf = false) {
     // Eerst de audiosessie en dan de microfoon (de sessie wisselen tijdens het opnemen kan de microfoon op stil zetten).
     // Zolang de microfoon opneemt, mag de iPhone ook geluid afspelen.
     try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch { /* oudere Safari */ }
-    if (micBezet) await new Promise((r) => setTimeout(r, 350)); // "Hé Eco" of onderbreken moet de microfoon eerst loslaten
+    if (micBezet) await new Promise((r) => setTimeout(r, 350)); // 2× klappen of onderbreken moet de microfoon eerst loslaten
     live.stream = await liveGetMic(liveMicPref());
     audioOut();
     await Promise.race([actx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 800))]);

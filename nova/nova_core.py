@@ -33,6 +33,7 @@ STANDAARD = {
     "volgorde": {},               # eigen volgorde per soort (zie VOLGORDES); leeg = standaard
     "indeling": {},               # eigen plek en grootte van de blokken (delen van het venster)
     "magneet": True,              # blokken klikken vast aan elkaar
+    "klappen": True,              # 2× klappen = ECO luistert (herkend op de laptop zelf)
 }
 # Wat NOVA probeert, in volgorde: het eerste dat werkt, wint.
 VOLGORDES = {
@@ -125,7 +126,7 @@ class Eco:
             raise EcoFout(f"ECO {r.status_code}: {fout}")
         return r
 
-    def _stroom(self, r, on_delta=None, on_tool=None, on_heard=None):
+    def _stroom(self, r, on_delta=None, on_tool=None, on_heard=None, on_ui=None):
         r.encoding = "utf-8"
         tekst, conv, gehoord = "", None, None
         for ev in sse_events(r.iter_lines(decode_unicode=True)):
@@ -142,6 +143,8 @@ class Eco:
                     on_delta(ev.get("text", ""))
             elif t == "tool" and on_tool:
                 on_tool(ev.get("name", ""))
+            elif t == "ui" and on_ui:  # ECO zet iets in deze app aan of uit ("zet klappen uit")
+                on_ui(ev.get("onderdeel", ""), ev.get("aan", True) is not False)
             elif t == "done":
                 tekst = ev.get("reply") or tekst
             elif t == "error":
@@ -150,19 +153,20 @@ class Eco:
 
     def _ui(self) -> dict:
         """Wat ECO over NOVA weet: welk scherm, en in welke volgorde Serkan ECO's modellen wil."""
-        return {"app": "NOVA", "scherm": "laptop", "modellen": volgorde(self.cfg, "eco")}
+        return {"app": "NOVA", "scherm": "laptop", "modellen": volgorde(self.cfg, "eco"), "stem": bool(self.cfg.get("stem", True)),
+                "klappen": self.cfg.get("klappen", True) is not False}
 
-    def chat(self, tekst: str, conv_id: str | None = None, on_delta=None, on_tool=None):
+    def chat(self, tekst: str, conv_id: str | None = None, on_delta=None, on_tool=None, on_ui=None):
         r = self._post({"message": tekst, "conversationId": conv_id, "stream": True, "ui": self._ui()}, timeout=90, stream=True)
-        antwoord, conv, _ = self._stroom(r, on_delta, on_tool)
+        antwoord, conv, _ = self._stroom(r, on_delta, on_tool, on_ui=on_ui)
         return antwoord, conv or conv_id
 
-    def spraak_chat(self, wav: bytes, conv_id: str | None = None, on_heard=None, on_delta=None, on_tool=None):
+    def spraak_chat(self, wav: bytes, conv_id: str | None = None, on_heard=None, on_delta=None, on_tool=None, on_ui=None):
         data = {"chat": "1", "ui": json.dumps(self._ui())}
         if conv_id:
             data["conversationId"] = conv_id
         r = self._post(files={"file": ("spraak.wav", wav, "audio/wav")}, data=data, timeout=90, stream=True)
-        antwoord, conv, gehoord = self._stroom(r, on_delta, on_tool, on_heard)
+        antwoord, conv, gehoord = self._stroom(r, on_delta, on_tool, on_heard, on_ui)
         return antwoord, conv or conv_id, gehoord
 
     def uitschrijven(self, wav: bytes) -> str:

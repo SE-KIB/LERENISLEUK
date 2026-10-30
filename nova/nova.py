@@ -134,13 +134,15 @@ class NovaApp:
         self.update_info = None  # een nieuwere NOVA waarvan NOVA vraagt of hij mag bijwerken
         self.update_later_tot = 0.0
         self._update_nu = threading.Event()
+        self.klap_fout = ""  # waarom 2× klappen niet werkt (geen microfoon), voor SYSTEEMSTATUS
 
     def start(self):
         self.ui.herstel({"transcript": self.logboek.data["transcript"], "pc": self.logboek.data["pc"]})  # wat er de vorige keer stond
         self.brug.start()
         threading.Thread(target=self.lokaal_lus, daemon=True).start()
         threading.Thread(target=self.update_lus, daemon=True).start()
-        self.ui.sys(f"ECO ({self.versie()}) gestart op {self.cfg['naam']}.")
+        threading.Thread(target=self.klap_lus, daemon=True).start()
+        self.ui.sys(f"ECO ({self.versie()}) gestart op {self.cfg['naam']}." + (" Klap 2× om te praten." if self.cfg.get("klappen", True) else ""))
         self.toon_status()
 
     def stop(self):
@@ -206,7 +208,9 @@ class NovaApp:
         basis = {"eco": "BEREIKBAAR" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
                  "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
                  "naam": self.cfg["naam"], "versie": self.versie(), "gekozen": self.gekozen(), "brein": brein, "reden": reden,
-                 "brein_volgorde": core.volgorde(self.cfg, "brein"), **stemstatus}
+                 "brein_volgorde": core.volgorde(self.cfg, "brein"), **stemstatus,
+                 "klappen": ("GEEN MICROFOON" if self.klap_fout else "AAN · KLAP 2×") if self.cfg.get("klappen", True) is not False else "UIT",
+                 "klappen_reden": self.klap_fout}
         # "modus" bepaalt de kleur: groen = het gekozen brein antwoordt, oranje = het andere nam het over, rood = geen brein.
         modus = "geen" if not brein else "online" if brein == self.gekozen() else "offline"
         titel = f"VERBONDEN MET {BREIN_NAAM[brein]}" if brein else "GEEN BREIN BESCHIKBAAR"
@@ -361,7 +365,7 @@ class NovaApp:
                 self.ui.delta(d)
             brein, reden = self.actief_brein()
             if brein == "eco":
-                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
+                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht)
                 self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
             elif brein == "nova":
                 antwoord = self.lokaal.chat(tekst, on_tool=lambda n: self.ui.tool(n))
@@ -380,6 +384,67 @@ class NovaApp:
     def mic(self):
         if not self.bezig:
             threading.Thread(target=self.luister, daemon=True).start()
+
+    # ---------- 2× klappen = luisteren (in plaats van "Hé ECO") ----------
+    def klap_mag(self) -> bool:
+        """Alleen naar klappen luisteren als dat aan staat en ECO niets anders doet (niet tijdens een antwoord of terwijl hij
+        praat: dan hoort hij zichzelf niet)."""
+        return self.cfg.get("klappen", True) is not False and not self.bezig and not self.spreek_slot.locked()
+
+    def klap_lus(self, rondes=None):
+        """Houdt op de achtergrond de microfoon open voor twee klappen. Het geluid blijft op de laptop en wordt meteen vergeten."""
+        import nova_klap
+        import nova_stem as stem
+        while rondes is None or rondes > 0:
+            rondes = None if rondes is None else rondes - 1
+            if not self.klap_mag():
+                time.sleep(0.3)
+                continue
+            try:
+                if self.klap_wacht(nova_klap.KlapDetector(stem.RATE)):
+                    self.klap_gehoord()
+                if self.klap_fout:
+                    self.klap_fout = ""
+                    self.toon_status()
+            except Exception as e:  # geen microfoon of hij is even bezet: later opnieuw
+                if not self.klap_fout:
+                    self.klap_fout = f"{type(e).__name__}: {e}"[:120]
+                    self.toon_status()
+                time.sleep(10)
+
+    def klap_wacht(self, detector) -> bool:
+        """Microfoon open tot er twee keer geklapt is (True) of tot ECO iets anders gaat doen (False). Daarna weer dicht."""
+        import queue
+        import sounddevice as sd
+        import nova_stem as stem
+        q: "queue.Queue" = queue.Queue(maxsize=200)
+
+        def cb(indata, frames, tijd, status):
+            try:
+                q.put_nowait(indata[:, 0].copy())
+            except queue.Full:
+                pass
+        with sd.InputStream(samplerate=stem.RATE, channels=1, dtype="int16", blocksize=800, callback=cb):
+            while self.klap_mag():
+                try:
+                    if detector.voed(q.get(timeout=0.5)):
+                        return True
+                except queue.Empty:
+                    continue
+        return False
+
+    def ui_opdracht(self, onderdeel: str, aan: bool):
+        """ECO's tool "interface" op de laptop: "zet klappen uit", "praat niet hardop"."""
+        if onderdeel in ("klappen", "he_eco"):
+            self.instellingen({"klappen": aan})
+        elif onderdeel == "stem":
+            self.instellingen({"stem": aan})
+        self.ui.inst(self.inst())
+
+    def klap_gehoord(self):
+        if not self.bezig:
+            self.ui.sys("👏👏 Ik luister.")
+            self.luister()
 
     def luister(self):
         import nova_stem as stem
@@ -412,7 +477,8 @@ class NovaApp:
                         gestart["ja"] = True
                         self.ui.nova_start()
                     self.ui.delta(d)
-                antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
+                antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta,
+                                                              on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht)
                 self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
                 self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
@@ -528,13 +594,13 @@ class NovaApp:
         return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en N.O.V.A. niet klaar)."
 
     # ---------- instellingen ----------
-    INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet")
+    INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet", "klappen")
 
     def inst(self) -> dict:
         """Wat de pagina nodig heeft voor Instellingen (geluid, beeld, AI-volgorde, indeling)."""
         return {"volume": int(self.cfg.get("volume", 100)), "stem": bool(self.cfg.get("stem", True)), "beeld": self.cfg.get("beeld") or {"verberg": []},
                 "volgorde": {soort: core.volgorde(self.cfg, soort) for soort in core.VOLGORDES}, "indeling": self.cfg.get("indeling") or {},
-                "magneet": self.cfg.get("magneet", True) is not False}
+                "magneet": self.cfg.get("magneet", True) is not False, "klappen": self.cfg.get("klappen", True) is not False}
 
     def instellingen(self, patch: dict):
         """Bewaart wat er in Instellingen veranderde (alleen bekende sleutels, gecontroleerd)."""
@@ -545,6 +611,9 @@ class NovaApp:
             self.cfg["stem"] = bool(p["stem"])
         if "magneet" in p:
             self.cfg["magneet"] = bool(p["magneet"])
+        if "klappen" in p:
+            self.cfg["klappen"] = bool(p["klappen"])
+            self.klap_fout = ""
         if isinstance(p.get("beeld"), dict):
             self.cfg["beeld"] = {"verberg": [str(x)[:30] for x in (p["beeld"].get("verberg") or [])][:40]}
         if isinstance(p.get("indeling"), dict):
@@ -558,7 +627,7 @@ class NovaApp:
             self.cfg["volgorde"] = eigen
             self.cfg["brein"] = core.volgorde(self.cfg, "brein")[0]
         core.bewaar_config(self.cfg)
-        if "volgorde" in p:
+        if "volgorde" in p or "klappen" in p:
             self.toon_status()
 
     def test_stem(self):
@@ -679,6 +748,7 @@ class WebUI:
     def melding(self, t, soort): self._stuur({"t": "melding", "tekst": t, "soort": soort})
     def herstel(self, d): self._stuur({"t": "herstel", **d})
     def update(self, tag, voortgang): self._stuur({"t": "update", "tag": tag, "voortgang": voortgang})
+    def inst(self, d): self._stuur({"t": "inst", "inst": d})
 
 
 class Api:
@@ -810,6 +880,7 @@ class TkUI:
         self.q.put(lambda: (self.lbl.configure(text="● " + s["titel"], fg=kleur), self.sub.configure(text=sub)))
     def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
     def melding(self, t, soort): self.sys(t)
+    def inst(self, d): pass
 
     def herstel(self, d):
         for r in d.get("transcript", [])[-40:]:
