@@ -131,6 +131,12 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Muis:** Serkan zei "het liefst zien waar hij met de muis op klikt". ECO klikt niet zelf (afspraak: geen browser/muis die zelf
   klikt). Wil hij dat toch, dan eerst samen beslissen (risico: verkeerde knop, aankopen, verwijderen); niet zomaar bouwen.
 
+## Karakter: sarcasme en humor (30 okt, MAXCODE)
+- Serkan: "af en toe [een grap], en sarcasme mag echt wel vaker, 60/70%, maar alleen goeie grappen, geen robotgrappen".
+- `systemPrompt` (ook Live) en N.O.V.A.'s prompt: in ~2 op de 3 antwoorden een droge, sarcastische ondertoon; een echte grap af en
+  toe; nooit robotgrappen (circuits, bliep, "als AI"); antwoord eerst, sarcasme hooguit een halve zin; niet bij slecht nieuws,
+  stress, ziekte, geld, familie of haast. Test in `tests/functie_test.ts`. Te veel of te weinig? Alleen dat percentage aanpassen.
+
 ## Alles wat Serkan zei (sessie 29–30 okt) en de stand
 | # | Wens van Serkan | Stand |
 |---|---|---|
