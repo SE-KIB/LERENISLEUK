@@ -181,7 +181,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 
 ## Vervolg na chat 30 okt (klappen, werkmodus, MAXCODE, beveiliging)
 **Jij (Serkan) instellen**
-- Dagrapport (keuze 3): `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` in Supabase-secrets (stappen in "Nog open").
+- Dagrapport (keuze 3): ✅ 30 okt werkend. `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` (serkanerenkibar07) in Supabase; geplande taak
+  "Dagrapport mail" draait nu 07:05 (zo–vr) en mailt het rapport weer aan Serkan zelf (onderwerp met "Dagrapport"), zodat ECO het
+  om 07:30 vindt. Test 30 okt: ECO las het rapport. Nog te bouwen (aangeboden): tool "Mail doorzoeken" ook via het app-wachtwoord (IMAP).
 - Mistral (keuze 4): ❌ laten zitten (30 okt): sleutels vragen nu minimaal €10 betaling. Niet meer voorstellen; de code mag blijven (doet niets zonder sleutel).
 - Laptop-app herstarten → "ja" bij bijwerken (klappen, werkmodus, modelnamen).
 - `NOVA_KEY` (eigen laptopsleutel): zodra de laptop er is; dan eerst bouwen (zeg "doe de laptopsleutel").
