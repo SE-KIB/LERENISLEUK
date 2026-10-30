@@ -36,7 +36,7 @@
         <ul class="stats">
           <li><span>BREIN</span><b id="stBrein">—</b></li>
           <li><span>ECO</span><b id="stEco">—</b></li>
-          <li><span>OFFLINE MODEL</span><b id="stModel">—</b></li>
+          <li><span>NOVA-MODEL</span><b id="stModel">—</b></li>
           <li><span>OLLAMA</span><b id="stOllama">—</b></li>
           <li><span>SPRAAK</span><b id="stSpraak">—</b></li>
           <li title="Welke stem NOVA gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
@@ -47,10 +47,14 @@
       </div>
       <div class="panel nova-set">
         <div class="panel-h"><span>BEDIENING</span></div>
+        <div class="nova-brein" role="group" aria-label="Brein"><span>BREIN</span>
+          <button type="button" class="chip" data-brein="eco" title="ECO's brein in de cloud (Groq/Gemini), met je geheugen en agenda">ECO</button>
+          <button type="button" class="chip" data-brein="nova" title="NOVA's eigen brein op deze laptop (Ollama), werkt ook zonder internet">NOVA</button>
+        </div>
         <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>STEM</span></label>
         <label class="field"><span>ECO-SLEUTEL (JARVIS_KEY)</span><input id="sleutel" type="password" autocomplete="off" spellcheck="false" placeholder="geheime tekst"></label>
         <label class="field"><span>NAAM VAN DEZE LAPTOP</span><input id="naam" autocomplete="off" spellcheck="false"></label>
-        <label class="field"><span>OFFLINE MODEL (OLLAMA)</span><select id="model"></select></label>
+        <label class="field"><span>NOVA-MODEL (OLLAMA)</span><select id="model"></select></label>
         <div class="nova-knoppen">
           <button type="button" id="opslaan" class="chip">OPSLAAN</button>
           <button type="button" id="download" class="chip">MODEL DOWNLOADEN</button>

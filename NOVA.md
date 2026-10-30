@@ -1,15 +1,18 @@
 # NOVA — Nice Operating Variant Agent (ECO op je Windows-laptop)
 
-NOVA is ECO's versie op je laptop. **Online** zegt NOVA "Verbonden met ECO" en gebruikt het ECO-brein (Groq/Gemini, gratis),
-met hetzelfde geheugen, dezelfde agenda en hetzelfde archief. **Offline** zegt NOVA "Offline, ik gebruik nu mijn eigen brein" en
-praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen, ook vanaf je iPhone, zolang NOVA draait.
+NOVA is ECO's versie op je laptop, met twee breinen. Bovenin staat met welk brein NOVA nu verbonden is:
+- **● VERBONDEN MET ECO**: ECO's brein in de cloud (Groq/Gemini, gratis), met hetzelfde geheugen, dezelfde agenda en hetzelfde archief.
+- **● VERBONDEN MET NOVA**: NOVA's eigen brein, een model op je laptop (Ollama). Werkt ook zonder internet.
+Je **kiest zelf** bij BEDIENING → **BREIN: ECO | NOVA** (standaard ECO). Is het gekozen brein er even niet (geen internet, of
+Ollama draait niet), dan neemt het andere het over: dan staat de regel bovenin oranje met de reden. ECO kan je laptop bovendien
+bedienen, ook vanaf je iPhone, zolang NOVA draait.
 
 ## Installeren (eenmalig, ongeveer 10 minuten)
 1. **Download NOVA.exe:** https://github.com/SE-KIB/LERENISLEUK/releases/latest/download/NOVA.exe
    Windows kan waarschuwen ("Windows heeft uw pc beschermd") omdat de exe niet ondertekend is: **Meer info → Toch uitvoeren**.
 2. **Eerste start:** NOVA opent de instellingen. Vul bij **ECO-SLEUTEL** dezelfde geheime tekst in als `JARVIS_KEY` in Supabase en kies
-   **OPSLAAN**. De sleutel blijft alleen op je laptop (`%APPDATA%\NOVA\config.json`). Bovenin staat dan **● VERBONDEN**.
-3. **Offline brein (aanrader):** installeer **Ollama** van https://ollama.com/download/windows en start het. Kies in NOVA **⚙ → MODEL
+   **OPSLAAN**. De sleutel blijft alleen op je laptop (`%APPDATA%\NOVA\config.json`). Bovenin staat dan **● VERBONDEN MET ECO**.
+3. **NOVA's eigen brein (aanrader):** installeer **Ollama** van https://ollama.com/download/windows en start het. Kies in NOVA **⚙ → MODEL
    DOWNLOADEN**. Standaard is dat `qwen3.5:9b` (ongeveer 6 GB; past in de 8 GB van je RTX PRO). Slimmer maar trager: `gpt-oss:20b` of
    `gemma4:26b` (die lopen deels via je werkgeheugen).
 4. **Bijwerken gaat vanzelf:** NOVA kijkt bij het starten en elke 6 uur of er een nieuwere versie op GitHub staat, downloadt en
@@ -17,18 +20,19 @@ praat met een model op je laptop (Ollama). ECO kan je laptop bovendien bedienen,
 5. **Automatisch starten (optioneel):** druk Win+R, typ `shell:startup`, en zet daar een snelkoppeling naar NOVA.exe.
 
 ## Gebruiken
-- **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, offline model, Ollama, spraak, stem), BEDIENING
-  (stem, ECO-sleutel, naam, offline model, MODEL DOWNLOADEN), TRANSCRIPT en PC-ACTIES (wat NOVA op je laptop deed, met
+- **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, NOVA-model, Ollama, spraak, stem), BEDIENING
+  (brein ECO/NOVA, stem, ECO-sleutel, naam, NOVA-model, MODEL DOWNLOADEN), TRANSCRIPT en PC-ACTIES (wat NOVA op je laptop deed, met
   gedaan / niet gecontroleerd / mislukt). Het venster gebruikt ECO's eigen opmaak via de browsermotor van Windows (WebView2).
   Lukt dat niet, dan opent NOVA een eenvoudig venster (`NOVA.exe --eenvoudig` doet dat ook).
 - **Typen** onderin en Enter, of **🎙** (of Ctrl+Spatie) en praten; NOVA stopt vanzelf met luisteren als je stil bent.
-- **Bovenin** zie je welk brein antwoordt: ● VERBONDEN (ECO-brein) of ● OFFLINE (eigen brein, met het model erbij).
+- **Bovenin** zie je welk brein antwoordt: ● VERBONDEN MET ECO of ● VERBONDEN MET NOVA (groen = jouw keuze, oranje = het andere
+  brein nam het over). Met NOVA als brein verstaat NOVA je online nog steeds met Whisper (via ECO), anders met Vosk.
 - **Je laptop bedienen**, ook via ECO op je iPhone ("open Spotify op mijn laptop"):
   apps openen (Spotify, Word, Chrome, Discord, …), een website openen, muziek (afspelen, pauze, volgende), het volume, tekst typen,
   een bestand zoeken of openen, het scherm bekijken ("wat staat er op mijn scherm?"), vergrendelen, afsluiten of herstarten
   (na 30 seconden; "stop met afsluiten" annuleert), en info (batterij, tijd).
 - **Eerlijk:** NOVA zegt alleen "gedaan" als hij het kon controleren (bv. Spotify draait echt); anders zegt hij dat hij het probeerde.
-- **Offline** weet NOVA wat ECO over je onthoudt en je agenda van de laatste keer online; weer, nieuws en mail kunnen dan niet.
+- **Met NOVA's eigen brein** weet NOVA wat ECO over je onthoudt en je agenda van de laatste keer online; weer, nieuws en mail kunnen dan niet.
   De Nederlandse spraakherkenning voor offline (Vosk, ~40 MB) haalt NOVA vanzelf op zodra hij online is.
 - **Documenten:** "lees mijn verslag water", "wat staat er in de PDF van de toets?": NOVA leest pdf, Word, Excel, PowerPoint en
   tekstbestanden (uit Bureaublad, Documenten, Downloads, OneDrive, …) en het brein vat samen of beantwoordt je vraag. "Maak een PDF

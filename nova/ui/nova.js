@@ -1,5 +1,5 @@
 // NOVA-interface: dezelfde HUD als ECO (reactor, visualisatie, panelen). De Python-kant (nova.py) doet het werk:
-// ECO-brein of eigen brein, stem, pc-acties. Python → pagina: window.nova.ev({...}); pagina → Python: window.pywebview.api.
+// verbonden met ECO of met NOVA (eigen brein), stem, pc-acties. Python → pagina: window.nova.ev({...}); pagina → Python: window.pywebview.api.
 const $ = (id) => document.getElementById(id);
 const T0 = Date.now();
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -126,9 +126,12 @@ function zetStatus(s) {
   dot.className = `dot${s.modus === "online" ? "" : s.modus === "offline" ? " test" : " bad"}`;
   $("sysLine").textContent = s.titel;
   $("sysTop").title = s.sub || "";
-  $("stBrein").textContent = s.modus === "online" ? "ECO (GROQ/GEMINI)" : s.modus === "offline" ? "EIGEN BREIN" : "GEEN";
+  // Verbonden met ECO (cloud) of met NOVA (eigen brein); groen = jouw keuze, oranje = het andere nam het over.
+  $("stBrein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? "NOVA" : "GEEN";
   $("stBrein").className = s.modus === "online" ? "ok" : s.modus === "offline" ? "warn" : "bad";
-  $("stEco").textContent = s.eco; $("stEco").className = s.modus === "online" ? "ok" : "warn";
+  $("stBrein").title = s.reden || "";
+  $("stEco").textContent = s.eco; $("stEco").className = s.eco === "BEREIKBAAR" ? "ok" : "warn";
+  document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === s.gekozen));
   $("stModel").textContent = s.model;
   $("stOllama").textContent = s.lokaal; $("stOllama").className = s.lokaal_ok ? "ok" : "warn";
   $("stSpraak").textContent = s.spraak || "—";
@@ -136,7 +139,7 @@ function zetStatus(s) {
   $("stStem").className = s.stem_soort || "";
   $("stStem").title = s.stem_reden || "";
   $("stNaam").textContent = s.naam || "—";
-  $("brein").textContent = s.modus === "online" ? "ECO-BREIN" : s.modus === "offline" ? s.model.toUpperCase() : "—";
+  $("brein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? `NOVA · ${s.model.toUpperCase()}` : "—";
   $("laptop").textContent = `${s.naam} · v${s.versie}`;
   $("brandVer").textContent = `v${s.versie}`;
 }
@@ -173,10 +176,12 @@ addEventListener("keydown", (e) => { if (e.ctrlKey && e.code === "Space") { e.pr
 $("opslaan").onclick = () => api() && api().opslaan({ eco_sleutel: $("sleutel").value, naam: $("naam").value, model: $("model").value, stem: $("stem").checked });
 $("download").onclick = () => api() && api().download($("model").value);
 $("stem").onchange = () => $("opslaan").click();
+document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api() && api().brein(b.dataset.brein); });
 window.addEventListener("pywebviewready", async () => {
   const i = await api().info();
   $("model").innerHTML = i.modellen.map((m) => `<option>${m}</option>`).join("");
   $("model").value = i.model; $("naam").value = i.naam; $("stem").checked = i.stem;
+  document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === i.brein));
   $("sleutel").placeholder = i.heeft_sleutel ? "•••••••• (ingesteld; leeg laten = zo houden)" : "vul je JARVIS_KEY in";
   if (!i.heeft_sleutel) $("sleutel").focus();
   api().klaar();
