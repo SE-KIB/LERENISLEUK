@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -174,4 +174,12 @@ Deno.test("Live: sneller starten en antwoorden (toegangscode tegelijk, einde van
     const vad = r.setup.realtimeInputConfig.automaticActivityDetection;
     gelijk([vad.endOfSpeechSensitivity, vad.silenceDurationMs], ["END_SENSITIVITY_HIGH", 600]);
   } finally { globalThis.fetch = echt; }
+});
+
+Deno.test("karakter: vaak droog sarcasme, af en toe een grap, nooit robotgrappen, niet bij slecht nieuws (ook in Live)", () => {
+  for (const p of [m.systemPrompt("", "", false), m.systemPrompt("", "", true)]) {
+    waar(/twee op de drie antwoorden/.test(p) && /echte grap alleen af en toe/.test(p), "hoe vaak");
+    waar(/Nooit robotgrappen/.test(p) && /Geen sarcasme bij slecht nieuws/.test(p), "grenzen");
+    waar(!/een licht grapje mag als het past/.test(p), "geen oude, tegenstrijdige regel");
+  }
 });
