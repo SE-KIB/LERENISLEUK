@@ -451,3 +451,36 @@ Deno.test("foto's: meegestuurde foto's gaan als inlineData naar Gemini, bij de l
     gelijk(c[0].parts, [{ text: "hoi" }], "oude berichten zonder foto");
   } finally { globalThis.fetch = echt; }
 });
+
+Deno.test("mail zonder Google-koppeling: zoeken en lezen via het app-wachtwoord (alleen lezen)", async () => {
+  const echt = Deno.connectTls, gezien: string[] = [];
+  const bericht = "From: Revolut <info@revolut.com>\r\nSubject: =?UTF-8?B?QmV0YWxpbmcg4oKsNQ==?=\r\nDate: Fri, 30 Oct 2026 10:00:00 +0100\r\nContent-Type: text/plain\r\n\r\nJe betaling is gelukt.";
+  (Deno as any).connectTls = async () => {
+    const enc = new TextEncoder(), wacht: Uint8Array[] = [enc.encode("* OK Gimap ready\r\n")];
+    return {
+      read: async (b: Uint8Array) => { const c = wacht.shift(); if (!c) return null; b.set(c); return c.length; },
+      write: async (b: Uint8Array) => {
+        const r = new TextDecoder().decode(b), [tag] = r.split(" "), c = r.slice(tag.length + 1).trim();
+        gezien.push(c);
+        const uit = c.startsWith("LIST") ? '* LIST (\\HasNoChildren \\All) "/" "[Gmail]/Alle berichten"\r\n'
+          : c.startsWith("UID SEARCH") ? "* SEARCH 7 9\r\n"
+          : c.includes("HEADER.FIELDS") ? `* 1 FETCH (UID 9 FLAGS (\\Seen) BODY[HEADER.FIELDS (FROM SUBJECT DATE)] {10}\r\n${bericht.split("\r\n\r\n")[0]}\r\n\r\n)\r\n`
+          : c.includes("BODY.PEEK[]") ? `* 1 FETCH (UID 9 BODY[] {${enc.encode(bericht).length}}\r\n${bericht})\r\n` : "";
+        wacht.push(enc.encode(`${uit}${tag} OK klaar\r\n`));
+        return b.length;
+      },
+      close: () => {},
+    };
+  };
+  Deno.env.set("GMAIL_EMAIL", "serkan@voorbeeld.nl"); Deno.env.set("GMAIL_APP_PASSWORD", "abcd efgh");
+  try {
+    const lijst = await m.runTool("mail_zoeken", { zoekterm: "from:revolut", aantal: "1" }, acties());
+    gelijk(lijst, [{ id: "imap:9", van: "Revolut <info@revolut.com>", onderwerp: "Betaling €5", datum: "Fri, 30 Oct 2026 10:00:00 +0100", ongelezen: false }]);
+    const mail = await m.runTool("mail_lezen", { id: "imap:9" }, acties());
+    gelijk([mail.onderwerp, mail.tekst], ["Betaling €5", "Je betaling is gelukt."]);
+    waar(gezien.some((c) => c === 'EXAMINE "[Gmail]/Alle berichten"'), "alleen lezen (EXAMINE): " + gezien.join(" | "));
+    waar(gezien.some((c) => c.startsWith('LOGIN "serkan@voorbeeld.nl" "abcdefgh"')), "spaties uit het wachtwoord");
+    waar(!gezien.some((c) => /STORE|APPEND|EXPUNGE|COPY|MOVE/.test(c)), "niets aanpassen");
+    gelijk((await m.runTool("mail_concept_maken", { aan: "x", onderwerp: "y", tekst: "z" }, acties())).fout?.startsWith("Een concept maken kan alleen"), true);
+  } finally { (Deno as any).connectTls = echt; Deno.env.delete("GMAIL_EMAIL"); Deno.env.delete("GMAIL_APP_PASSWORD"); }
+});

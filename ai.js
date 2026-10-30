@@ -688,9 +688,15 @@ function locate() {
     if (first) { lastWarm = 0; warm(); }
     $("wxAllow").hidden = true; loadWeather();
     clearInterval(wxTimer); wxTimer = setInterval(loadWeather, 15 * 60000);
-  }, () => { $("wxDesc").textContent = "Locatie staat uit"; $("wxAllow").hidden = false; }, { maximumAge: 10 * 60000, timeout: 15000 });
+  }, (e) => {
+    // De browser vraagt niet opnieuw als de site eerder geweigerd is; dan helpt alleen het slotje naast het adres.
+    $("wxDesc").textContent = e.code === 1 ? "Geblokkeerd: slotje links van het adres → Locatie → Toestaan, dan herladen"
+      : e.code === 2 ? "Locatie onbekend: zet locatie aan in je apparaat (Windows: Instellingen → Privacy → Locatie)"
+      : "Locatie duurde te lang, probeer opnieuw";
+    $("wxAllow").hidden = false;
+  }, { maximumAge: 10 * 60000, timeout: 15000 });
 }
-$("wxAllow").onclick = locate;
+$("wxAllow").onclick = () => { $("wxDesc").textContent = "Locatie opvragen…"; locate(); };
 function careTip(w) {
   const feel = w.current.apparent_temperature, code = w.current.weather_code, uv = w.current.uv_index ?? 0, wind = w.current.wind_speed_10m;
   const rain = Math.max(...w.hourly.precipitation_probability.slice(w._i, w._i + 4));
