@@ -238,7 +238,9 @@ class TestApp(unittest.TestCase):
         ui = nova.ui_map()
         for f in ("index.html", "nova.js", "nova.css"):
             self.assertTrue((ui / f).exists(), f)
-        self.assertIn("NICE OPERATING VARIANT AGENT", (ui / "index.html").read_text(encoding="utf-8"))
+        html = (ui / "index.html").read_text(encoding="utf-8")
+        self.assertIn("<b>E.C.O.", html)  # de laptop-app heet ECO; het offline brein N.O.V.A.
+        self.assertIn('data-brein="nova"', html)
 
 
 class NepUI:
@@ -249,8 +251,9 @@ class NepUI:
         return lambda *a: self.ev.append((naam,) + a)
 
 
-def nep_app(online):
+def nep_app(online, map_=None):
     import nova
+    core.MAP = map_ or Path(tempfile.mkdtemp())  # eigen map: nooit de echte instellingen of geschiedenis
     ui = NepUI()
     app = nova.NovaApp(ui)
     app.cfg.update(eco_sleutel="x", stem=True)
@@ -339,7 +342,7 @@ class TestBrein(unittest.TestCase):
         app.kies_brein("nova")
         self.assertEqual(app.actief_brein(), ("nova", ""))
         status = [e[1] for e in ui.ev if e[0] == "status"][-1]
-        self.assertEqual((status["titel"], status["gekozen"], status["modus"]), ("VERBONDEN MET NOVA", "nova", "online"))
+        self.assertEqual((status["titel"], status["gekozen"], status["modus"]), ("VERBONDEN MET N.O.V.A.", "nova", "online"))
         app.lokaal_ok, app.lokaal_reden = False, "Ollama draait niet"
         brein, reden = app.actief_brein()
         self.assertEqual(brein, "eco")
@@ -519,6 +522,70 @@ class TestInstellingen(unittest.TestCase):
                 mock.patch.object(self.app, "vraag", lambda t, al_getoond=False: gevraagd.append(t)):
             self.app.luister()
         self.assertEqual(gevraagd, ["hoe laat is het"])
+
+
+class TestOnthouden(unittest.TestCase):
+    """NOVA onthoudt het transcript, de PC-acties, het gesprek en de plek van het venster als hij uit en aan gaat."""
+
+    def test_transcript_en_gesprek_na_herstart(self):
+        map_ = Path(tempfile.mkdtemp())
+        ui, app = nep_app(online=True, map_=map_)
+        app.cfg.update(stem=False)
+        app.eco.chat = lambda t, c, on_delta, on_tool: (on_delta("Het is 13:05."), ("Het is 13:05.", "conv-7"))[-1]
+        app.vraag("hoe laat is het")
+        app.pc_actie("info", {})
+        # NOVA uit en weer aan
+        ui2, app2 = nep_app(online=True, map_=map_)
+        self.assertEqual(app2.conv, "conv-7")  # het gesprek met ECO gaat verder
+        app2.start()
+        app2.stop()
+        herstel = next(e[1] for e in ui2.ev if e[0] == "herstel")
+        self.assertEqual([(r["rol"], r["tekst"]) for r in herstel["transcript"]], [("user", "hoe laat is het"), ("assistant", "Het is 13:05.")])
+        self.assertEqual(herstel["pc"][0]["tekst"], "info")
+
+    def test_oud_gesprek_begint_opnieuw(self):
+        import nova
+        log = nova.Logboek(Path(tempfile.mkdtemp()) / "g.json")
+        log.zet_gesprek("conv-1", [{"role": "user", "content": "hoi"}])
+        self.assertEqual(nova.Logboek(log.pad).gesprek(), "conv-1")
+        log.data["conv_tijd"] = 0
+        log.bewaar()
+        self.assertIsNone(nova.Logboek(log.pad).gesprek())
+        self.assertEqual(nova.Logboek(log.pad).data["lokaal"][0]["content"], "hoi")
+
+    def test_maximum_en_wissen(self):
+        import nova
+        log = nova.Logboek(Path(tempfile.mkdtemp()) / "g.json")
+        for i in range(250):
+            log.regel("user", f"vraag {i}")
+        self.assertEqual(len(nova.Logboek(log.pad).data["transcript"]), 200)
+        log.wis()
+        self.assertEqual(nova.Logboek(log.pad).data["transcript"], [])
+
+    def test_kapot_bestand(self):
+        import nova
+        pad = Path(tempfile.mkdtemp()) / "g.json"
+        pad.write_text("{kapot", encoding="utf-8")
+        self.assertEqual(nova.Logboek(pad).data["transcript"], [])
+
+    def test_venster_plek(self):
+        import nova
+        sc = [types.SimpleNamespace(x=0, y=0, width=1920, height=1080)]
+        self.assertEqual(nova.venster_geometrie({"x": 100, "y": 50, "w": 1500, "h": 900}, sc), {"width": 1500, "height": 900, "maximized": False, "x": 100, "y": 50})
+        self.assertNotIn("x", nova.venster_geometrie({"x": 3000, "y": 50, "w": 1500, "h": 900}, sc))  # tweede scherm is weg: midden in beeld
+        self.assertTrue(nova.venster_geometrie({"max": True}, sc)["maximized"])
+        self.assertEqual(nova.venster_geometrie({"x": 0, "y": 0, "w": 5000, "h": 300}, sc)["width"], 1920)
+
+    def test_venster_bewaren(self):
+        ui, app = nep_app(online=False)
+        app.venster(x=100, y=80)
+        app.venster(w=1400, h=900)
+        app.venster(x=-32000, y=-32000)  # geminimaliseerd: telt niet
+        app.venster(max=True)
+        app.venster(w=1920, h=1040)  # gemaximaliseerd: de gewone grootte blijft
+        app.venster_bewaren()
+        v = core.laad_config()["venster"]
+        self.assertEqual((v["x"], v["y"], v["w"], v["h"], v["max"]), (100, 80, 1400, 900, True))
 
 
 class TestNovaStem(unittest.TestCase):

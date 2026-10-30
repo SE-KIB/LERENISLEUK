@@ -75,7 +75,7 @@ jobs:
           $fout = "$env:APPDATA\NOVA\venster-fout.txt"
           Get-Process NOVA -ErrorAction SilentlyContinue | Stop-Process -Force
           if (Test-Path $fout) { Get-Content $fout; throw "de ECO-HUD opende niet (zie hierboven); NOVA viel terug op het eenvoudige venster" }
-          if (-not ($titels -match "Nice Operating Variant Agent")) { throw "geen NOVA-venster gevonden" }
+          if (-not ($titels -match "op je laptop")) { throw "geen ECO-venster gevonden" }
       - name: Screenshot bewaren
         if: always()
         uses: actions/upload-artifact@v7

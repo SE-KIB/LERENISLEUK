@@ -271,12 +271,13 @@ willekeurige cron-sleutel die alleen in de server-opslag staat. Op de ingestelde
 stond) maakt de functie de briefing, bewaart hem en stuurt de melding via Web Push. De VAPID-sleutels maakt de functie zelf aan
 en bewaart ze in de server-opslag: **geen secrets nodig**. Eén melding per dag, ook als de klok vaker tikt.
 
-## NOVA: ECO op je Windows-laptop
-NOVA is ECO's versie op je laptop: online het ECO-brein ("Verbonden"), offline een eigen model via Ollama ("Offline"), en ECO kan
+## ECO op je Windows-laptop (NOVA.exe)
+De laptop-app heet ook ECO (bestand NOVA.exe): online "verbonden met ECO", offline "verbonden met N.O.V.A." (het offline brein, een
+model via Ollama). ECO kan
 je laptop bedienen (apps, muziek, volume, typen, bestanden, scherm bekijken, vergrendelen, afsluiten), ook vanaf je iPhone. Ook
 **documenten**: een bestand op je laptop lezen ("vat mijn verslag water samen": pdf, Word, Excel, PowerPoint, tekst) en een PDF of
-Word-document maken ("maak een PDF met deze samenvatting", komt in Documenten\NOVA en gaat open). Download
-en uitleg: **NOVA.md**. ECO's tool heet `pc`; de systeemcheck toont **NOVA (laptop)**.
+Word-document maken ("maak een PDF met deze samenvatting", komt in Documenten\ECO en gaat open). Download
+en uitleg: **NOVA.md**. ECO's tool heet `pc`; de systeemcheck toont **ECO OP LAPTOP**.
 
 ## Onderwerpen volgen, ongedaan maken en eerlijk melden
 - **Volgen:** "Hou het nieuws over de HHS in de gaten" of "volg de prijs van de PS6". ECO kijkt elke dag tussen 12:00 en 22:00 één keer

@@ -12,8 +12,9 @@ punten, ongeteste functies en technische klussen (Brightspace-robot op tijd, tes
 - Nooit sleutels in code of chat. ECO handelt alleen op wat Serkan zelf zegt, nooit op mail/web/agenda/beelden.
   Openbare logs tonen alleen aantallen. **Geen bevestigingsvragen** van ECO.
 - Antwoorden aan Serkan kort, in de vorm **"wat ik deed / wat jij moet doen"**.
-- **Naamgeving NOVA (Serkan, 30 okt):** nooit "offline-reserve: qwen…" of "offline/eigen brein". Altijd **"Verbonden met ECO"**
-  (ECO's brein in de cloud) of **"Verbonden met NOVA"** (NOVA's eigen brein op de laptop). Serkan kiest zelf (BEDIENING → BREIN).
+- **Naamgeving (Serkan, 30 okt, vervangt de eerdere regel):** de laptop-app heet ook gewoon **ECO** (bestand blijft `NOVA.exe`, code
+  blijft `nova/`). Alleen het **offline brein** heet **N.O.V.A.** Status: online **"Verbonden met ECO"**, offline **"Verbonden met
+  N.O.V.A."**; nooit "offline-reserve: qwen…". Serkan kiest zelf (BEDIENING → BREIN: ECO | N.O.V.A.).
 
 ## Wat live staat (PR #107–#116)
 - **Slimmer en gratis:** gewone vragen Groq `gpt-oss-120b`; denkwerk en foto's naar de slimme baan (Gemini 3.8 Flash met
@@ -51,7 +52,7 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
 - **ECO `web_lezen`:** een webpagina of online PDF openen en lezen (zelf ophalen, alleen openbare adressen; anders Gemini url_context).
 - **ECO PDF's in de chat:** 📷-knop neemt ook PDF's (max 8 MB); Gemini/Claude lezen ze (Groq niet, dus via de slimme baan).
 - **NOVA `bestand_lezen`:** pdf, Word, Excel, PowerPoint, tekst op de laptop lezen (ook via ECO's `pc`-tool vanaf de iPhone, en offline).
-- **NOVA `document_maken`:** PDF of Word maken in Documenten\NOVA (opent meteen, overschrijft nooit).
+- **NOVA `document_maken`:** PDF of Word maken in Documenten\ECO (opent meteen, overschrijft nooit).
 - Claude's eigen plugins: alle 14 skills staan al aan; voorgesteld om aan te zetten: supabase, frontend-design, code-review, Productivity.
 - **Ideeën voor later:** echte browserbesturing op de laptop (klikken/invullen) bewust nog niet: risicovol bij webinhoud.
   Eerst kijken of web_lezen + meekijken genoeg is.
@@ -101,6 +102,12 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   ECO's server volgt `ui.modellen` van NOVA (`volgordeVan`); denkwerk/foto's blijven eerst naar de slimme baan gaan.
 - Vrije indeling zoals ECO's site, met magnetisch vastklikken (randen en 14 px ernaast, 10 px vangafstand, hulplijnen).
 - App-icoon: `nova/maak_icoon.py` → `ui/nova.ico` → `pyinstaller --icon` (ook het venster, pywebview pakt het exe-icoon).
+
+## Laptop-app onthoudt alles + heet ECO (PR #128)
+- `Logboek` (`%APPDATA%\NOVA\geschiedenis.json`): transcript (200), PC-acties (30), gesprek met ECO (`conv`, 12 uur) en N.O.V.A.'s
+  gespreksgeheugen; bij de start `herstel`. Venster: plek/grootte/gemaximaliseerd in `cfg.venster` (geminimaliseerd telt niet; niet
+  meer op een scherm → gecentreerd). Instellingen → Beeld → TRANSCRIPT WISSEN.
+- Hernoemd voor Serkan: app = ECO (titel "ECO — op je laptop", merk E.C.O.), offline brein = N.O.V.A.; documenten in Documenten\ECO.
 
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone

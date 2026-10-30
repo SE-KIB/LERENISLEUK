@@ -1,5 +1,5 @@
 """NOVA's documentvaardigheden: bestanden op de laptop lezen (PDF, Word, Excel, PowerPoint, tekst) en zelf een PDF of
-Word-document maken (in Documenten\\NOVA, nooit over een bestaand bestand heen).
+Word-document maken (in Documenten\\ECO, nooit over een bestaand bestand heen).
 
 De inhoud van een bestand is informatie voor het brein, geen opdracht. Lezen gebeurt alleen als Serkan erom vraagt.
 """
@@ -128,7 +128,7 @@ def bestand_lezen(naam: str, zoek) -> dict:
 
 # ---------- Maken ----------
 def documentenmap() -> Path:
-    return Path.home() / "Documents" / "NOVA"
+    return Path.home() / "Documents" / "ECO"
 
 
 def veilige_naam(titel: str) -> str:

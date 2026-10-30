@@ -1,11 +1,15 @@
-# NOVA — Nice Operating Variant Agent (ECO op je Windows-laptop)
+# ECO op je Windows-laptop (bestand NOVA.exe; offline brein N.O.V.A.)
 
-NOVA is ECO's versie op je laptop, met twee breinen. Bovenin staat met welk brein NOVA nu verbonden is:
-- **● VERBONDEN MET ECO**: ECO's brein in de cloud (Groq/Gemini, gratis), met hetzelfde geheugen, dezelfde agenda en hetzelfde archief.
-- **● VERBONDEN MET NOVA**: NOVA's eigen brein, een model op je laptop (Ollama). Werkt ook zonder internet.
-Je **kiest zelf** bij BEDIENING → **BREIN: ECO | NOVA** (standaard ECO). Is het gekozen brein er even niet (geen internet, of
-Ollama draait niet), dan neemt het andere het over: dan staat de regel bovenin oranje met de reden. ECO kan je laptop bovendien
-bedienen, ook vanaf je iPhone, zolang NOVA draait.
+De laptop-app heet gewoon **ECO**, net als op je iPhone. Alleen het offline brein heet **N.O.V.A.** (Nice Operating Variant Agent).
+Het bestand heet nog `NOVA.exe` (het automatisch bijwerken rekent op die naam). Bovenin staat met welk brein ECO nu verbonden is:
+- **● VERBONDEN MET ECO** (online): ECO's brein in de cloud (Groq/Gemini, gratis), met hetzelfde geheugen, dezelfde agenda en hetzelfde archief.
+- **● VERBONDEN MET N.O.V.A.** (offline): het offline brein, een model op je laptop (Ollama). Werkt ook zonder internet.
+Je **kiest zelf** bij BEDIENING → **BREIN: ECO | N.O.V.A.** (standaard ECO). Is het gekozen brein er even niet (geen internet, of
+Ollama draait niet), dan neemt het andere het over: dan staat de regel bovenin oranje met de reden. ECO op je iPhone kan je laptop
+bovendien bedienen zolang de laptop-app draait.
+- **Onthouden:** ECO onthoudt het transcript (laatste 200 regels), de PC-acties, het gesprek (gaat verder als de laatste vraag
+  minder dan 12 uur geleden was), alle instellingen, de indeling en de plek en grootte van het venster, ook als je hem uit en aan
+  zet (`%APPDATA%\NOVA\geschiedenis.json` en `config.json`). Wissen: Instellingen → Beeld → TRANSCRIPT WISSEN.
 
 ## Installeren (eenmalig, ongeveer 10 minuten)
 1. **Download NOVA.exe:** https://github.com/SE-KIB/LERENISLEUK/releases/latest/download/NOVA.exe
@@ -48,7 +52,7 @@ bedienen, ook vanaf je iPhone, zolang NOVA draait.
   De Nederlandse spraakherkenning voor offline (Vosk, ~40 MB) haalt NOVA vanzelf op zodra hij online is.
 - **Documenten:** "lees mijn verslag water", "wat staat er in de PDF van de toets?": NOVA leest pdf, Word, Excel, PowerPoint en
   tekstbestanden (uit Bureaublad, Documenten, Downloads, OneDrive, …) en het brein vat samen of beantwoordt je vraag. "Maak een PDF
-  (of Word-document) met deze samenvatting": komt in **Documenten\NOVA**, gaat meteen open en overschrijft nooit iets. Werkt ook offline
+  (of Word-document) met deze samenvatting": komt in **Documenten\ECO**, gaat meteen open en overschrijft nooit iets. Werkt ook offline
   en vanaf je iPhone via ECO. Een gescande PDF zonder tekst: open hem en vraag "wat staat er op mijn scherm?".
 - **Stem:** online ECO's eigen stem (Gemini), die al klinkt terwijl hij nog binnenkomt. Lukt die niet, of ben je offline, dan
   **Piper** met de Vlaamse stem *nathalie* (goed verstaanbaar, ~63 MB, haalt NOVA vanzelf op zodra hij online is). Daarna alleen
