@@ -376,6 +376,8 @@ Ontkoppelen: tik op **SPOTIFY GEKOPPELD**.
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip
 ("Neem een paraplu mee"), deadlines en actiepunten uit het dagrapport. Tik erop om ECO te openen. Ververst ongeveer elk kwartier.
+Rechts in de hoek staat het weer zoals in de iPhone-weerwidget: de temperatuur met een icoon en de komende uren (middel: 3 uur,
+groot: 6 uur), met de tijd van zonsondergang of -opkomst als die ertussen valt.
 1. Installeer **Scriptable** uit de App Store (gratis).
 2. Open in Safari https://sekibar.nl/widget/installeer.js, kopieer alle tekst; in Scriptable → **+** → plak → tik **▶**.
    Er verschijnt een script **ECO**.
@@ -385,7 +387,8 @@ Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brig
    in de sleutelhanger staat.
 5. Beginscherm: houd ingedrukt → **+** → Scriptable → kies klein, middel of groot → tik op de widget → *Script*: **ECO**.
    Vergrendelscherm: houd het vergrendelscherm ingedrukt → Pas aan → widgets → Scriptable → kies **ECO**.
-Bijwerken naar een nieuwe versie: draai het installatiescript nog een keer.
+Bijwerken gaat vanzelf: de widget haalt één keer per dag de nieuwste versie van sekibar.nl (vanaf de versie met het weer per uur;
+een oudere widget werk je één keer bij door het installatiescript nog een keer te draaien).
 
 ## Natuurlijke stem (ElevenLabs)
 1. Account op https://elevenlabs.io (gratis laag: beperkt aantal tekens per maand).

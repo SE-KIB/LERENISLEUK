@@ -1,5 +1,6 @@
 // ECO-widget voor Scriptable (gratis app, App Store). Toont je volgende lessen (de Brightspace-planning gaat voor),
-// het weer met een tip, deadlines en actiepunten uit het dagrapport. Tik op de widget om ECO te openen.
+// het weer per uur (zoals de iPhone-weerwidget) met een tip, deadlines en actiepunten uit het dagrapport. Tik op de widget om ECO te openen.
+// Werkt zichzelf één keer per dag bij vanaf sekibar.nl.
 // Formaten: klein, middel, groot op het beginscherm, en rechthoekig/rond/inline op het vergrendelscherm.
 // Installeren: zie AI-SETUP.md ("iPhone-widget"). Inloggen met je ECO-account (zelfde als sekibar.nl); alleen de
 // inlogsessie wordt bewaard in de iOS-sleutelhanger, je wachtwoord niet. Een JARVIS_KEY kan ook (optioneel).
@@ -10,7 +11,7 @@ const SITE = "https://sekibar.nl";
 const KEY_NAME = "eco-jarvis-key", SESSION_NAME = "eco-sessie";
 const C = {
   bg: new Color("#01070c"), bg2: new Color("#04263a"), cyan: new Color("#00e1ff"), text: new Color("#e9fdff"),
-  muted: new Color("#7aa3ae"), amber: new Color("#ffb24a"), red: new Color("#ff6b6b"),
+  muted: new Color("#7aa3ae"), amber: new Color("#ffb24a"), red: new Color("#ff6b6b"), zon: new Color("#ffd23f"),
 };
 const fm = FileManager.local();
 const cachePath = fm.joinPath(fm.documentsDirectory(), "eco-widget-cache.json");
@@ -114,10 +115,49 @@ function itemRow(w, it, size) {
     if (meta) txt(m, meta, size - 4, C.muted, { lines: 1 });
   }
 }
-function weatherLine(stack, wx, size) {
-  if (!wx) return;
-  txt(stack, `${wx.temp}° ${wx.omschrijving}${wx.regen >= 30 ? ` · ${wx.regen}% regen` : ""}`, size, C.text, { lines: 1, min: 0.8 });
-  if (wx.tip) txt(stack, wx.tip, size - 1, C.amber, { lines: 1, min: 0.8 });
+// Weericonen (SF Symbols) in ECO-kleuren: zon geel, regen cyaan, onweer oranje, wolken en maan wit.
+const iconKleur = (n) => /^(sun|sunrise|sunset)/.test(n) ? C.zon : /bolt/.test(n) ? C.amber : /rain|drizzle|sleet/.test(n) ? C.cyan : C.text;
+function icon(stack, naam, size) {
+  const s = naam && SFSymbol.named(naam);
+  if (!s) return null;
+  s.applyFont(Font.systemFont(size));
+  const img = stack.addImage(s.image);
+  img.imageSize = new Size(size, size);
+  img.tintColor = iconKleur(naam);
+  return img;
+}
+// De komende uren naast elkaar: uur, icoon, temperatuur (zonsondergang/-opkomst met de tijd erbij).
+function weerStrip(stack, strip, kolommen, breedte, size) {
+  for (let r = 0; r < strip.length; r += kolommen) {
+    if (r) stack.addSpacer(4);
+    const rij = stack.addStack();
+    rij.layoutHorizontally();
+    for (const u of strip.slice(r, r + kolommen)) {
+      const kol = rij.addStack();
+      kol.layoutVertically();
+      kol.centerAlignContent();
+      kol.size = new Size(breedte / kolommen, 0);
+      txt(kol, u.t, size - 2, C.muted, { mono: true, min: 0.7 });
+      kol.addSpacer(2);
+      icon(kol, u.icoon, size + 4);
+      kol.addSpacer(2);
+      txt(kol, `${u.temp}°`, size, C.text, { bold: true });
+    }
+  }
+}
+// De hoek rechts: temperatuur met icoon, daaronder de uren, en een tip of de lopende timer.
+function weerHoek(right, wx, family, breedte) {
+  const kop = right.addStack();
+  kop.centerAlignContent();
+  txt(kop, `${wx.temp}°`, family === "large" ? 26 : 22, C.text, { bold: true });
+  kop.addSpacer(6);
+  icon(kop, wx.icoon, family === "large" ? 22 : 18);
+  if (family === "large") txt(right, wx.omschrijving, 11, C.muted, { lines: 1, min: 0.8 });
+  const strip = wx.strip || [];
+  if (strip.length) {
+    right.addSpacer(family === "large" ? 6 : 4);
+    weerStrip(right, strip.slice(0, family === "large" ? 6 : 3), 3, breedte, family === "large" ? 11 : 10);
+  } else if (wx.regen >= 30) txt(right, `${wx.regen}% regen`, 10, C.muted);
 }
 
 function build(family, data) {
@@ -165,7 +205,13 @@ function build(family, data) {
       if (next.locatie) txt(w, next.locatie, 10, C.muted, { lines: 1 });
     } else txt(w, "Geen lessen meer vandaag", 13, C.text, { bold: true, lines: 2 });
     w.addSpacer();
-    if (data.weer) txt(w, `${data.weer.temp}°${data.weer.tip ? " · " + data.weer.tip : ""}`, 10, data.weer.tip ? C.amber : C.muted, { lines: 1, min: 0.7 });
+    if (data.weer) {
+      const r = w.addStack();
+      r.centerAlignContent();
+      icon(r, data.weer.icoon, 12);
+      if (data.weer.icoon) r.addSpacer(4);
+      txt(r, `${data.weer.temp}°${data.weer.tip ? " · " + data.weer.tip : ""}`, 10, data.weer.tip ? C.amber : C.muted, { lines: 1, min: 0.7 });
+    }
     return w;
   }
 
@@ -179,15 +225,16 @@ function build(family, data) {
   body.addSpacer(10);
   const right = body.addStack();
   right.layoutVertically();
-  right.size = new Size(family === "large" ? 110 : 96, 0);
+  const breedte = family === "large" ? 136 : 116;
+  right.size = new Size(breedte, 0);
+  const timerLoopt = data.timer && new Date(data.timer.eind) > new Date();
   if (data.weer) {
-    txt(right, `${data.weer.temp}°`, 26, C.text, { bold: true });
-    txt(right, data.weer.omschrijving, 11, C.muted, { lines: 2, min: 0.8 });
-    if (data.weer.regen >= 30) txt(right, `${data.weer.regen}% regen`, 10, C.muted);
-    if (data.weer.tip) { right.addSpacer(3); txt(right, data.weer.tip, 10, C.amber, { lines: 2, min: 0.8 }); }
+    weerHoek(right, data.weer, family, breedte);
+    // In de middelste widget is er plek voor óf de tip óf de timer; de timer gaat voor.
+    if (data.weer.tip && (family === "large" || !timerLoopt)) { right.addSpacer(4); txt(right, data.weer.tip, 10, C.amber, { lines: family === "large" ? 2 : 1, min: 0.8 }); }
   }
   // Lopende timer: telt live af op het beginscherm.
-  if (data.timer && new Date(data.timer.eind) > new Date()) {
+  if (timerLoopt) {
     right.addSpacer(4);
     txt(right, `⏱ ${data.timer.label}`, 10, C.muted, { lines: 1, min: 0.8 });
     const d = right.addDate(new Date(data.timer.eind));
@@ -201,6 +248,21 @@ function build(family, data) {
   }
   w.addSpacer();
   return w;
+}
+
+// Zelf bijwerken: één keer per dag de nieuwste versie van sekibar.nl ophalen (zoals NOVA). Werkt vanaf de volgende keer.
+async function bijwerken() {
+  try {
+    const stempel = fm.joinPath(fm.documentsDirectory(), "eco-widget-bijgewerkt.txt");
+    if (fm.fileExists(stempel) && Date.now() - Number(fm.readString(stempel)) < 24 * 3600000) return;
+    fm.writeString(stempel, String(Date.now()));
+    const r = new Request(`${SITE}/widget/eco-widget.js`);
+    r.timeoutInterval = 10;
+    const code = await r.loadString();
+    if (r.response.statusCode !== 200 || !code.startsWith("// ECO-widget voor Scriptable") || !code.includes("Script.complete()")) return;
+    const eigen = module.filename.includes("Mobile Documents") ? FileManager.iCloud() : FileManager.local();
+    if (eigen.readString(module.filename) !== code) eigen.writeString(module.filename, code);
+  } catch (e) { /* geen internet of geen schrijfrecht: dan blijft deze versie */ }
 }
 
 // Start
@@ -224,5 +286,6 @@ if (config.runsInApp) {
   const auth = await getAuth(false).catch(() => null);
   const data = auth ? await loadData(auth) : { fout: "Open de app Scriptable en tik op het script ECO om in te loggen." };
   Script.setWidget(build(fam, data));
+  await bijwerken();
 }
 Script.complete();

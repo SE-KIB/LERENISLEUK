@@ -584,8 +584,8 @@ async function weather(loc: Loc) {
   const c = wxCache.get(key);
   if (c && Date.now() - c.at < 10 * 60000) return c.data;
   const q = new URLSearchParams({ latitude: String(loc.lat), longitude: String(loc.lon), timezone: TZ, forecast_days: "3",
-    current: "temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,uv_index",
-    hourly: "temperature_2m,precipitation_probability,weather_code",
+    current: "temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,uv_index,is_day",
+    hourly: "temperature_2m,precipitation_probability,weather_code,is_day",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset" });
   const [r, name] = await Promise.all([fetch(`https://api.open-meteo.com/v1/forecast?${q}`, { signal: AbortSignal.timeout(6000) }), loc.name ? loc.name : placeName(loc.lat, loc.lon)]);
   if (!r.ok) throw new Error(`weerdienst ${r.status}`);
@@ -593,11 +593,15 @@ async function weather(loc: Loc) {
   const i0 = Math.max(0, h.time.findIndex((t: string) => t >= cur.time.slice(0, 13)));
   const data = {
     plaats: name || "je locatie",
-    nu: { temp: Math.round(cur.temperature_2m), gevoel: Math.round(cur.apparent_temperature), omschrijving: WMO[cur.weather_code] ?? "", wind_kmh: Math.round(cur.wind_speed_10m), uv: cur.uv_index },
+    nu: { tijd: cur.time, temp: Math.round(cur.temperature_2m), gevoel: Math.round(cur.apparent_temperature), omschrijving: WMO[cur.weather_code] ?? "", wind_kmh: Math.round(cur.wind_speed_10m), uv: cur.uv_index,
+      code: cur.weather_code, dag: cur.is_day === 1 },
     komende_uren: h.time.slice(i0, i0 + 12).filter((_: string, k: number) => k % 2 === 0).map((t: string, k: number) => ({
       tijd: t.slice(11, 16), temp: Math.round(h.temperature_2m[i0 + k * 2]), regenkans: h.precipitation_probability[i0 + k * 2], weer: WMO[h.weather_code[i0 + k * 2]] ?? "" })),
     dagen: j.daily.time.map((d: string, k: number) => ({ dag: d, min: Math.round(j.daily.temperature_2m_min[k]), max: Math.round(j.daily.temperature_2m_max[k]),
       regenkans: j.daily.precipitation_probability_max[k], weer: WMO[j.daily.weather_code[k]] ?? "" })),
+    zon: j.daily.time.slice(0, 2).map((d: string, k: number) => ({ dag: d, op: String(j.daily.sunrise[k] ?? "").slice(11, 16), onder: String(j.daily.sunset[k] ?? "").slice(11, 16) })),
+    // Per uur voor de widget (niet voor het model): de 8 uur na het huidige uur.
+    uren: h.time.slice(i0 + 1, i0 + 9).map((t: string, k: number) => ({ t, temp: Math.round(h.temperature_2m[i0 + 1 + k]), code: h.weather_code[i0 + 1 + k], dag: h.is_day[i0 + 1 + k] === 1 })),
   };
   wxCache.set(key, { at: Date.now(), data });
   return data;
@@ -1316,6 +1320,34 @@ function eventMs(v: unknown, labels: Map<string, string>) {
   if (m && labels.has(m[1])) { const [y, mo, d] = labels.get(m[1])!.split("-").map(Number); return localToUtc(y, mo - 1, d, +m[2], +m[3], TZ); }
   return null;
 }
+// Weerrij zoals de iPhone-weerwidget: de komende uren met een SF Symbol-icoon, plus zonsopkomst/-ondergang als die ertussen valt.
+function wxIcoon(code: number, dag: boolean) {
+  if (code <= 1) return dag ? "sun.max.fill" : "moon.stars.fill";
+  if (code === 2) return dag ? "cloud.sun.fill" : "cloud.moon.fill";
+  if (code === 3) return "cloud.fill";
+  if (code <= 48) return "cloud.fog.fill";
+  if (code <= 57) return "cloud.drizzle.fill";
+  if (code === 65 || code === 82) return "cloud.heavyrain.fill";
+  if (code === 66 || code === 67) return "cloud.sleet.fill";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "cloud.snow.fill";
+  if (code >= 95) return "cloud.bolt.rain.fill";
+  return "cloud.rain.fill";
+}
+function weerStrip(w: any, n = 6) {
+  const uren: any[] = w.uren ?? [];
+  if (!uren.length) return [];
+  const slots = uren.map((u) => ({ k: u.t as string, t: String(u.t).slice(11, 13), temp: u.temp, icoon: wxIcoon(u.code, u.dag) }));
+  const nu = String(w.nu?.tijd ?? ""), eind = uren[uren.length - 1].t as string;
+  for (const z of w.zon ?? []) {
+    for (const [soort, hhmm] of [["op", z.op], ["onder", z.onder]] as const) {
+      const k = `${z.dag}T${hhmm}`;
+      if (!hhmm || k <= nu || k >= eind) continue;
+      const uur = uren.find((u) => String(u.t).slice(0, 13) === k.slice(0, 13));
+      slots.push({ k, t: hhmm, temp: uur?.temp ?? w.nu?.temp, icoon: soort === "op" ? "sunrise.fill" : "sunset.fill" });
+    }
+  }
+  return slots.sort((a, b) => a.k.localeCompare(b.k)).slice(0, n).map(({ k: _k, ...s }) => s);
+}
 function weatherTip(w: any) {
   const rain = Math.max(0, ...(w.komende_uren ?? []).slice(0, 2).map((u: any) => u.regenkans ?? 0));
   const feel = w.nu?.gevoel ?? 15;
@@ -1367,7 +1399,8 @@ async function widgetData(admin: any, userId: string, meta: Record<string, unkno
     items: items.slice(0, 6).map(({ start: _s, ...i }) => i),
     deadlines: deadlines.slice(0, 3),
     weer: wx ? { plaats: wx.plaats, temp: wx.nu.temp, gevoel: wx.nu.gevoel, omschrijving: wx.nu.omschrijving,
-      regen: Math.max(0, ...wx.komende_uren.slice(0, 2).map((u: any) => u.regenkans ?? 0)), max: wx.dagen?.[0]?.max, min: wx.dagen?.[0]?.min, tip: weatherTip(wx) } : null,
+      regen: Math.max(0, ...wx.komende_uren.slice(0, 2).map((u: any) => u.regenkans ?? 0)), max: wx.dagen?.[0]?.max, min: wx.dagen?.[0]?.min, tip: weatherTip(wx),
+      icoon: wx.nu.code != null ? wxIcoon(wx.nu.code, wx.nu.dag !== false) : "", strip: weerStrip(wx) } : null,
     actie,
     melding: bs && bs.ok === false && bs.tekst ? `Brightspace: ${bs.tekst}` : "",
     taken: taken.map((t) => String(t.tekst).slice(0, 80)),
@@ -2412,7 +2445,8 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
   if (name === "weer") {
     const loc = input.plaats ? await geocode(input.plaats) : actions.loc;
     if (!loc) return { fout: input.plaats ? `plaats '${input.plaats}' niet gevonden` : "locatie onbekend: vraag Serkan om locatie toe te staan of noem een plaats" };
-    return await weather(loc);
+    const { uren: _uren, ...w } = await weather(loc); // de uren per uur zijn voor de widget
+    return w;
   }
   if (name === "onthouden" || name === "vergeten") {
     if (!actions.db || !actions.userId) return { fout: "geheugen niet beschikbaar" };
