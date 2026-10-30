@@ -1168,6 +1168,7 @@ async function agendaContext(who?: Who) {
   }
   const bs = who ? await kvGet(who.db, "bs_status").catch(() => null) : null;
   if (bs && bs.ok === false && bs.tekst) extra.push(`- Brightspace-koppeling werkt niet (${bs.tekst}); de planning kan verouderd zijn. Zeg dat erbij als je een lestijd noemt.`);
+  else if (bsOud(bs)) extra.push(`- Let op: ${bsOud(bs)}; de lesplanning kan verouderd zijn. Zeg dat erbij als je een lestijd noemt.`);
   return `Agenda vandaag en morgen:\n${lines.length ? lines.join("\n") : "- niets gepland"}` + (extra.length ? `\nBijzonderheden:\n${extra.join("\n")}` : "");
 }
 async function rapportContext() {
@@ -1428,7 +1429,7 @@ async function widgetData(admin: any, userId: string, meta: Record<string, unkno
       regen: Math.max(0, ...wx.komende_uren.slice(0, 2).map((u: any) => u.regenkans ?? 0)), max: wx.dagen?.[0]?.max, min: wx.dagen?.[0]?.min, tip: weatherTip(wx),
       icoon: wx.nu.code != null ? wxIcoon(wx.nu.code, wx.nu.dag !== false) : "", strip: weerStrip(wx) } : null,
     actie,
-    melding: bs && bs.ok === false && bs.tekst ? `Brightspace: ${bs.tekst}` : "",
+    melding: bs && bs.ok === false && bs.tekst ? `Brightspace: ${bs.tekst}` : bsOud(bs) ? `Brightspace: ${bsOud(bs)}` : "",
     taken: taken.map((t) => String(t.tekst).slice(0, 80)),
     timer: tms[0] ? { label: tms[0].label || (tms[0].soort === "herinnering" ? "Herinnering" : "Timer"), eind: tms[0].eind } : null,
   };
@@ -1571,11 +1572,37 @@ async function briefingMaken(who: Who) {
   return out;
 }
 // Klok-tik (elke 30 seconden via pg_cron in de database): timers laten afgaan, caches warm houden en op de briefingtijd de melding sturen.
+// Brightspace-robot zelf starten: GitHub start geplande workflows vaak uren te laat, dan mist de briefing de verse planning.
+// Eén keer per dag vanaf 05:30, alleen met GITHUB_DISPATCH_TOKEN (fine-grained, alleen deze repo, Actions: read and write)
+// en alleen als Brightspace gekoppeld is. De geplande ronde in brightspace-sync.yml blijft als reserve.
+async function robotStarten(db: any, dag: string) {
+  const tok = env("GITHUB_DISPATCH_TOKEN");
+  if (!tok) return;
+  const [st, bs] = await Promise.all([kvGet(db, "bs_robot").catch(() => null), kvGet(db, "bs_state").catch(() => null)]);
+  if (st?.datum === dag || !bs?.cookies?.length) return;
+  await kvSet(db, "bs_robot", { datum: dag, at: new Date().toISOString() }); // eerst markeren: nooit twee keer
+  const r = await fetch(`https://api.github.com/repos/${env("GITHUB_REPO", "SE-KIB/LERENISLEUK")}/actions/workflows/brightspace-sync.yml/dispatches`, {
+    method: "POST", signal: AbortSignal.timeout(10000), body: JSON.stringify({ ref: "main" }),
+    headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "ECO-sekibar" },
+  }).catch((e) => ({ status: 0, text: async () => String(e) } as any));
+  const ok = r.status === 204;
+  if (!ok) console.error("robot starten", r.status, (await r.text().catch(() => "")).slice(0, 200));
+  await kvSet(db, "bs_robot", { datum: dag, at: new Date().toISOString(), ok, status: r.status });
+}
+// Hoe oud is de laatste geslaagde Brightspace-ronde? Ouder dan 36 uur = de planning kan verouderd zijn.
+function bsOud(status: any): string {
+  const t = Date.parse(status?.laatst_ok ?? (status?.ok ? status?.at : "") ?? "");
+  if (!t) return "";
+  const uur = Math.round((Date.now() - t) / 3600000);
+  return uur > 36 ? `laatste geslaagde Brightspace-ronde is ${uur} uur geleden` : "";
+}
+
 async function cronTick(who: Who) {
   const dag = localParts(Date.now()).datum, nu = localParts(Date.now()).min;
   const timers = await timersAfgaan(who).catch((e) => { console.error("timers", e); return 0; });
   bg(kvSet(who.db, "klok", { at: new Date().toISOString(), timers }));
   if (nu >= 360) bg(Promise.all([cached(`agenda:${dag}`, 5 * 60000, 0, () => agendaContext(who)), cached(`rapport:${dag}`, 20 * 60000, 0, rapportContext)]));
+  if (nu >= 330 && nu < 450) bg(robotStarten(who.db, dag).catch((e) => console.error("robot", e))); // 05:30–07:30
   if (nu >= 720 && nu < 1320) { // gevolgde onderwerpen: één keer per dag tussen 12:00 en 22:00
     const [vDag, volg] = await Promise.all([kvGet(who.db, "volgen_dag").catch(() => null), kvGet(who.db, "volgen").catch(() => null)]);
     if (vDag !== dag && (volg ?? []).length) { await kvSet(who.db, "volgen_dag", dag); bg(volgenCheck(who.db).catch((e) => console.error("volgen", e))); }
@@ -2496,7 +2523,7 @@ async function ecoStatus(actions: Actions, input: Record<string, unknown> = {}) 
     spraakherkenning: env("GROQ_API_KEY") ? "Whisper large-v3 (Groq)" : "browser",
     koppelingen: {
       icloud_agenda: ICLOUD(), google: !!env("GOOGLE_REFRESH_TOKEN"), agenda_links: FEEDS().map((f) => f.name),
-      brightspace: bsState?.cookies?.length ? (bsStatus?.ok === false ? `gekoppeld, maar: ${bsStatus.tekst}` : "gekoppeld") : "niet gekoppeld",
+      brightspace: bsState?.cookies?.length ? (bsStatus?.ok === false ? `gekoppeld, maar: ${bsStatus.tekst}` : bsOud(bsStatus) ? `gekoppeld, maar ${bsOud(bsStatus)}` : "gekoppeld") : "niet gekoppeld",
       spotify: await kvGet(db, "spotify").then((x: any) => x?.refresh ? `gekoppeld${x.naam ? ` (${x.naam})` : ""}${x.product && x.product !== "premium" ? ", zonder Premium: alleen links openen" : ""}` : "niet gekoppeld (afspelen opent links in de Spotify-app)").catch(() => "onbekend"),
       spotify_laatste: await kvGet(db, "spotify_log").then((l: any) => (l ?? []).slice(0, 3).map((x: any) => x.tekst)).catch(() => []),
       whatsapp: "berichten klaarzetten via WhatsApp-links (lezen kan niet)",
@@ -3351,8 +3378,9 @@ Deno.serve(async (req) => {
     const HOST = env("BRIGHTSPACE_HOST", "brightspace.hhs.nl");
     try {
       if (actie === "info") {
-        const [status, pages, state] = await Promise.all([kvGet(admin, "bs_status"), kvGet(admin, "bs_pages"), kvGet(admin, "bs_state")]);
-        return json({ status: status ?? null, pages: pages ?? [], gekoppeld: !!state?.cookies?.length });
+        const [status, pages, state, robot] = await Promise.all([kvGet(admin, "bs_status"), kvGet(admin, "bs_pages"), kvGet(admin, "bs_state"), kvGet(admin, "bs_robot")]);
+        return json({ status: status ?? null, pages: pages ?? [], gekoppeld: !!state?.cookies?.length, oud: bsOud(status), robot: robot ?? null,
+          klok_start: !!env("GITHUB_DISPATCH_TOKEN") });
       }
       if (actie === "pages") {
         const pages = (Array.isArray(bs.pages) ? bs.pages : []).map((p: any) => ({ vak: String(p?.vak ?? "").trim().slice(0, 120), url: String(p?.url ?? "").trim() }))
@@ -3376,7 +3404,9 @@ Deno.serve(async (req) => {
       }
       if (actie === "status") {
         const st = bs.status ?? {};
-        const status = { ok: !!st.ok, tekst: String(st.tekst ?? "").slice(0, 300), ...(st.link ? { link: String(st.link).slice(0, 500), tot: String(st.tot ?? "") } : {}), at: new Date().toISOString() };
+        const vorige = await kvGet(admin, "bs_status").catch(() => null), nu = new Date().toISOString();
+        const status = { ok: !!st.ok, tekst: String(st.tekst ?? "").slice(0, 300), ...(st.link ? { link: String(st.link).slice(0, 500), tot: String(st.tot ?? "") } : {}), at: nu,
+          laatst_ok: st.ok ? nu : vorige?.laatst_ok ?? (vorige?.ok ? vorige.at : undefined) };
         await kvSet(admin, "bs_status", status);
         return json({ ok: true });
       }

@@ -124,7 +124,7 @@ en kies in ECO bij **ROOSTER → + PLANNING** de bestanden en het vak. Gemini le
 zelfstudie, toetsen en inleverdata. Die planning is daarna **leidend**: de roosterles van dat vak op die dag wordt doorgestreept.
 Opnieuw uploaden vervangt alleen de dagen die op de nieuwe screenshots staan. Wissen kan met ✕ naast de vaknaam.
 
-**Brightspace automatisch bijwerken (gratis):** elke ochtend om 06:20 opent GitHub Actions met Playwright je Rooster-pagina's
+**Brightspace automatisch bijwerken (gratis):** elke ochtend (ECO's klok om 05:30, met reserve-tijden 04:20 en 06:20) opent GitHub Actions met Playwright je Rooster-pagina's
 in Brightspace en zet ECO de planning bij (zelfde import als + PLANNING, maar alleen de komende 6 weken: dat gaat sneller en
 betrouwbaarder). Gemini leest per vak eerst de tekst en dan elke screenshot apart; is Gemini even druk of is het gratis quotum van
 een model op, dan probeert ECO het volgende model (`PLANNING_MODEL`, standaard `gemini-3.8-flash`, `gemini-3.6-flash`,
@@ -138,6 +138,12 @@ misging zie je kort per model bij BRIGHTSPACE (bv. "3.8-flash 429 quotum op"). E
    Log in het venster dat opent in (HHS + tweestapsverificatie, kies "Aangemeld blijven"), wacht tot je je Brightspace-startpagina
    ziet en sluit dan het browservenster. Upload het bestand `brightspace.json` in ECO met **ROOSTER → SESSIE UPLOADEN**.
 4. Meteen proberen: GitHub → **Actions** → *Brightspace bijwerken* → **Run workflow**. Het resultaat zie je in ECO bij BRIGHTSPACE.
+5. **Op tijd (aanrader):** GitHub start geplande taken vaak uren te laat, waardoor de briefing van 07:30 geen verse planning heeft.
+   Laat ECO's eigen klok de robot om 05:30 starten: maak op https://github.com/settings/personal-access-tokens/new een
+   *fine-grained token*: naam "ECO robot", Resource owner **SE-KIB**, Repository access **Only select repositories →
+   LERENISLEUK**, Permissions → Repository permissions → **Actions: Read and write** (de rest niets), Expiration zo lang als
+   kan. Zet hem in Supabase → Edge Functions → Secrets als `GITHUB_DISPATCH_TOKEN`. Bij BRIGHTSPACE zie je (muis erop) wanneer
+   de klok hem startte. Is de laatste geslaagde ronde ouder dan 36 uur, dan waarschuwt ECO (BRIGHTSPACE, briefing, status).
 Verloopt de sessie, dan zegt ECO dat; herhaal dan stap 3. Je wachtwoord wordt nergens bewaard; de sessie staat alleen in je
 eigen Supabase-database (niet in GitHub). De GitHub-logs zijn openbaar, maar tonen alleen aantallen. Stoppen: haal de pagina's weg
 (✕) of meld je in je HHS/Microsoft-account overal af.
