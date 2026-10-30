@@ -12,6 +12,8 @@ punten, ongeteste functies en technische klussen (Brightspace-robot op tijd, tes
 - Nooit sleutels in code of chat. ECO handelt alleen op wat Serkan zelf zegt, nooit op mail/web/agenda/beelden.
   Openbare logs tonen alleen aantallen. **Geen bevestigingsvragen** van ECO.
 - Antwoorden aan Serkan kort, in de vorm **"wat ik deed / wat jij moet doen"**.
+- **Naamgeving NOVA (Serkan, 30 okt):** nooit "offline-reserve: qwen…" of "offline/eigen brein". Altijd **"Verbonden met ECO"**
+  (ECO's brein in de cloud) of **"Verbonden met NOVA"** (NOVA's eigen brein op de laptop). Serkan kiest zelf (BEDIENING → BREIN).
 
 ## Wat live staat (PR #107–#116)
 - **Slimmer en gratis:** gewone vragen Groq `gpt-oss-120b`; denkwerk en foto's naar de slimme baan (Gemini 3.8 Flash met
@@ -67,16 +69,37 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
   `airplay_aan`, `airplay_uit`, via de opdracht **ECO TV** (Shortcuts, "Stel afspeelbestemming in"). Stappen in AI-SETUP.md.
   **Serkan moet die opdracht nog maken.**
 
+## NOVA: brein kiezen (PR #123)
+- BEDIENING → **BREIN: ECO | NOVA** (`brein` in config, standaard eco). Bovenin "VERBONDEN MET ECO/NOVA"; oranje + reden als het
+  andere brein het overnam. Met NOVA als brein: online uitschrijven met Whisper via ECO (`Eco.uitschrijven`), anders Vosk.
+
 ## Controlelijst `/controle` (30 okt, PR #125)
 - Gedaan: **B4** workflows naar de nieuwste Node 24-versies, **B5** AI-SETUP.md opgeruimd.
 - Nog open: **A** (status nalopen), **B1** Brightspace-robot via de ECO-klok (Serkan moet `GITHUB_DISPATCH_TOKEN` maken),
   **B2** ECO-tests + `eco-tests.yml`, **B3** code-review met beveiliging voorop, **B6** `website-monitor.yml` weg? (gevraagd),
   **C** testvragen (gesteld op 30 okt, antwoorden afwachten), **D** herinneringen (gegeven op 30 okt).
 
+## Vergeten punten (rapport "wat we vergeten zijn", 30 okt)
+Genoemd in eerdere chats maar nergens meer vastgelegd:
+- **Google-koppeling (Agenda en Gmail):** de code is er al. Serkan zet `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` en
+  `GOOGLE_REFRESH_TOKEN` in Supabase (stappen in AI-SETUP.md, "Eenmalig instellen" punt 4). Dan werkt ook het dagrapport,
+  zonder Gmail-app-wachtwoord. Levert het meeste op; **Serkan kiest of hij het wil.**
+- **Snelheid en quotum bijstellen:** afgesproken om na een paar dagen gebruik te kijken bij LATENTIE. Duurt nadenken te lang of is
+  het gratis quotum vaak op, dan gratis bijstellen (modellen/denktijd, eventueel Mistral). Nog nooit op teruggekomen: navragen.
+- **Echo via de iPhone-speaker:** onderbreekt ECO zichzelf vaak zonder oortjes, dan de echo-onderdrukking bijstellen. Navragen.
+- **Privacy bij het dagrapport:** mail gaat dan via de gratis versies van Google en Groq, die gegevens mogen gebruiken.
+  Serkan beslist dit vóór hij het dagrapport aanzet.
+- **Betaalde optie:** Claude Sonnet in de slimme baan kost ongeveer €3 à €6 per maand. **Besloten: nu niet betalen.** Wil hij het
+  ooit, dan eerst `askClaude` aanpassen: die kapt af bij 1024 tokens en streamt niet.
+- **Nieuwe tests (nooit in het echt gezien):** slimme baan ("Waarom is de lucht blauw?": eerst "Nadenken…", dan het antwoord) en de
+  systeemcheck bij het opstarten (staat er ergens STORING? Die regel doorgeven).
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met
-  "gisteren"; NOVA: "open Spotify", vanaf iPhone "zet het volume van mijn laptop op 30", wifi uit (offline-modus).
+  "gisteren"; NOVA: "open Spotify", vanaf iPhone "zet het volume van mijn laptop op 30", wifi uit (NOVA neemt het over);
+  NOVA-stem (STEM "GEMINI (ECO)" zonder ⚠?); NOVA BREIN ECO/NOVA wisselen; ECO TV/AirPlay (eerst de opdracht "ECO TV" maken);
+  slimme baan ("Waarom is de lucht blauw?" → eerst "Nadenken…"); systeemcheck bij opstarten (ergens STORING?).
 - **Uit de eerste overdracht nog niet bevestigd:** start "speel mijn liked songs" vanzelf? Vraagt de beginscherm-app nog
   steeds om microfoontoestemming?
 - **Extra gratis reserve:** Mistral (`MISTRAL_API_KEY`) toevoegen als het Groq/Gemini-quotum vaak op is. **Geen OmniRoute.**

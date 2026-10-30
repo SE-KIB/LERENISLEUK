@@ -1,7 +1,7 @@
 """NOVA — Nice Operating Variant Agent: ECO op je Windows-laptop.
 
-Online ("Verbonden") praat NOVA met het ECO-brein (Groq/Gemini, zelfde geheugen, agenda en archief); offline met een model op
-de laptop via Ollama. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Het venster is dezelfde HUD als ECO
+NOVA is "verbonden met ECO" (ECO's brein: Groq/Gemini, zelfde geheugen, agenda en archief) of "verbonden met NOVA" (NOVA's eigen
+brein: een model op de laptop via Ollama). Serkan kiest zelf; is het gekozen brein niet bereikbaar, dan neemt het andere het over. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Het venster is dezelfde HUD als ECO
 (ui/index.html met ECO's ai.css, getoond met WebView2); lukt dat niet, dan een eenvoudig venster. Start: dubbelklik NOVA.exe.
 Zelftest (voor de bouwstraat): NOVA.exe --selftest
 """
@@ -58,7 +58,34 @@ class NovaApp:
         return f"{core.VERSIE}.{build}" if build else core.VERSIE
 
     def status_info(self):
-        return {"naam": self.cfg["naam"], "versie": self.versie(), "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"]}
+        return {"naam": self.cfg["naam"], "versie": self.versie(), "modus": "online" if self.brug.online else "offline", "model": self.cfg["model"],
+                "brein": self.actief_brein()[0] or "geen"}
+
+    # ---------- welk brein: ECO (cloud) of NOVA (eigen brein op de laptop) ----------
+    def gekozen(self) -> str:
+        return "nova" if self.cfg.get("brein") == "nova" else "eco"
+
+    def actief_brein(self) -> tuple[str, str]:
+        """Het brein dat nu antwoordt ("eco", "nova" of "") en waarom het niet het gekozen brein is (leeg als het dat wel is)."""
+        eco_ok, eco_reden = bool(self.brug.online and self.eco.klaar), (self.brug.reden or "niet bereikbaar")
+        if self.gekozen() == "nova":
+            if self.lokaal_ok:
+                return "nova", ""
+            return ("eco", f"NOVA is niet klaar ({self.lokaal_reden})") if eco_ok else ("", f"NOVA: {self.lokaal_reden} · ECO: {eco_reden}")
+        if eco_ok:
+            return "eco", ""
+        return ("nova", f"ECO is niet bereikbaar ({eco_reden})") if self.lokaal_ok else ("", f"ECO: {eco_reden} · NOVA: {self.lokaal_reden}")
+
+    def kies_brein(self, keuze: str):
+        self.cfg["brein"] = "nova" if keuze == "nova" else "eco"
+        core.bewaar_config(self.cfg)
+        brein, reden = self.actief_brein()
+        self.toon_status()
+        if brein == self.gekozen():
+            self.ui.melding(f"Verbonden met {brein.upper()}.", "ok")
+            self.ui.sys(f"Verbonden met {brein.upper()}.")
+        else:
+            self.ui.melding(f"{self.gekozen().upper()} gekozen, maar {reden}.", "err")
 
     def stem_status(self):
         """Welke stem NOVA gebruikt: de laatste die echt sprak (met de reden als hij terugviel), anders de stem die nu aan de beurt is."""
@@ -79,26 +106,28 @@ class NovaApp:
             stemstatus = self.stem_status()
         except Exception:
             spraak, stemstatus = "—", {}
-        basis = {"eco": "VERBONDEN" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
+        brein, reden = self.actief_brein()
+        basis = {"eco": "BEREIKBAAR" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
                  "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
-                 "naam": self.cfg["naam"], "versie": self.versie(), **stemstatus}
-        if self.brug.online:
-            self.ui.status({**basis, "modus": "online", "titel": "VERBONDEN — ECO-BREIN (GROQ/GEMINI)",
-                            "sub": f"Offline-reserve: {self.cfg['model']} {'klaar' if self.lokaal_ok else '— ' + self.lokaal_reden}"})
-        elif self.lokaal_ok:
-            self.ui.status({**basis, "modus": "offline", "titel": f"OFFLINE — EIGEN BREIN ({self.cfg['model']})", "sub": f"ECO niet bereikbaar: {self.brug.reden}"})
-        else:
-            self.ui.status({**basis, "modus": "geen", "titel": "OFFLINE — GEEN BREIN BESCHIKBAAR", "sub": f"ECO: {self.brug.reden or 'niet bereikbaar'} · Lokaal: {self.lokaal_reden}"})
+                 "naam": self.cfg["naam"], "versie": self.versie(), "gekozen": self.gekozen(), "brein": brein, "reden": reden, **stemstatus}
+        # "modus" bepaalt de kleur: groen = het gekozen brein antwoordt, oranje = het andere nam het over, rood = geen brein.
+        modus = "geen" if not brein else "online" if brein == self.gekozen() else "offline"
+        titel = f"VERBONDEN MET {brein.upper()}" if brein else "GEEN BREIN BESCHIKBAAR"
+        self.ui.status({**basis, "modus": modus, "titel": titel, "sub": reden or (f"NOVA gebruikt {self.cfg['model']} op deze laptop" if brein == "nova" else "ECO's brein (Groq/Gemini) met je geheugen en agenda")})
 
     def online_wissel(self, online, reden):
         self.toon_status()
         if online:
-            self.ui.sys("Verbonden met ECO.")
-            self.spreek("Verbonden met ECO.")
             threading.Thread(target=self.kennis_bijwerken, daemon=True).start()
+            if self.gekozen() == "eco":
+                self.ui.sys("Verbonden met ECO.")
+                self.spreek("Verbonden met ECO.")
+            else:
+                self.ui.sys("ECO is bereikbaar (je hebt NOVA gekozen).")
         else:
-            self.ui.sys(f"Offline ({reden}).")
-            self.spreek("Offline. Ik gebruik nu mijn eigen brein." if self.lokaal_ok else "Offline, en mijn eigen brein is nog niet klaar.")
+            self.ui.sys(f"ECO is niet bereikbaar ({reden}).")
+            if self.gekozen() == "eco":
+                self.spreek("ECO is niet bereikbaar. Ik ga verder met NOVA." if self.lokaal_ok else "ECO is niet bereikbaar, en NOVA is nog niet klaar.")
 
     def kennis_bijwerken(self):
         try:
@@ -179,13 +208,14 @@ class NovaApp:
                     gestart["ja"] = True
                     self.ui.nova_start()
                 self.ui.delta(d)
-            if self.brug.online and self.eco.klaar:
+            brein, reden = self.actief_brein()
+            if brein == "eco":
                 antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
-            elif self.lokaal_ok:
+            elif brein == "nova":
                 antwoord = self.lokaal.chat(tekst, on_tool=lambda n: self.ui.tool(n))
                 delta(antwoord)
             else:
-                raise RuntimeError("Ik ben offline en mijn eigen brein is nog niet klaar. Installeer Ollama en download het model bij BEDIENING.")
+                raise RuntimeError(f"Geen brein beschikbaar ({reden}). Voor NOVA: installeer Ollama en download het model bij BEDIENING.")
             self.ui.nova_eind(antwoord)
             self.spreek(antwoord)
         except Exception as e:
@@ -210,7 +240,7 @@ class NovaApp:
                 self.ui.staat("idle")
                 return
             self.ui.staat("thinking")
-            if self.brug.online and self.eco.klaar:
+            if self.actief_brein()[0] == "eco":
                 gestart = {"ja": False}
 
                 def delta(d):
@@ -221,10 +251,17 @@ class NovaApp:
                 antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
                 self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
-            else:
-                if not stem.vosk_klaar():
-                    raise RuntimeError("Offline spraakherkenning is nog niet gedownload (gebeurt vanzelf als je online bent). Typ je vraag.")
-                tekst = stem.vosk_herken(samples)
+            else:  # NOVA antwoordt: uitschrijven met Whisper (via ECO) als dat kan, anders Vosk op de laptop
+                tekst = None
+                if self.brug.online and self.eco.klaar:
+                    try:
+                        tekst = self.eco.uitschrijven(stem.naar_wav(samples))
+                    except Exception:
+                        tekst = None
+                if tekst is None:
+                    if not stem.vosk_klaar():
+                        raise RuntimeError("Offline spraakherkenning is nog niet gedownload (gebeurt vanzelf als je online bent). Typ je vraag.")
+                    tekst = stem.vosk_herken(samples)
                 if not tekst:
                     self.ui.sys("Ik verstond niets.")
                     self.ui.staat("idle")
@@ -309,18 +346,18 @@ class NovaApp:
 
     def beschrijf_beeld(self, jpeg_b64: str) -> str:
         vraag = "Beschrijf kort en concreet wat er op dit scherm staat (programma, belangrijkste tekst)."
-        if self.brug.online and self.eco.klaar:
+        if self.actief_brein()[0] == "eco":
             r = self.eco._post({"message": vraag, "images": [{"mime": "image/jpeg", "data": jpeg_b64}], "ui": {"app": "NOVA"}}, timeout=60).json()
             return r.get("reply", "")
         if self.lokaal_ok:
             return self.lokaal.chat(vraag, beelden=[jpeg_b64])
-        return "Ik kan het scherm nu niet bekijken (offline en geen eigen brein)."
+        return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en NOVA niet klaar)."
 
     # ---------- instellingen ----------
     def info(self):
         import nova_update as upd
         build = upd.huidige_build(ui_map())
-        return {"modellen": core.MODELLEN, "model": self.cfg["model"], "naam": self.cfg["naam"], "stem": bool(self.cfg.get("stem", True)),
+        return {"modellen": core.MODELLEN, "model": self.cfg["model"], "naam": self.cfg["naam"], "stem": bool(self.cfg.get("stem", True)), "brein": self.gekozen(),
                 "heeft_sleutel": self.eco.klaar, "versie": f"{core.VERSIE}.{build}" if build else core.VERSIE}
 
     def opslaan(self, d: dict):
@@ -343,7 +380,7 @@ class NovaApp:
                 self.ui.melding(f"{self.cfg['model']} downloaden…", "")
                 self.lokaal.ophalen(lambda f, s: self.ui.melding(f"{self.cfg['model']} downloaden… {f:.0%}", ""))
                 self.lokaal_ok, self.lokaal_reden = self.lokaal.status()
-                self.ui.melding(f"{self.cfg['model']} staat klaar voor offline.", "ok")
+                self.ui.melding(f"{self.cfg['model']} staat klaar: NOVA's eigen brein werkt.", "ok")
                 self.toon_status()
             except Exception as e:
                 self.ui.melding(f"Downloaden lukte niet: {e} (draait Ollama? ollama.com)", "err")
@@ -417,6 +454,7 @@ class Api:
     def mic(self): self._app.mic()
     def info(self): return self._app.info()
     def opslaan(self, d): self._app.opslaan(d or {})
+    def brein(self, keuze): self._app.kies_brein(keuze)
     def download(self, model=None): self._app.download(model)
     def klaar(self): self._ui.klaar()
 
@@ -530,9 +568,16 @@ class TkUI:
         for label, var, verborgen in (("ECO-SLEUTEL (leeg = zo laten)", sleutel, True), ("NAAM VAN DEZE LAPTOP", naam, False)):
             tk.Label(w, text=label, fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
             tk.Entry(w, textvariable=var, show="•" if verborgen else "", bg=K["paneel"], fg="#e9fdff", relief="flat").pack(fill="x", padx=14, ipady=4)
-        tk.Label(w, text="OFFLINE MODEL (OLLAMA)", fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
+        tk.Label(w, text="NOVA-MODEL (OLLAMA)", fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
         ttk.Combobox(w, textvariable=model, values=i["modellen"]).pack(fill="x", padx=14)
         tk.Checkbutton(w, text="NOVA praat hardop", variable=stemvar, fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(anchor="w", padx=12, pady=8)
+        breinvar = tk.StringVar(value=i["brein"])
+        rij = tk.Frame(w, bg=K["bg"])
+        rij.pack(fill="x", padx=12)
+        tk.Label(rij, text="BREIN", fg=K["c2"], bg=K["bg"], font=("Consolas", 9)).pack(side="left")
+        for waarde, label in (("eco", "ECO"), ("nova", "NOVA")):
+            tk.Radiobutton(rij, text=label, value=waarde, variable=breinvar, command=lambda: self.app.kies_brein(breinvar.get()),
+                           fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(side="left", padx=6)
         knoppen = tk.Frame(w, bg=K["bg"])
         knoppen.pack(fill="x", padx=12, pady=6)
         opslaan = lambda: self.app.opslaan({"eco_sleutel": sleutel.get(), "naam": naam.get(), "model": model.get(), "stem": stemvar.get()})
