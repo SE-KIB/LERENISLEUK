@@ -103,7 +103,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Uit de eerste overdracht nog niet bevestigd:** start "speel mijn liked songs" vanzelf? Vraagt de beginscherm-app nog
   steeds om microfoontoestemming?
 - **Extra gratis reserve:** Mistral (`MISTRAL_API_KEY`) toevoegen als het Groq/Gemini-quotum vaak op is. **Geen OmniRoute.**
-- **NOVA automatisch laten starten:** Win+R → `shell:startup` → snelkoppeling naar NOVA.exe (tip, Serkan doet dit zelf).
+- **NOVA automatisch laten starten: niet nodig** (Serkan, 30 okt). Hij start NOVA zelf; niet meer voorstellen.
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).

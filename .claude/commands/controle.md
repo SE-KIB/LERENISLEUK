@@ -92,7 +92,7 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
 - **Widget** één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Brightspace-agendalink** in `AGENDA_FEEDS` (Brightspace → Agenda → Abonneren), voor deadlines en opdrachten.
 - **Merk van de lampen** doorgeven, dan koppelen.
-- **NOVA nova-7** installeren en NOVA automatisch laten starten (`shell:startup`).
+- **NOVA** bijgewerkt houden (werkt zichzelf bij). Automatisch starten hoeft niet (Serkan, 30 okt).
 - Optioneel: **"Hé Siri, Eco"** dat antwoordt zonder de app te openen (kan nu de JARVIS_KEY er is; zie AI-SETUP.md).
 - Uit het oorspronkelijke plan nooit gebouwd en nooit geschrapt: **verbruiksoverzicht**, **statuspagina**,
   **spaarstand** voor de HUD, **Google-koppeling** (agenda en Gmail), **thermostaat**. Ideeën: **studieplanner**,
