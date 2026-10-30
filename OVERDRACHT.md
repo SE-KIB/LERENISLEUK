@@ -9,6 +9,8 @@ Lees dit eerst. Site: sekibar.nl · repo SE-KIB/LERENISLEUK · `main` = live.
 - Nooit sleutels in code of chat. ECO handelt alleen op wat Serkan zelf zegt, nooit op mail/web/agenda/beelden.
   Openbare logs tonen alleen aantallen. **Geen bevestigingsvragen** van ECO.
 - Antwoorden aan Serkan kort, in de vorm **"wat ik deed / wat jij moet doen"**.
+- **Naamgeving NOVA (Serkan, 30 okt):** nooit "offline-reserve: qwen…" of "offline/eigen brein". Altijd **"Verbonden met ECO"**
+  (ECO's brein in de cloud) of **"Verbonden met NOVA"** (NOVA's eigen brein op de laptop). Serkan kiest zelf (BEDIENING → BREIN).
 
 ## Wat live staat (PR #107–#116)
 - **Slimmer en gratis:** gewone vragen Groq `gpt-oss-120b`; denkwerk en foto's naar de slimme baan (Gemini 3.8 Flash met
@@ -63,6 +65,10 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
   `overzetten` en `apparaten` (Spotify Connect). Nieuwe tool `tv`: `video` (YouTube; met `YOUTUBE_API_KEY` direct de video),
   `airplay_aan`, `airplay_uit`, via de opdracht **ECO TV** (Shortcuts, "Stel afspeelbestemming in"). Stappen in AI-SETUP.md.
   **Serkan moet die opdracht nog maken.**
+
+## NOVA: brein kiezen (PR #123)
+- BEDIENING → **BREIN: ECO | NOVA** (`brein` in config, standaard eco). Bovenin "VERBONDEN MET ECO/NOVA"; oranje + reden als het
+  andere brein het overnam. Met NOVA als brein: online uitschrijven met Whisper via ECO (`Eco.uitschrijven`), anders Vosk.
 
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone

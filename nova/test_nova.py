@@ -321,6 +321,65 @@ ENGELS = types.SimpleNamespace(id=r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech
 NEDERLANDS = types.SimpleNamespace(id=r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_NL-NL_FRANK_11.0", name="Microsoft Frank - Dutch (Netherlands)", languages=[])
 
 
+class TestBrein(unittest.TestCase):
+    """Verbonden met ECO of met NOVA: Serkan kiest; is het gekozen brein er niet, dan neemt het andere het over."""
+
+    def setUp(self):
+        self.pad = Path(tempfile.mkdtemp()) / "config.json"
+        self.oud = core.bewaar_config
+        core.bewaar_config = lambda cfg, pad=None: self.oud(cfg, self.pad)  # nooit de echte instellingen aanraken
+
+    def tearDown(self):
+        core.bewaar_config = self.oud
+
+    def test_keuze_en_overnemen(self):
+        ui, app = nep_app(online=True)
+        app.lokaal_ok, app.lokaal_reden = True, "qwen3.5:9b"
+        self.assertEqual(app.actief_brein(), ("eco", ""))
+        app.kies_brein("nova")
+        self.assertEqual(app.actief_brein(), ("nova", ""))
+        status = [e[1] for e in ui.ev if e[0] == "status"][-1]
+        self.assertEqual((status["titel"], status["gekozen"], status["modus"]), ("VERBONDEN MET NOVA", "nova", "online"))
+        app.lokaal_ok, app.lokaal_reden = False, "Ollama draait niet"
+        brein, reden = app.actief_brein()
+        self.assertEqual(brein, "eco")
+        self.assertIn("Ollama", reden)
+        app.toon_status()
+        status = [e[1] for e in ui.ev if e[0] == "status"][-1]
+        self.assertEqual((status["titel"], status["modus"]), ("VERBONDEN MET ECO", "offline"))  # oranje: niet jouw keuze
+        self.assertEqual(core.laad_config(self.pad)["brein"], "nova")
+
+    def test_geen_brein(self):
+        ui, app = nep_app(online=False)
+        app.brug.reden = "geen internet"
+        self.assertEqual(app.actief_brein()[0], "")
+        app.toon_status()
+        status = [e[1] for e in ui.ev if e[0] == "status"][-1]
+        self.assertEqual((status["titel"], status["modus"]), ("GEEN BREIN BESCHIKBAAR", "geen"))
+        self.assertNotIn("Offline-reserve", json.dumps(status))
+
+    def test_nova_antwoordt_ook_online(self):
+        ui, app = nep_app(online=True)
+        app.cfg.update(stem=False, brein="nova")
+        app.lokaal_ok = True
+        app.eco.chat = lambda *a, **k: self.fail("ECO mag niet antwoorden als NOVA gekozen is")
+        app.lokaal.chat = lambda t, on_tool=None: "Hier is NOVA."
+        app.vraag("hoi")
+        self.assertIn(("nova_eind", "Hier is NOVA."), ui.ev)
+
+    def test_nova_luistert_met_whisper_van_eco(self):
+        ui, app = nep_app(online=True)
+        app.cfg.update(stem=False, brein="nova")
+        app.lokaal_ok = True
+        app.eco.spraak_chat = lambda *a, **k: self.fail("ECO mag niet antwoorden als NOVA gekozen is")
+        app.eco.uitschrijven = lambda wav: "open spotify"
+        app.lokaal.chat = lambda t, on_tool=None: f"NOVA: {t}"
+        with mock.patch.object(stem, "opnemen", lambda: np.ones(16000, np.int16)), mock.patch.object(stem, "stop_spelen", lambda: None):
+            app.luister()
+        self.assertIn(("jij", "open spotify"), ui.ev)
+        self.assertIn(("nova_eind", "NOVA: open spotify"), ui.ev)
+
+
 class TestNovaStem(unittest.TestCase):
     """Welke stem NOVA gebruikt: ECO's stem, dan Piper, dan een Nederlandse Windows-stem; nooit een Engelse."""
 

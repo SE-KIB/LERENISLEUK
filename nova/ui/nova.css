@@ -5,6 +5,9 @@
 .nova-set select:focus{border-color:var(--c)}
 .nova-set .field input{padding:.5rem .6rem}
 .nova-knoppen{display:flex;gap:8px;flex-wrap:wrap}
+.nova-brein{display:flex;align-items:center;gap:8px}
+.nova-brein>span{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);letter-spacing:.12em;margin-right:4px}
+.nova-brein .chip.on{background:var(--c);color:#01070c;border-color:var(--c)}
 .nova-pc{max-height:34vh;display:flex;flex-direction:column}
 .nova-pc .mem-list{overflow:auto;min-height:0}
 .nova-pc li.gedaan b{color:#5dffb0}.nova-pc li.niet_gecontroleerd b{color:var(--amber)}.nova-pc li.mislukt b{color:var(--red)}
