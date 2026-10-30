@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -300,4 +300,154 @@ Deno.test("pushmeldingen: VAPID-handtekening klopt en is voor de juiste dienst",
   gelijk([claims.aud, claims.sub], ["https://web.push.apple.com", "https://sekibar.nl"]);
   waar(claims.exp > Date.now() / 1000 && claims.exp <= Date.now() / 1000 + 24 * 3600, "verloopt binnen 24 uur (eis van de pushdiensten)");
   waar(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, kp.publicKey, dec(sig) as BufferSource, new TextEncoder().encode(`${h}.${c}`)), "handtekening klopt");
+});
+
+// Kleine nep-database in het geheugen (zoals Supabase: select/eq/in/insert/update/delete), voor lijstjes, timers en Spotify.
+function nepDb(kv: Record<string, unknown> = {}) {
+  const tabellen: Record<string, any[]> = {};
+  let volgnr = 0;
+  const db = {
+    tabellen, kv,
+    from(naam: string) {
+      const rijen = (tabellen[naam] ??= []);
+      let soort = "select", nieuw: any[] = [], wijzig: any = null, terug = false;
+      const filters: ((r: any) => boolean)[] = [];
+      const passend = () => rijen.filter((r) => filters.every((f) => f(r)));
+      const uitvoeren = () => {
+        if (naam === "ai_kv") {
+          if (soort === "upsert") { kv[nieuw[0].key] = nieuw[0].value; return { data: null }; }
+          const k = filters.length ? (filters[0] as any).waarde : "";
+          if (soort === "delete") { delete kv[k]; return { data: null }; }
+          return { data: k in kv ? [{ value: kv[k] }] : [] };
+        }
+        if (soort === "insert") { rijen.push(...nieuw); return { data: terug ? nieuw.map((r) => ({ id: r.id })) : null }; }
+        if (soort === "update") { passend().forEach((r) => Object.assign(r, wijzig)); return { data: null }; }
+        if (soort === "delete") { const weg = new Set(passend()); tabellen[naam] = rijen.filter((r) => !weg.has(r)); return { data: null }; }
+        return { data: passend().map((r) => ({ ...r })) };
+      };
+      const q: any = {
+        select: () => { if (soort !== "select") terug = true; return q; },
+        eq: (k: string, v: unknown) => { const f: any = (r: any) => (k in r ? r[k] : k === "klaar" ? false : k === "status" ? "loopt" : undefined) === v; f.waarde = v; filters.push(f); return q; },
+        in: (k: string, v: unknown[]) => { filters.push((r) => v.includes(r[k])); return q; },
+        order: () => q, limit: () => q, gte: () => q, lte: () => q, lt: () => q,
+        insert: (x: any) => { soort = "insert"; nieuw = (Array.isArray(x) ? x : [x]).map((r) => ({ id: `id${++volgnr}`, ...r })); return q; },
+        upsert: (x: any) => { soort = "upsert"; nieuw = [x]; return q; },
+        update: (x: any) => { soort = "update"; wijzig = x; return q; },
+        delete: () => { soort = "delete"; return q; },
+        maybeSingle: async () => ({ data: uitvoeren().data?.[0] ?? null }),
+        single: async () => ({ data: uitvoeren().data?.[0] ?? null }),
+        then: (ok: (x: unknown) => void, nee?: (e: unknown) => void) => { try { ok(uitvoeren()); } catch (e) { nee?.(e); } },
+      };
+      return q;
+    },
+  };
+  return db;
+}
+
+Deno.test("lijstjes: toevoegen zonder dubbelen, bekijken, afvinken en leegmaken", async () => {
+  const db = nepDb(), ui: unknown[] = [];
+  const a = { ...acties((ev) => ui.push(ev)), db, userId: "u1" };
+  const r1 = await m.lijstTool({ actie: "toevoegen", lijst: "de boodschappenlijst", items: ["melk", "brood"] }, a);
+  gelijk([r1.lijst, r1.toegevoegd, r1.open_op_lijst], ["boodschappen", ["melk", "brood"], 2]);
+  waar(r1._terug?.terug?.ids?.length === 2, "ongedaan maken kent de nieuwe ids");
+  const r2 = await m.lijstTool({ actie: "toevoegen", lijst: "boodschappen", items: ["Melk", "kaas"] }, a);
+  gelijk([r2.toegevoegd, r2.stond_er_al], [["kaas"], ["Melk"]]);
+  await m.lijstTool({ actie: "toevoegen", tekst: "mail docent" }, a);
+  gelijk((await m.lijstTool({ actie: "bekijken", lijst: "boodschappen" }, a)).open, ["melk", "brood", "kaas"]);
+  gelijk((await m.lijstTool({}, a)).lijsten, { boodschappen: ["melk", "brood", "kaas"], taken: ["mail docent"] });
+  gelijk((await m.lijstTool({ actie: "afvinken", zoek: "de melk" }, a)).afgevinkt, ["melk (boodschappen)"]);
+  gelijk((await m.lijstTool({ actie: "afvinken", zoek: "pindakaas" }, a)).gedaan, 0);
+  gelijk((await m.lijstTool({ actie: "leegmaken" }, a)).fout, "noem welke lijst");
+  const leeg = await m.lijstTool({ actie: "leegmaken", lijst: "boodschappen" }, a);
+  gelijk(leeg._terug.terug.items.map((x: any) => x.tekst), ["brood", "kaas"]);
+  gelijk((await m.lijstTool({}, a)).lijsten, { taken: ["mail docent"] });
+  waar(ui.length >= 5 && ui.every((e: any) => e.onderdeel === "lijstjes"), "de lijstjes in beeld worden bijgewerkt");
+  gelijk((await m.lijstTool({ actie: "toevoegen" }, { ...a, db: undefined })).fout, "lijstjes niet beschikbaar");
+});
+
+Deno.test("timers: zetten met duur of tijdstip, bekijken en stoppen", async () => {
+  const db = nepDb(), echt = Date.now;
+  Date.now = () => Date.parse("2026-11-02T13:00:00Z"); // 14:00 in Nederland
+  try {
+    const a = { ...acties(), db, userId: "u1" };
+    const t1 = await m.timerTool({ minuten: "10", label: "pasta" }, a);
+    gelijk([t1.gezet, t1.soort, t1.eindtijd, t1.nog], [true, "timer", "14:10", "10 minuten"]);
+    const t2 = await m.timerTool({ om: "9:15", label: "bus" }, a);
+    gelijk([t2.soort, t2.eindtijd], ["herinnering", "09:15"]);
+    waar(t2.gezegd.startsWith("morgen"), "9:15 is al voorbij, dus morgen: " + t2.gezegd);
+    gelijk((await m.timerTool({ seconden: 2 }, a)).fout, "geef een duur (minuten of seconden) of een tijdstip (om)");
+    gelijk((await m.timerTool({ om: "25:00" }, a)).fout, "tijdstip als UU:MM, bv. 15:30");
+    gelijk((await m.timerTool({ uren: 200 }, a)).fout, "hooguit een week vooruit");
+    gelijk((await m.timerTool({ actie: "bekijken" }, a)).timers.length, 2);
+    const st = await m.timerTool({ actie: "stoppen", zoek: "pasta" }, a);
+    gelijk([st.gestopt, st.welke], [1, ["pasta"]]);
+    gelijk((await m.timerTool({ actie: "stoppen", zoek: "ei" }, a)).uitleg, "geen timer met die naam");
+    gelijk((await m.timerTool({ actie: "bekijken" }, a)).timers.map((t: any) => t.label), ["bus"]);
+  } finally { Date.now = echt; }
+});
+
+Deno.test("Spotify: niet gekoppeld opent de app; gekoppeld zoekt en speelt het nummer", async () => {
+  const echt = globalThis.fetch;
+  try {
+    const los = { ...acties(), db: nepDb() } as any;
+    const r1 = await m.spotifyTool({ zoek: "Bohemian Rhapsody" }, los);
+    waar(r1.geopend_in_spotify && los.open === "https://open.spotify.com/search/Bohemian%20Rhapsody", "zoeklink: " + los.open);
+    await m.spotifyTool({ soort: "opgeslagen" }, los);
+    gelijk(los.open, "https://open.spotify.com/collection/tracks");
+    gelijk((await m.spotifyTool({ actie: "pauze" }, los)).fout?.startsWith("Spotify is nog niet gekoppeld"), true);
+
+    const verzoeken: string[] = [];
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      const u = String(url), wat = `${init?.method ?? "GET"} ${u.replace("https://api.spotify.com/v1", "")}`;
+      verzoeken.push(wat);
+      if (u.includes("/search?")) return Response.json({ tracks: { items: [{ name: "Bohemian Rhapsody", uri: "spotify:track:abc", artists: [{ name: "Queen" }] }] } });
+      if (wat.startsWith("PUT /me/player/play")) return new Response(null, { status: 204 });
+      if (wat === "GET /me/player") return Response.json({ is_playing: true, item: { name: "Bohemian Rhapsody" }, device: { name: "iPhone" } });
+      return Response.json({});
+    }) as typeof fetch;
+    const db = nepDb({ spotify: { refresh: "r", access: "a", exp: Date.now() + 3600000 } });
+    const r2 = await m.spotifyTool({ zoek: "Bohemian Rhapsody" }, { ...acties(), db } as any);
+    waar(verzoeken.some((v) => v.startsWith("GET /search?") && v.includes("type=track")), verzoeken.join(", "));
+    waar(verzoeken.includes("PUT /me/player/play"), verzoeken.join(", "));
+    waar(JSON.stringify(r2).includes("speelt nu: Bohemian Rhapsody op iPhone"), JSON.stringify(r2));
+  } finally { globalThis.fetch = echt; }
+});
+
+Deno.test("klok: de briefing gaat één keer per dag, alleen rond de ingestelde tijd", async () => {
+  const echtNu = Date.now, echtFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("{}", { status: 500 })) as typeof fetch;
+  const db = nepDb(), who = { db, userId: "u1" };
+  try {
+    Date.now = () => Date.parse("2026-11-02T06:00:00Z"); // 07:00: te vroeg
+    gelijk((await m.cronTick(who)).briefing, undefined, "voor 07:30 nog niet");
+    Date.now = () => Date.parse("2026-11-02T06:31:00Z"); // 07:31
+    gelijk((await m.cronTick(who)).briefing, true, "om 07:31 wel");
+    gelijk((db.kv.briefing_verstuurd as any).datum, "2026-11-02");
+    gelijk((await m.cronTick(who)).briefing, undefined, "geen tweede keer dezelfde dag");
+    Date.now = () => Date.parse("2026-11-02T09:00:00Z"); // 10:00: te laat (meer dan 2 uur)
+    db.kv.briefing_verstuurd = { datum: "2026-11-01" };
+    gelijk((await m.cronTick(who)).briefing, undefined, "ver na de tijd niet meer");
+    Date.now = () => Date.parse("2026-11-03T06:31:00Z");
+    db.kv.briefing_inst = { tijd: "07:30", aan: false };
+    gelijk((await m.cronTick(who)).briefing, undefined, "uitgezet: niets");
+    db.kv.briefing_inst = { tijd: "07:30", aan: true };
+    gelijk((await m.cronTick(who)).briefing, true, "de volgende dag weer");
+  } finally { Date.now = echtNu; globalThis.fetch = echtFetch; await new Promise((r) => setTimeout(r, 50)); }
+});
+
+Deno.test("foto's: meegestuurde foto's gaan als inlineData naar Gemini, bij de laatste vraag", async () => {
+  const echt = globalThis.fetch, bodies: any[] = [];
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    if (String(url).includes("generativelanguage")) bodies.push(JSON.parse(String(init?.body)));
+    return new Response("quotum", { status: 429 });
+  }) as typeof fetch;
+  try {
+    const a = { ...acties(), images: [{ mime: "image/jpeg", data: "QUJD" }] } as any;
+    const geschiedenis = [{ role: "user", content: "hoi" }, { role: "assistant", content: "hé" }, { role: "user", content: "wat zie je?" }];
+    await m.askGemini(geschiedenis, a, { models: ["gemini-test-foto"], level: "low", timeout: 5000 }).catch(() => null);
+    waar(bodies.length >= 1, "Gemini werd aangeroepen");
+    const c = bodies[0].contents;
+    gelijk(c.at(-1).parts, [{ inlineData: { mimeType: "image/jpeg", data: "QUJD" } }, { text: "wat zie je?" }]);
+    gelijk(c[0].parts, [{ text: "hoi" }], "oude berichten zonder foto");
+  } finally { globalThis.fetch = echt; }
 });
