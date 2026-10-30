@@ -128,7 +128,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   slimme baan ("Waarom is de lucht blauw?" → eerst "Nadenken…"); systeemcheck bij opstarten (ergens STORING?).
 - **Uit de eerste overdracht nog niet bevestigd:** start "speel mijn liked songs" vanzelf? Vraagt de beginscherm-app nog
   steeds om microfoontoestemming?
-- **Extra gratis reserve:** Mistral (`MISTRAL_API_KEY`) toevoegen als het Groq/Gemini-quotum vaak op is. **Geen OmniRoute.**
+- **Extra gratis reserve:** Mistral zit erin (30 okt) en doet mee zodra Serkan `MISTRAL_API_KEY` zet (gratis Experiment-plan; traint
+  op gesprekken, daarom achter Groq/Gemini). Eerst alle grote modellen, kleine (`RESERVE_MODELS`) pas als laatste. Geen extra
+  accounts/sleutels van dezelfde dienst om het quotum te verdubbelen (tegen de regels van Groq/Google). **Geen OmniRoute.**
 - **NOVA automatisch laten starten: niet nodig** (Serkan, 30 okt). Hij start NOVA zelf; niet meer voorstellen.
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).

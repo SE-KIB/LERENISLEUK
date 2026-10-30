@@ -160,7 +160,16 @@ naar je mail, het dagrapport of hoe je dag eruitziet.
 - Ander onderwerp? Secret `DAGRAPPORT_QUERY`, bv. `subject:Dagrapport from:me` (Gmail-zoektaal).
 
 ## Welk AI-model? (gratis)
-- **Gewone vragen:** **Groq** `openai/gpt-oss-120b` (dan `gpt-oss-20b`; instelbaar met `GROQ_MODEL`). Razendsnel.
+- **Gewone vragen:** **Groq** `openai/gpt-oss-120b` (instelbaar met `GROQ_MODEL`). Razendsnel.
+- **Eerst alle grote modellen, de kleine pas als laatste (30 okt):** elk model heeft zijn eigen gratis quotum. Is Groq's 120b op,
+  dan Gemini Flash (`gemini-flash-latest`, `gemini-3.6-flash`, `gemini-2.5-flash`), dan Mistral (als `MISTRAL_API_KEY` bestaat).
+  Pas als die allemaal niet lukken de kleine: `RESERVE_MODELS` = `groq:openai/gpt-oss-20b,gemini:gemini-flash-lite-latest,mistral:mistral-small-latest`.
+  Meerdere accounts of sleutels van dezelfde dienst om het quotum te verdubbelen mag niet volgens Groq en Google (kans op blokkade);
+  meer verschillende gratis diensten wel.
+- **Mistral (extra gratis reserve):** console.mistral.ai → plan **Experiment** (gratis, telefoonnummer nodig) → API Keys → Create.
+  Zet hem in Supabase → Edge Functions → Secrets als `MISTRAL_API_KEY`. Let op: op het gratis plan mag Mistral je gesprekken
+  gebruiken om te trainen (ook wat ECO over je agenda en geheugen meestuurt). Daarom staat hij achter Groq en Gemini.
+  Modellen: `MISTRAL_MODEL` (standaard `mistral-medium-latest,mistral-large-latest`).
   **Qwen 3.8** (het model dat sommige mensen lokaal draaien) staat gratis bij Groq als `qwen/qwen3.8-27b` (preview). Wil je dat proberen:
   secret `GROQ_MODEL` = `qwen/qwen3.8-27b,openai/gpt-oss-120b` (Qwen eerst, gpt-oss als reserve). ECO verbergt het denken van Qwen, zodat
   het niet wordt voorgelezen. Lokaal draaien vraagt een videokaart met 24 GB; via Groq hoeft dat niet.
@@ -170,9 +179,9 @@ naar je mail, het dagrapport of hoe je dag eruitziet.
   dan antwoordt Groq met extra denktijd.
 - **Diep nadenken:** valt een moeilijke vraag toch bij Groq (bv. een korte rekensom of redenering), dan kan Groq zelf de tool
   `diep_nadenken` gebruiken: Gemini werkt de vraag uit met veel denktijd, Groq vertelt het antwoord kort.
-- **Reserve bij een Groq-storing:** Gemini (`gemini-flash-latest`, dan `AI_MODEL_FALLBACKS`) met een beetje denktijd, ook gestreamd.
+- **Reserve bij een Groq-storing:** Gemini (`gemini-flash-latest`, dan `AI_MODEL_FALLBACKS` = `gemini-3.6-flash,gemini-2.5-flash`) met een beetje denktijd, ook gestreamd.
   Elke Groq-aanroep heeft 10 seconden tot het eerste woord (`AI_TIMEOUT_MS`).
-- Volgorde aan te passen met `AI_PROVIDERS` (bv. `groq,gemini,anthropic`). Claude (betaald) werkt ook als `ANTHROPIC_API_KEY` bestaat,
+- Volgorde aan te passen met `AI_PROVIDERS` (standaard `groq,gemini,mistral,anthropic`; zonder sleutel doet een dienst niet mee). Claude (betaald) werkt ook als `ANTHROPIC_API_KEY` bestaat,
   maar is niet nodig. Vraag "welk model gebruik je?" en ECO vertelt welke baan antwoordde.
 
 **Grenzen van de gratis lagen:** Groq ongeveer 30 vragen per minuut en 1000 per dag per model; Gemini ongeveer 10 per minuut,
@@ -432,8 +441,8 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 - Spraakherkenning werkt in Chrome, Edge en Safari.
 
 ## Volgende stappen (ideeën)
-- **Meer gratis reserve (besloten 29 okt):** wordt het gratis quotum van Groq/Gemini vaak bereikt, dan Mistral toevoegen als extra
-  gratis reserve rechtstreeks in de functie (secret `MISTRAL_API_KEY`, gratis te maken). **Geen OmniRoute:** dat moet dag en nacht
+- **Meer gratis reserve (besloten 29 okt, gebouwd 30 okt):** Mistral zit in de functie en doet mee zodra secret `MISTRAL_API_KEY`
+  bestaat (zie "Welk AI-model?"). **Geen OmniRoute:** dat moet dag en nacht
   op een eigen server draaien, vraagt per dienst een eigen account, en een deel van de routes valt in een grijs gebied qua voorwaarden.
 - **Lampen en thermostaat** (Home Assistant of de app van het merk): eerst het merk van de lampen weten.
 - **Studieplanner** (leerschema voor toetsen en deadlines) en **avondoverzicht** (melding met morgen en open taken).
