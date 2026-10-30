@@ -50,6 +50,12 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
 - **Ideeën voor later:** echte browserbesturing op de laptop (klikken/invullen) bewust nog niet: risicovol bij webinhoud.
   Eerst kijken of web_lezen + meekijken genoeg is.
 
+## Widget: weer per uur (PR #120)
+- Rechts in de hoek: temperatuur + icoon en de komende uren (middel 3, groot 6) met SF Symbols, plus zonsondergang/-opkomst,
+  zoals de iPhone-weerwidget. Server: `weather()` geeft `uren` (per uur, niet naar het model) en `zon`; `widgetData` maakt `strip`.
+- De widget **werkt zichzelf bij** (1× per dag van sekibar.nl/widget/eco-widget.js). Serkan moet het installatiescript nog één
+  keer draaien om deze versie te krijgen; daarna nooit meer.
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met
@@ -59,7 +65,7 @@ Serkan vroeg om "skills zoals built-in browser en pdf" voor ECO en NOVA. Gebouwd
 - **Extra gratis reserve:** Mistral (`MISTRAL_API_KEY`) toevoegen als het Groq/Gemini-quotum vaak op is. **Geen OmniRoute.**
 - **NOVA automatisch laten starten:** Win+R → `shell:startup` → snelkoppeling naar NOVA.exe (tip, Serkan doet dit zelf).
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
-  Brightspace-agendalink in `AGENDA_FEEDS`, widget opnieuw installeren in Scriptable (taken + timer).
+  Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).
 - **Niet doen:** vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis).
 
