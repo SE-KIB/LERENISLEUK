@@ -1,5 +1,5 @@
-// NOVA-interface: dezelfde HUD als ECO (reactor, visualisatie, panelen). De Python-kant (nova.py) doet het werk:
-// verbonden met ECO of met NOVA (eigen brein), stem, pc-acties. Python → pagina: window.nova.ev({...}); pagina → Python: window.pywebview.api.
+// ECO op de laptop (NOVA.exe): dezelfde HUD als ECO (reactor, visualisatie, panelen). De Python-kant (nova.py) doet het werk:
+// online verbonden met ECO, offline met N.O.V.A. (het offline brein op de laptop), stem, pc-acties. Python → pagina: window.nova.ev({...}); pagina → Python: window.pywebview.api.
 const $ = (id) => document.getElementById(id);
 const T0 = Date.now();
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -97,25 +97,25 @@ const LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWERKEN",
 function setState(s) { document.body.dataset.state = s; $("stateLabel").textContent = LABEL[s] || s.toUpperCase(); }
 function caption(tekst, cls = "") { const el = $("caption"); el.className = "caption " + cls; el.textContent = tekst; }
 const tijd = () => new Date().toLocaleTimeString("nl-NL", { hour12: false });
-function entry(rol, tekst) {
+function entry(rol, tekst, wanneer) {
   const div = document.createElement("div");
   div.className = "entry " + rol;
-  const wie = rol === "user" ? "SERKAN" : rol === "assistant" ? "N.O.V.A." : rol === "fout" ? "STORING" : "SYSTEEM";
-  div.innerHTML = `<div class="meta">${wie} · ${tijd()}</div><div class="body"></div>`;
+  const wie = rol === "user" ? "SERKAN" : rol === "assistant" ? (antwoordDoor === "nova" ? "N.O.V.A." : "E.C.O.") : rol === "fout" ? "STORING" : "SYSTEEM";
+  div.innerHTML = `<div class="meta">${wie} · ${wanneer || tijd()}</div><div class="body"></div>`;
   const body = div.lastChild;
   body.textContent = tekst;
   $("messages").append(div);
   $("messages").scrollTop = $("messages").scrollHeight;
   return body;
 }
-let huidig = null, pcAantal = 0;
+let huidig = null, pcAantal = 0, antwoordDoor = "eco"; // wie het laatst antwoordde: ECO (online) of N.O.V.A. (offline)
 function pcActie(e) {
   const lijst = $("pcList");
   lijst.querySelector(".empty")?.remove();
   const li = document.createElement("li");
   li.className = e.status || "";
   li.innerHTML = `<b></b><small></small>`;
-  li.firstChild.textContent = `${tijd().slice(0, 5)} · ${e.tekst}`;
+  li.firstChild.textContent = `${e.tijd || tijd().slice(0, 5)} · ${e.tekst}`;
   li.lastChild.textContent = e.detail || "";
   lijst.prepend(li);
   while (lijst.children.length > 30) lijst.lastChild.remove();
@@ -126,8 +126,9 @@ function zetStatus(s) {
   dot.className = `dot${s.modus === "online" ? "" : s.modus === "offline" ? " test" : " bad"}`;
   $("sysLine").textContent = s.titel;
   $("sysTop").title = s.sub || "";
-  // Verbonden met ECO (cloud) of met NOVA (eigen brein); groen = jouw keuze, oranje = het andere nam het over.
-  $("stBrein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? "NOVA" : "GEEN";
+  // Online verbonden met ECO, offline met N.O.V.A.; groen = jouw keuze, oranje = het andere nam het over.
+  antwoordDoor = s.brein || antwoordDoor;
+  $("stBrein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? "N.O.V.A." : "GEEN";
   $("stBrein").className = s.modus === "online" ? "ok" : s.modus === "offline" ? "warn" : "bad";
   $("stBrein").title = s.reden || "";
   $("stEco").textContent = s.eco; $("stEco").className = s.eco === "BEREIKBAAR" ? "ok" : "warn";
@@ -140,7 +141,7 @@ function zetStatus(s) {
   $("stStem").className = s.stem_soort || "";
   $("stStem").title = s.stem_reden || "";
   $("stNaam").textContent = s.naam || "—";
-  $("brein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? `NOVA · ${s.model.toUpperCase()}` : "—";
+  $("brein").textContent = s.brein === "eco" ? "ECO" : s.brein === "nova" ? `N.O.V.A. · ${s.model.toUpperCase()}` : "—";
   $("laptop").textContent = `${s.naam} · v${s.versie}`;
   $("brandVer").textContent = `v${s.versie}`;
 }
@@ -159,10 +160,15 @@ window.nova = {
     else if (e.t === "status") { zetStatus(e); }
     else if (e.t === "staat") { setState(e.s); $("mic").classList.toggle("on", e.s === "listening"); }
     else if (e.t === "melding") { for (const id of ["setMsg", "instMsg"]) { $(id).textContent = e.tekst; $(id).className = "login-msg push-msg " + (e.soort || ""); } }
-    else if (e.t === "update") { // een nieuwe NOVA: vragen, en tijdens het bijwerken de voortgang tonen
+    else if (e.t === "herstel") { // wat er de vorige keer stond (ECO onthoudt het transcript en de PC-acties)
+      for (const p of e.pc || []) pcActie(p);
+      for (const r of e.transcript || []) entry(r.rol, r.tekst, r.tijd);
+      if ((e.transcript || []).length) entry("sys", "— vorige sessie —");
+    }
+    else if (e.t === "update") { // een nieuwe versie: vragen, en tijdens het bijwerken de voortgang tonen
       $("updateBalk").hidden = !e.tag;
       const bezig = e.voortgang !== null && e.voortgang !== undefined;
-      $("updateTekst").textContent = bezig ? `Bijwerken naar ${e.tag}… ${Math.round(e.voortgang * 100)}%` : `Er is een nieuwe NOVA (${e.tag}). Nu bijwerken?`;
+      $("updateTekst").textContent = bezig ? `Bijwerken naar ${e.tag}… ${Math.round(e.voortgang * 100)}%` : `Er is een nieuwe versie (${e.tag}). Nu bijwerken?`;
       $("updateJa").hidden = $("updateLater").hidden = bezig;
     }
   },
@@ -192,8 +198,8 @@ document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api
 let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true };
 const bewaar = (patch) => { Object.assign(inst, patch); if (api()) api().instellingen(patch); };
 const PANELEN = { tijd: "LOKALE TIJD", status: "SYSTEEMSTATUS", transcript: "TRANSCRIPT", pc: "PC-ACTIES", ondertitel: "ONDERTITEL", visualisatie: "VISUALISATIE" };
-const RIJEN = { brein: "BREIN", eco: "ECO", model: "NOVA-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
-const NAMEN = { eco: "ECO (cloud)", nova: "NOVA (laptop)", groq: "Groq", gemini: "Gemini", claude: "Claude", piper: "Piper (nathalie)", windows: "Windows (Nederlands)", whisper: "Whisper (via ECO)", vosk: "Vosk (op de laptop)" };
+const RIJEN = { brein: "BREIN", eco: "ECO", model: "N.O.V.A.-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
+const NAMEN = { eco: "ECO (online)", nova: "N.O.V.A. (offline, laptop)", groq: "Groq", gemini: "Gemini", claude: "Claude", piper: "Piper (nathalie)", windows: "Windows (Nederlands)", whisper: "Whisper (via ECO)", vosk: "Vosk (op de laptop)" };
 const STEMNAMEN = { gemini: "Gemini (ECO's stem)" };
 const verborgen = (id) => (inst.beeld?.verberg || []).includes(id);
 
@@ -266,6 +272,12 @@ $("volume").onchange = () => bewaar({ volume: +$("volume").value });
 $("testStem").onclick = () => api() && api().test_stem();
 $("magneet").onchange = () => bewaar({ magneet: $("magneet").checked });
 $("standaardIndeling").onclick = () => { bewaar({ indeling: {} }); resetLayout(); };
+$("wisTranscript").onclick = () => {
+  if (api()) api().wis_transcript();
+  $("messages").replaceChildren();
+  $("pcList").innerHTML = `<li class="empty">Nog niets. Vraag bv. "open Spotify" of "zet het volume op 30".</li>`;
+  pcAantal = 0; $("pcCount").textContent = "0";
+};
 $("opslaan").onclick = () => api() && api().opslaan({ eco_sleutel: $("sleutel").value, naam: $("naam").value, model: $("model").value, stem: $("stem").checked });
 $("download").onclick = () => api() && api().download($("model").value);
 
@@ -417,7 +429,7 @@ window.addEventListener("pywebviewready", async () => {
   $("model").value = i.model; $("naam").value = i.naam;
   document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === i.brein));
   $("sleutel").placeholder = i.heeft_sleutel ? "•••••••• (ingesteld; leeg laten = zo houden)" : "vul je JARVIS_KEY in";
-  $("instVersie").textContent = `NOVA ${i.versie}`;
+  $("instVersie").textContent = `ECO op de laptop · versie ${i.versie} (bestand NOVA.exe)`;
   pasBeeldToe();
   requestAnimationFrame(initLayout);
   if (!i.heeft_sleutel) { openInstellingen(); document.querySelector('[data-tab="algemeen"]').click(); $("sleutel").focus(); }

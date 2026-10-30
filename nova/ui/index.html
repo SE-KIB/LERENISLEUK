@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOVA</title>
+<title>ECO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -18,10 +18,10 @@
   <section id="app" class="hud">
     <header class="topbar">
       <div class="brand">
-        <b>N.O.V.A.<sub id="brandVer" class="brand-ver"></sub></b>
-        <span>NICE OPERATING VARIANT AGENT</span>
+        <b>E.C.O.<sub id="brandVer" class="brand-ver"></sub></b>
+        <span>PERSONAL INTELLIGENCE SYSTEM · LAPTOP</span>
       </div>
-      <div class="sysline" id="sysTop" title="Welk brein NOVA nu gebruikt"><i class="dot test"></i><span id="sysLine">VERBINDEN…</span></div>
+      <div class="sysline" id="sysTop" title="Online verbonden met ECO, offline met N.O.V.A. (het offline brein op deze laptop)"><i class="dot test"></i><span id="sysLine">VERBINDEN…</span></div>
       <div class="top-right"><div id="laptop" class="version"></div></div>
     </header>
 
@@ -36,10 +36,10 @@
         <ul class="stats">
           <li data-rij="brein"><span>BREIN</span><b id="stBrein">—</b></li>
           <li data-rij="eco"><span>ECO</span><b id="stEco">—</b></li>
-          <li data-rij="model"><span>NOVA-MODEL</span><b id="stModel">—</b></li>
+          <li data-rij="model"><span>N.O.V.A.-MODEL</span><b id="stModel">—</b></li>
           <li data-rij="ollama"><span>OLLAMA</span><b id="stOllama">—</b></li>
           <li data-rij="spraak"><span>SPRAAK</span><b id="stSpraak">—</b></li>
-          <li data-rij="stem" title="Welke stem NOVA gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
+          <li data-rij="stem" title="Welke stem ECO gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
           <li data-rij="laptop"><span>LAPTOP</span><b id="stNaam">—</b></li>
         </ul>
         <div data-rij="activiteit">
@@ -50,8 +50,8 @@
       <div class="panel nova-set" data-win="bediening">
         <div class="panel-h"><span>BEDIENING</span></div>
         <div class="nova-brein" role="group" aria-label="Brein"><span>BREIN</span>
-          <button type="button" class="chip" data-brein="eco" title="ECO's brein in de cloud (Groq/Gemini), met je geheugen en agenda">ECO</button>
-          <button type="button" class="chip" data-brein="nova" title="NOVA's eigen brein op deze laptop (Ollama), werkt ook zonder internet">NOVA</button>
+          <button type="button" class="chip" data-brein="eco" title="ECO online (Groq/Gemini), met je geheugen en agenda">ECO</button>
+          <button type="button" class="chip" data-brein="nova" title="N.O.V.A.: het offline brein op deze laptop (Ollama), werkt ook zonder internet">N.O.V.A.</button>
         </div>
         <button type="button" id="openInst" class="chip nova-inst-knop" title="Geluid, beeld, AI-volgorde, indeling en verbinding">⚙ INSTELLINGEN</button>
         <p id="setMsg" class="login-msg push-msg"></p>
@@ -60,7 +60,7 @@
 
     <main class="center">
       <div id="updateBalk" class="nova-update" role="alert" hidden>
-        <span id="updateTekst">Er is een nieuwe NOVA.</span>
+        <span id="updateTekst">Er is een nieuwe versie.</span>
         <button type="button" id="updateJa" class="chip">NU BIJWERKEN</button>
         <button type="button" id="updateLater" class="chip">LATER</button>
       </div>
@@ -68,12 +68,12 @@
         <div class="reactor-wrap main-reactor">
           <canvas id="viz" aria-hidden="true"></canvas>
           <div class="reactor" data-reactor></div>
-          <div class="reactor-label"><b>N.O.V.A.</b><span id="stateLabel">STAND-BY</span></div>
+          <div class="reactor-label"><b>E.C.O.</b><span id="stateLabel">STAND-BY</span></div>
         </div>
         <div id="caption" class="caption" aria-live="polite"></div>
       </div>
       <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
-        <button type="button" id="mic" class="mic" title="Praat met NOVA (Ctrl+Spatie)" aria-label="Spreek">
+        <button type="button" id="mic" class="mic" title="Praat met ECO (Ctrl+Spatie)" aria-label="Spreek">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         </button>
         <span class="prompt">›</span>
@@ -107,7 +107,7 @@
         <button type="button" role="tab" data-tab="algemeen" class="chip">VERBINDING</button>
       </nav>
       <section data-blad="geluid">
-        <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>NOVA PRAAT HARDOP</span></label>
+        <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>ECO PRAAT HARDOP</span></label>
         <label class="field"><span>VOLUME VAN DE STEM <b id="volWaarde">100%</b></span><input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
         <button type="button" id="testStem" class="chip">▶ TEST DE STEM</button>
       </section>
@@ -121,6 +121,9 @@
           Met MAGNETISCH klikt het vast aan andere blokken en aan de rand.</p>
         <label class="switch"><input type="checkbox" id="magneet" checked><i></i><span>MAGNETISCH</span></label>
         <button type="button" id="standaardIndeling" class="chip">STANDAARDINDELING</button>
+        <h4>GESCHIEDENIS</h4>
+        <p class="nova-uitleg">ECO onthoudt het transcript, de PC-acties, het gesprek (12 uur) en de plek van het venster, ook als je hem uit en aan zet.</p>
+        <button type="button" id="wisTranscript" class="chip">TRANSCRIPT WISSEN</button>
       </section>
       <section data-blad="ai" hidden>
         <p class="nova-uitleg">Bovenaan = eerste keus. Lukt die niet, dan neemt de volgende het over.</p>
@@ -131,7 +134,7 @@
           <div><h4>STEM</h4><ol class="nova-volgorde" data-volgorde="stem"></ol></div>
           <div><h4>SPRAAKHERKENNING</h4><ol class="nova-volgorde" data-volgorde="spraak"></ol></div>
         </div>
-        <label class="field"><span>NOVA-MODEL (OLLAMA)</span><select id="model"></select></label>
+        <label class="field"><span>N.O.V.A.-MODEL (OLLAMA, OFFLINE)</span><select id="model"></select></label>
         <button type="button" id="download" class="chip">MODEL DOWNLOADEN</button>
       </section>
       <section data-blad="algemeen" hidden>

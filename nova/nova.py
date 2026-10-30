@@ -1,7 +1,7 @@
-"""NOVA — Nice Operating Variant Agent: ECO op je Windows-laptop.
+"""ECO op je Windows-laptop (het bestand heet NOVA.exe; in de code heet de laptop-app nog NOVA).
 
-NOVA is "verbonden met ECO" (ECO's brein: Groq/Gemini, zelfde geheugen, agenda en archief) of "verbonden met NOVA" (NOVA's eigen
-brein: een model op de laptop via Ollama). Serkan kiest zelf; is het gekozen brein niet bereikbaar, dan neemt het andere het over. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Het venster is dezelfde HUD als ECO
+Online is ECO "verbonden met ECO" (ECO's brein: Groq/Gemini, zelfde geheugen, agenda en archief); offline "verbonden met N.O.V.A."
+(het offline brein: een model op de laptop via Ollama). Serkan kiest zelf; is het gekozen brein niet bereikbaar, dan neemt het andere het over. ECO kan de laptop ook vanaf de iPhone bedienen zolang NOVA draait. Het venster is dezelfde HUD als ECO
 (ui/index.html met ECO's ai.css, getoond met WebView2); lukt dat niet, dan een eenvoudig venster. Start: dubbelklik NOVA.exe.
 Zelftest (voor de bouwstraat): NOVA.exe --selftest
 """
@@ -23,12 +23,100 @@ import nova_core as core
 import nova_pc as pc
 
 
+BREIN_NAAM = {"eco": "ECO", "nova": "N.O.V.A."}  # online heet het brein ECO, offline (op de laptop) N.O.V.A.
+
+
+class Logboek:
+    """Wat NOVA onthoudt tussen sessies (in %APPDATA%\\NOVA\\geschiedenis.json): het transcript, de PC-acties, het gesprek met ECO
+    (gaat verder als de laatste vraag minder dan 12 uur geleden was) en het gespreksgeheugen van NOVA's eigen brein."""
+    MAX_TRANSCRIPT, MAX_PC, GESPREK_UREN = 200, 30, 12
+
+    def __init__(self, pad: Path | None = None):
+        self.pad = pad or core.MAP / "geschiedenis.json"
+        self._slot = threading.Lock()
+        try:
+            self.data = json.loads(self.pad.read_text(encoding="utf-8"))
+            if not isinstance(self.data, dict):
+                raise ValueError
+        except (OSError, ValueError):
+            self.data = {}
+        for k in ("transcript", "pc", "lokaal"):
+            if not isinstance(self.data.get(k), list):
+                self.data[k] = []
+
+    def bewaar(self):
+        with self._slot:
+            try:
+                self.pad.parent.mkdir(parents=True, exist_ok=True)
+                tmp = self.pad.with_suffix(".tmp")
+                tmp.write_text(json.dumps(self.data, ensure_ascii=False), encoding="utf-8")
+                tmp.replace(self.pad)  # nooit een half bestand
+            except OSError:
+                pass
+
+    def regel(self, rol: str, tekst: str):
+        if tekst:
+            self.data["transcript"] = (self.data["transcript"] + [{"rol": rol, "tekst": str(tekst)[:8000], "tijd": time.strftime("%d-%m %H:%M")}])[-self.MAX_TRANSCRIPT:]
+            self.bewaar()
+
+    def pc(self, tekst: str, status: str, detail: str):
+        self.data["pc"] = (self.data["pc"] + [{"tekst": tekst, "status": status, "detail": detail, "tijd": time.strftime("%H:%M")}])[-self.MAX_PC:]
+        self.bewaar()
+
+    def gesprek(self):
+        """Het gesprek met ECO van de vorige keer, als dat niet te oud is."""
+        conv, sinds = self.data.get("conv"), float(self.data.get("conv_tijd") or 0)
+        return conv if conv and time.time() - sinds < self.GESPREK_UREN * 3600 else None
+
+    def zet_gesprek(self, conv, lokaal: list):
+        self.data.update(conv=conv, conv_tijd=time.time(), lokaal=list(lokaal)[-12:])
+        self.bewaar()
+
+    def wis(self):
+        self.data.update(transcript=[], pc=[], conv=None, lokaal=[])
+        self.bewaar()
+
+
+class OnthoudUI:
+    """Zet alles door naar het venster en schrijft het transcript en de PC-acties ook in het logboek."""
+
+    def __init__(self, ui, logboek: Logboek):
+        self._ui, self._log = ui, logboek
+
+    def jij(self, t): self._log.regel("user", t); self._ui.jij(t)
+    def nova_eind(self, t): self._log.regel("assistant", t); self._ui.nova_eind(t)
+    def sys(self, t): self._log.regel("sys", t); self._ui.sys(t)
+    def fout(self, t): self._log.regel("fout", t); self._ui.fout(t)
+    def pc(self, tekst, status, detail): self._log.pc(tekst, status, detail); self._ui.pc(tekst, status, detail)
+
+    def __getattr__(self, naam):
+        return getattr(self._ui, naam)
+
+
+def venster_geometrie(v: dict, schermen: list, standaard=(1320, 860)) -> dict:
+    """Plek en grootte van het venster van de vorige keer, maar alleen als dat nog op een scherm past; anders gecentreerd."""
+    breed, hoog = standaard
+    if schermen:
+        breed, hoog = min(breed, schermen[0].width - 40), min(hoog, schermen[0].height - 80)
+    uit = {"width": breed, "height": hoog, "maximized": bool(v.get("max"))}
+    try:
+        w, h, x, y = int(v["w"]), int(v["h"]), int(v["x"]), int(v["y"])
+    except (KeyError, TypeError, ValueError):
+        return uit
+    for sc in schermen:
+        if sc.x <= x + 60 <= sc.x + sc.width and sc.y <= y + 20 <= sc.y + sc.height:  # de titelbalk staat op dit scherm
+            uit.update(width=max(900, min(w, sc.width)), height=max(600, min(h, sc.height)), x=x, y=y)
+            break
+    return uit
+
+
 class NovaApp:
     """Al het werk van NOVA, los van het venster. `ui` krijgt gebeurtenissen: jij, nova_start, delta, nova_eind, sys, fout,
     tool, pc, status, staat, melding."""
 
     def __init__(self, ui):
-        self.ui = ui
+        self.logboek = Logboek()
+        self.ui = OnthoudUI(ui, self.logboek)
         self.cfg = core.laad_config()
         self.eco = core.Eco(self.cfg)
         self.uitvoeren = pc.maak_uitvoerder(self.beschrijf_beeld)
@@ -36,7 +124,9 @@ class NovaApp:
         self.lokaal.kennis = core.laad_kennis()
         self.lokaal_ok, self.lokaal_reden = False, "nog niet gecontroleerd"
         self.brug = core.Brug(self.eco, self.pc_actie, self.status_info, on_online=self.online_wissel)
-        self.conv = None
+        self.conv = self.logboek.gesprek()  # het gesprek met ECO gaat verder na een herstart
+        self.lokaal.geschiedenis = list(self.logboek.data.get("lokaal", []))[-12:]
+        self._venster_klok = None
         self.bezig = False
         self.spreek_slot = threading.Lock()
         self.stem_info = None  # (welke stem sprak, waarom de betere stem niet lukte), voor SYSTEEMSTATUS
@@ -46,10 +136,11 @@ class NovaApp:
         self._update_nu = threading.Event()
 
     def start(self):
+        self.ui.herstel({"transcript": self.logboek.data["transcript"], "pc": self.logboek.data["pc"]})  # wat er de vorige keer stond
         self.brug.start()
         threading.Thread(target=self.lokaal_lus, daemon=True).start()
         threading.Thread(target=self.update_lus, daemon=True).start()
-        self.ui.sys(f"NOVA {core.VERSIE} gestart op {self.cfg['naam']}.")
+        self.ui.sys(f"ECO ({self.versie()}) gestart op {self.cfg['naam']}.")
         self.toon_status()
 
     def stop(self):
@@ -75,10 +166,10 @@ class NovaApp:
         if self.gekozen() == "nova":
             if self.lokaal_ok:
                 return "nova", ""
-            return ("eco", f"NOVA is niet klaar ({self.lokaal_reden})") if eco_ok else ("", f"NOVA: {self.lokaal_reden} · ECO: {eco_reden}")
+            return ("eco", f"N.O.V.A. is niet klaar ({self.lokaal_reden})") if eco_ok else ("", f"N.O.V.A.: {self.lokaal_reden} · ECO: {eco_reden}")
         if eco_ok:
             return "eco", ""
-        return ("nova", f"ECO is niet bereikbaar ({eco_reden})") if self.lokaal_ok else ("", f"ECO: {eco_reden} · NOVA: {self.lokaal_reden}")
+        return ("nova", f"ECO is niet bereikbaar ({eco_reden})") if self.lokaal_ok else ("", f"ECO: {eco_reden} · N.O.V.A.: {self.lokaal_reden}")
 
     def kies_brein(self, keuze: str):
         self.cfg["brein"] = "nova" if keuze == "nova" else "eco"
@@ -87,10 +178,10 @@ class NovaApp:
         brein, reden = self.actief_brein()
         self.toon_status()
         if brein == self.gekozen():
-            self.ui.melding(f"Verbonden met {brein.upper()}.", "ok")
-            self.ui.sys(f"Verbonden met {brein.upper()}.")
+            self.ui.melding(f"Verbonden met {BREIN_NAAM[brein]}.", "ok")
+            self.ui.sys(f"Verbonden met {BREIN_NAAM[brein]}.")
         else:
-            self.ui.melding(f"{self.gekozen().upper()} gekozen, maar {reden}.", "err")
+            self.ui.melding(f"{BREIN_NAAM[self.gekozen()]} gekozen, maar {reden}.", "err")
 
     def stem_status(self):
         """Welke stem NOVA gebruikt: de laatste die echt sprak (met de reden als hij terugviel), anders de stem die nu aan de beurt is."""
@@ -102,7 +193,7 @@ class NovaApp:
             return {"stem": "GEMINI (ECO)", "stem_reden": "", "stem_soort": "ok"}
         if stem.piper_klaar():
             return {"stem": "PIPER (NATHALIE)", "stem_reden": "", "stem_soort": "ok"}
-        return {"stem": "NOG NIET GEDOWNLOAD", "stem_reden": "De Nederlandse stem wordt gedownload zodra NOVA online is.", "stem_soort": "warn"}
+        return {"stem": "NOG NIET GEDOWNLOAD", "stem_reden": "De Nederlandse stem wordt gedownload zodra je online bent.", "stem_soort": "warn"}
 
     def toon_status(self):
         try:
@@ -118,8 +209,8 @@ class NovaApp:
                  "brein_volgorde": core.volgorde(self.cfg, "brein"), **stemstatus}
         # "modus" bepaalt de kleur: groen = het gekozen brein antwoordt, oranje = het andere nam het over, rood = geen brein.
         modus = "geen" if not brein else "online" if brein == self.gekozen() else "offline"
-        titel = f"VERBONDEN MET {brein.upper()}" if brein else "GEEN BREIN BESCHIKBAAR"
-        self.ui.status({**basis, "modus": modus, "titel": titel, "sub": reden or (f"NOVA gebruikt {self.cfg['model']} op deze laptop" if brein == "nova" else "ECO's brein (Groq/Gemini) met je geheugen en agenda")})
+        titel = f"VERBONDEN MET {BREIN_NAAM[brein]}" if brein else "GEEN BREIN BESCHIKBAAR"
+        self.ui.status({**basis, "modus": modus, "titel": titel, "sub": reden or (f"N.O.V.A., het offline brein: {self.cfg['model']} op deze laptop" if brein == "nova" else "ECO online (Groq/Gemini) met je geheugen en agenda")})
 
     def online_wissel(self, online, reden):
         self.toon_status()
@@ -130,11 +221,11 @@ class NovaApp:
                 self.ui.sys("Verbonden met ECO.")
                 self.spreek("Verbonden met ECO.")
             else:
-                self.ui.sys("ECO is bereikbaar (je hebt NOVA gekozen).")
+                self.ui.sys("ECO is bereikbaar (je hebt N.O.V.A. gekozen).")
         else:
             self.ui.sys(f"ECO is niet bereikbaar ({reden}).")
             if self.gekozen() == "eco":
-                self.spreek("ECO is niet bereikbaar. Ik ga verder met NOVA." if self.lokaal_ok else "ECO is niet bereikbaar, en NOVA is nog niet klaar.")
+                self.spreek("Geen verbinding. Ik ga verder met Nova, mijn offline brein." if self.lokaal_ok else "Geen verbinding, en Nova, mijn offline brein, is nog niet klaar.")
 
     def kennis_bijwerken(self):
         try:
@@ -183,8 +274,8 @@ class NovaApp:
             return False  # dat vraagt NOVA al
         self.update_info = info
         self.ui.update(info["tag"], None)
-        self.ui.sys(f"Er is een nieuwe NOVA ({info['tag']}). Nu bijwerken? Kies NU BIJWERKEN of zeg \"ja\" (of \"later\").")
-        self.spreek("Er is een nieuwe versie van NOVA. Zal ik mezelf nu bijwerken?")
+        self.ui.sys(f"Er is een nieuwe versie ({info['tag']}). Nu bijwerken? Kies NU BIJWERKEN of zeg \"ja\" (of \"later\").")
+        self.spreek("Er is een nieuwe versie. Zal ik mezelf nu bijwerken?")
         return True
 
     def update_antwoord(self, ja: bool):
@@ -271,11 +362,13 @@ class NovaApp:
             brein, reden = self.actief_brein()
             if brein == "eco":
                 antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
+                self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
             elif brein == "nova":
                 antwoord = self.lokaal.chat(tekst, on_tool=lambda n: self.ui.tool(n))
+                self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
                 delta(antwoord)
             else:
-                raise RuntimeError(f"Geen brein beschikbaar ({reden}). Voor NOVA: installeer Ollama en download het model bij BEDIENING.")
+                raise RuntimeError(f"Geen brein beschikbaar ({reden}). Voor N.O.V.A. (offline): installeer Ollama en download het model bij Instellingen → AI-volgorde.")
             self.ui.nova_eind(antwoord)
             self.spreek(antwoord)
         except Exception as e:
@@ -320,6 +413,7 @@ class NovaApp:
                         self.ui.nova_start()
                     self.ui.delta(d)
                 antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
+                self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
                 self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
             else:  # eerst uitschrijven in de gekozen volgorde (Whisper via ECO, Vosk op de laptop), dan het gekozen brein
@@ -396,7 +490,7 @@ class NovaApp:
                     redenen.append(f"ECO's stem lukte niet ({kort(e)})")
             elif bron == "piper":
                 if not stem.piper_klaar():
-                    redenen.append("de Nederlandse stem (Piper) is nog niet gedownload; dat gebeurt vanzelf zodra NOVA online is")
+                    redenen.append("de Nederlandse stem (Piper) is nog niet gedownload; dat gebeurt vanzelf zodra je online bent")
                     continue
                 try:
                     stem.piper_spreek(tekst)
@@ -431,7 +525,7 @@ class NovaApp:
             return r.get("reply", "")
         if self.lokaal_ok:
             return self.lokaal.chat(vraag, beelden=[jpeg_b64])
-        return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en NOVA niet klaar)."
+        return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en N.O.V.A. niet klaar)."
 
     # ---------- instellingen ----------
     INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet")
@@ -470,6 +564,30 @@ class NovaApp:
     def test_stem(self):
         self.spreek("Hallo Serkan, zo klink ik nu.")
 
+    def wis_transcript(self):
+        self.logboek.wis()
+        self.conv = None
+        self.lokaal.geschiedenis = []
+        self.ui.melding("Transcript gewist; het volgende gesprek begint opnieuw.", "ok")
+
+    # ---------- het venster onthoudt zijn plek, grootte en of het gemaximaliseerd was ----------
+    def venster(self, **kw):
+        v = dict(self.cfg.get("venster") or {})
+        if v.get("max") and "max" not in kw:
+            return  # gemaximaliseerd: de gewone grootte niet overschrijven
+        if any(isinstance(x, (int, float)) and not isinstance(x, bool) and x <= -10000 for x in kw.values()):
+            return  # geminimaliseerd: Windows meldt dan (-32000, -32000)
+        v.update({k: (int(x) if k != "max" else bool(x)) for k, x in kw.items()})
+        self.cfg["venster"] = v
+        if not self._venster_klok:  # tijdens slepen niet elke pixel wegschrijven
+            self._venster_klok = threading.Timer(1.0, self.venster_bewaren)
+            self._venster_klok.daemon = True
+            self._venster_klok.start()
+
+    def venster_bewaren(self):
+        self._venster_klok = None
+        core.bewaar_config(self.cfg)
+
     def info(self):
         import nova_update as upd
         build = upd.huidige_build(ui_map())
@@ -497,7 +615,7 @@ class NovaApp:
                 self.ui.melding(f"{self.cfg['model']} downloaden…", "")
                 self.lokaal.ophalen(lambda f, s: self.ui.melding(f"{self.cfg['model']} downloaden… {f:.0%}", ""))
                 self.lokaal_ok, self.lokaal_reden = self.lokaal.status()
-                self.ui.melding(f"{self.cfg['model']} staat klaar: NOVA's eigen brein werkt.", "ok")
+                self.ui.melding(f"{self.cfg['model']} staat klaar: N.O.V.A., het offline brein, werkt.", "ok")
                 self.toon_status()
             except Exception as e:
                 self.ui.melding(f"Downloaden lukte niet: {e} (draait Ollama? ollama.com)", "err")
@@ -559,6 +677,7 @@ class WebUI:
     def status(self, s): self._stuur({"t": "status", **s})
     def staat(self, s): self._stuur({"t": "staat", "s": s})
     def melding(self, t, soort): self._stuur({"t": "melding", "tekst": t, "soort": soort})
+    def herstel(self, d): self._stuur({"t": "herstel", **d})
     def update(self, tag, voortgang): self._stuur({"t": "update", "tag": tag, "voortgang": voortgang})
 
 
@@ -575,6 +694,7 @@ class Api:
     def brein(self, keuze): self._app.kies_brein(keuze)
     def instellingen(self, patch): self._app.instellingen(patch or {})
     def test_stem(self): self._app.test_stem()
+    def wis_transcript(self): self._app.wis_transcript()
     def download(self, model=None): self._app.download(model)
     def klaar(self): self._ui.klaar()
     def update(self, ja): self._app.update_antwoord(bool(ja))
@@ -583,14 +703,18 @@ class Api:
 def start_web(webview) -> None:
     ui = WebUI()
     app = NovaApp(ui)
-    breed, hoog = 1320, 860
-    try:  # niet groter dan het scherm
-        scherm = webview.screens[0]
-        breed, hoog = min(breed, scherm.width - 40), min(hoog, scherm.height - 80)
+    try:
+        schermen = list(webview.screens)
     except Exception:
-        pass
-    venster = webview.create_window("NOVA — Nice Operating Variant Agent", url=str(ui_map() / "index.html"), js_api=Api(app, ui),
-                                    width=breed, height=hoog, min_size=(900, 600), background_color="#01070c")
+        schermen = []
+    geo = venster_geometrie(app.cfg.get("venster") or {}, schermen)  # zoals de vorige keer, als het nog past
+    venster = webview.create_window("ECO — op je laptop", url=str(ui_map() / "index.html"), js_api=Api(app, ui),
+                                    min_size=(900, 600), background_color="#01070c", **geo)
+    venster.events.resized += lambda breed, hoog: app.venster(w=breed, h=hoog)
+    venster.events.moved += lambda x, y: app.venster(x=x, y=y)
+    venster.events.maximized += lambda: app.venster(max=True)
+    venster.events.restored += lambda: app.venster(max=False)
+    venster.events.closing += app.venster_bewaren
     ui.window = venster
     app.start()
     try:
@@ -608,8 +732,8 @@ class TkUI:
         import queue
         import tkinter as tk
         self.tk, self.root, self.q = tk, root, queue.Queue()
-        root.title("NOVA — Nice Operating Variant Agent")
-        root.geometry("460x680")
+        root.title("ECO — op je laptop")
+        root.geometry(str((core.laad_config().get("venster_eenvoudig") or "460x680")))
         try:
             root.iconbitmap(str(ui_map() / "nova.ico"))
         except Exception:
@@ -617,7 +741,7 @@ class TkUI:
         root.configure(bg=K["bg"])
         kop = tk.Frame(root, bg=K["bg"])
         kop.pack(fill="x", padx=14, pady=(12, 4))
-        tk.Label(kop, text="N.O.V.A.", fg=K["c"], bg=K["bg"], font=("Consolas", 22, "bold")).pack(side="left")
+        tk.Label(kop, text="E.C.O.", fg=K["c"], bg=K["bg"], font=("Consolas", 22, "bold")).pack(side="left")
         tk.Button(kop, text="⚙", command=self.instellingen, fg=K["c2"], bg=K["paneel"], relief="flat", font=("Segoe UI", 12)).pack(side="right")
         self.lbl = tk.Label(root, text="● VERBINDEN…", fg=K["warn"], bg=K["bg"], font=("Consolas", 10), anchor="w")
         self.lbl.pack(fill="x", padx=16)
@@ -638,7 +762,12 @@ class TkUI:
         tk.Button(onder, text="STUUR", command=self.verstuur, fg=K["bg"], bg=K["c"], relief="flat", font=("Consolas", 10, "bold")).pack(side="left")
         root.bind("<Control-space>", lambda e: self.app.mic())
         self.app = NovaApp(self)
-        root.protocol("WM_DELETE_WINDOW", lambda: (self.app.stop(), root.destroy()))
+        def sluiten():
+            self.app.cfg["venster_eenvoudig"] = root.geometry().split("+")[0]  # de grootte voor de volgende keer
+            core.bewaar_config(self.app.cfg)
+            self.app.stop()
+            root.destroy()
+        root.protocol("WM_DELETE_WINDOW", sluiten)
         root.after(80, self.verwerk)
         self.app.start()
         if not self.app.eco.klaar:
@@ -668,7 +797,7 @@ class TkUI:
         self.app.stuur(t)
 
     def jij(self, t): self._regel("jij", f"\nJij: {t}\n")
-    def nova_start(self): self._regel("nova", "NOVA: ")
+    def nova_start(self): self._regel("nova", "ECO: ")
     def delta(self, t): self._regel("nova", t)
     def nova_eind(self, t): self._regel("nova", "\n")
     def sys(self, t): self._regel("sys", f"{core.nu_tijd()}  {t}\n")
@@ -682,33 +811,39 @@ class TkUI:
     def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
     def melding(self, t, soort): self.sys(t)
 
+    def herstel(self, d):
+        for r in d.get("transcript", [])[-40:]:
+            self._regel({"user": "jij", "assistant": "nova", "fout": "fout"}.get(r["rol"], "sys"), f"{r.get('tijd', '')}  {r['tekst']}\n")
+        if d.get("transcript"):
+            self._regel("sys", "— vorige sessie —\n")
+
     def update(self, tag, voortgang):
         if not tag or voortgang is not None:
             if tag and voortgang is not None and voortgang >= 0.999:
                 self.sys(f"{tag} gedownload.")
             return
         from tkinter import messagebox
-        self.q.put(lambda: self.app.update_antwoord(messagebox.askyesno("NOVA", f"Er is een nieuwe NOVA ({tag}). Nu bijwerken?")))
+        self.q.put(lambda: self.app.update_antwoord(messagebox.askyesno("ECO", f"Er is een nieuwe versie ({tag}). Nu bijwerken?")))
 
     def instellingen(self):
         tk = self.tk
         from tkinter import ttk
         w = tk.Toplevel(self.root)
-        w.title("NOVA — instellingen")
+        w.title("ECO — instellingen")
         w.configure(bg=K["bg"])
         i = self.app.info()
         sleutel, naam, model, stemvar = tk.StringVar(), tk.StringVar(value=i["naam"]), tk.StringVar(value=i["model"]), tk.BooleanVar(value=i["stem"])
         for label, var, verborgen in (("ECO-SLEUTEL (leeg = zo laten)", sleutel, True), ("NAAM VAN DEZE LAPTOP", naam, False)):
             tk.Label(w, text=label, fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
             tk.Entry(w, textvariable=var, show="•" if verborgen else "", bg=K["paneel"], fg="#e9fdff", relief="flat").pack(fill="x", padx=14, ipady=4)
-        tk.Label(w, text="NOVA-MODEL (OLLAMA)", fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
+        tk.Label(w, text="N.O.V.A.-MODEL (OLLAMA, OFFLINE)", fg=K["c2"], bg=K["bg"], font=("Consolas", 9), anchor="w").pack(fill="x", padx=14, pady=(10, 2))
         ttk.Combobox(w, textvariable=model, values=i["modellen"]).pack(fill="x", padx=14)
-        tk.Checkbutton(w, text="NOVA praat hardop", variable=stemvar, fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(anchor="w", padx=12, pady=8)
+        tk.Checkbutton(w, text="ECO praat hardop", variable=stemvar, fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(anchor="w", padx=12, pady=8)
         breinvar = tk.StringVar(value=i["brein"])
         rij = tk.Frame(w, bg=K["bg"])
         rij.pack(fill="x", padx=12)
         tk.Label(rij, text="BREIN", fg=K["c2"], bg=K["bg"], font=("Consolas", 9)).pack(side="left")
-        for waarde, label in (("eco", "ECO"), ("nova", "NOVA")):
+        for waarde, label in (("eco", "ECO"), ("nova", "N.O.V.A.")):
             tk.Radiobutton(rij, text=label, value=waarde, variable=breinvar, command=lambda: self.app.kies_brein(breinvar.get()),
                            fg=K["c2"], bg=K["bg"], selectcolor=K["paneel"]).pack(side="left", padx=6)
         knoppen = tk.Frame(w, bg=K["bg"])
@@ -770,7 +905,7 @@ def zelftest() -> int:
 
 
 def main():
-    p = argparse.ArgumentParser(description="NOVA — Nice Operating Variant Agent")
+    p = argparse.ArgumentParser(description="ECO op je laptop (NOVA.exe)")
     p.add_argument("--selftest", action="store_true")
     p.add_argument("--eenvoudig", action="store_true", help="het eenvoudige venster in plaats van de ECO-HUD")
     a = p.parse_args()
@@ -787,7 +922,7 @@ def main():
         start_tk()
     except Exception:
         from tkinter import messagebox
-        messagebox.showerror("NOVA", traceback.format_exc()[-1500:])
+        messagebox.showerror("ECO", traceback.format_exc()[-1500:])
 
 
 if __name__ == "__main__":
