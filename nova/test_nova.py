@@ -380,6 +380,80 @@ class TestBrein(unittest.TestCase):
         self.assertIn(("nova_eind", "NOVA: open spotify"), ui.ev)
 
 
+class TestUpdateVragen(unittest.TestCase):
+    """Zodra NOVA verbonden is en een nieuwe versie ziet, vraagt hij het; bij "ja" werkt hij meteen bij, bij "later" na 4 uur weer."""
+
+    def setUp(self):
+        import nova_update as upd
+        self.ui, self.app = nep_app(online=True)
+        self.app.cfg.update(stem=False)
+        self.info = {"build": 99, "tag": "nova-99", "url": "x", "sha256": "", "grootte": 0}
+        self.p = [mock.patch.object(upd, "nieuwste", lambda: self.info), mock.patch.object(upd, "huidige_build", lambda m: 12)]
+        for x in self.p:
+            x.start()
+
+    def tearDown(self):
+        for x in self.p:
+            x.stop()
+
+    def test_vraagt_een_keer(self):
+        self.assertTrue(self.app.update_controleren())
+        self.assertIn(("update", "nova-99", None), self.ui.ev)
+        self.assertFalse(self.app.update_controleren())  # niet twee keer vragen voor dezelfde versie
+
+    def test_ja_werkt_meteen_bij(self):
+        self.app.update_controleren()
+        gedaan = []
+        with mock.patch.object(self.app, "update_uitvoeren", lambda: gedaan.append(True)):
+            self.app.stuur("Ja, doe maar.")
+            wacht_op(lambda: gedaan)
+        self.assertEqual(gedaan, [True])
+        self.assertIn(("jij", "Ja, doe maar."), self.ui.ev)
+
+    def test_later_vraagt_pas_na_vier_uur(self):
+        self.app.update_controleren()
+        self.app.stuur("later")
+        self.assertIsNone(self.app.update_info)
+        self.assertIn(("update", None, None), self.ui.ev)
+        self.assertFalse(self.app.update_controleren())
+        self.app.update_later_tot = 0
+        self.assertTrue(self.app.update_controleren())
+
+    def test_gewone_vraag_gaat_gewoon_door(self):
+        self.app.update_controleren()
+        gevraagd = []
+        with mock.patch.object(self.app, "vraag", lambda t: gevraagd.append(t)):
+            self.app.stuur("wat is het weer")
+            wacht_op(lambda: gevraagd)
+        self.assertEqual(gevraagd, ["wat is het weer"])
+        self.assertIsNotNone(self.app.update_info)  # de vraag over bijwerken blijft staan
+
+    def test_geen_nieuwe_versie(self):
+        self.info = {**self.info, "build": 12}
+        self.assertFalse(self.app.update_controleren())
+        self.assertNotIn("update", [e[0] for e in self.ui.ev])
+
+    def test_bijwerken_meldt_voortgang(self):
+        import hashlib
+        import nova_update as upd
+        data = b"N" * 300000
+
+        def behandel(h, methode, body):
+            return h.antwoord(200, data, "application/octet-stream")
+        srv = NepServer(behandel)
+        try:
+            exe = Path(tempfile.mkdtemp()) / "NOVA.exe"
+            exe.write_bytes(b"oud")
+            stappen = []
+            upd.bijwerken(exe, 1, {"build": 2, "url": srv.url + "/NOVA.exe", "sha256": hashlib.sha256(data).hexdigest(), "grootte": len(data)},
+                          herstart=False, on_voortgang=stappen.append)
+            self.assertEqual(exe.read_bytes(), data)
+            self.assertEqual(stappen[-1], 1.0)
+            self.assertGreater(len(stappen), 2)
+        finally:
+            srv.stop()
+
+
 class TestNovaStem(unittest.TestCase):
     """Welke stem NOVA gebruikt: ECO's stem, dan Piper, dan een Nederlandse Windows-stem; nooit een Engelse."""
 

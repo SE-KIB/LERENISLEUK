@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -40,6 +41,9 @@ class NovaApp:
         self.spreek_slot = threading.Lock()
         self.stem_info = None  # (welke stem sprak, waarom de betere stem niet lukte), voor SYSTEEMSTATUS
         self.stem_gemeld = ""
+        self.update_info = None  # een nieuwere NOVA waarvan NOVA vraagt of hij mag bijwerken
+        self.update_later_tot = 0.0
+        self._update_nu = threading.Event()
 
     def start(self):
         self.brug.start()
@@ -119,6 +123,7 @@ class NovaApp:
         self.toon_status()
         if online:
             threading.Thread(target=self.kennis_bijwerken, daemon=True).start()
+            self._update_nu.set()  # meteen kijken of er een nieuwe NOVA is
             if self.gekozen() == "eco":
                 self.ui.sys("Verbonden met ECO.")
                 self.spreek("Verbonden met ECO.")
@@ -151,29 +156,82 @@ class NovaApp:
         except Exception as e:
             self.ui.sys(f"Nederlandse stem downloaden lukte niet: {e}")
 
+    # ---------- bijwerken: zodra NOVA verbonden is kijken, het vragen, en bij "ja" meteen doen ----------
     def update_lus(self):
-        """Automatisch bijwerken: bij het starten en daarna elke 6 uur, nooit midden in een gesprek."""
         if not getattr(sys, "frozen", False):
             return  # ontwikkelen vanuit de broncode: niets bij te werken
         import nova_update as upd
-        exe = Path(sys.executable)
-        upd.opruimen(exe)
-        time.sleep(15)
+        upd.opruimen(Path(sys.executable))
         while True:
-            try:
-                info = upd.nieuwste()
-                build = upd.huidige_build(ui_map())
-                if info and info["build"] > build:
-                    while self.bezig:
-                        time.sleep(5)
-                    self.ui.sys(f"Nieuwe NOVA gevonden ({info['tag']}); ik werk mezelf bij en start opnieuw.")
-                    if upd.bijwerken(exe, build, info):
-                        time.sleep(1.5)
-                        self.stop()
-                        os._exit(0)
-            except Exception as e:
-                self.ui.sys(f"Bijwerken lukte niet: {e}")
-            time.sleep(6 * 3600)
+            self._update_nu.wait(3600)  # meteen na verbinden, anders elk uur
+            self._update_nu.clear()
+            if self.brug.online:
+                try:
+                    self.update_controleren()
+                except Exception as e:
+                    self.ui.sys(f"Kijken of er een nieuwe NOVA is lukte niet: {e}")
+
+    def update_controleren(self) -> bool:
+        """Is er een nieuwere NOVA? Dan vraagt NOVA het (één keer per versie; na "later" pas na 4 uur weer)."""
+        import nova_update as upd
+        info = upd.nieuwste()
+        if not info or info["build"] <= upd.huidige_build(ui_map()) or time.time() < self.update_later_tot:
+            return False
+        if self.update_info and self.update_info["build"] >= info["build"]:
+            return False  # dat vraagt NOVA al
+        self.update_info = info
+        self.ui.update(info["tag"], None)
+        self.ui.sys(f"Er is een nieuwe NOVA ({info['tag']}). Nu bijwerken? Kies NU BIJWERKEN of zeg \"ja\" (of \"later\").")
+        self.spreek("Er is een nieuwe versie van NOVA. Zal ik mezelf nu bijwerken?")
+        return True
+
+    def update_antwoord(self, ja: bool):
+        if not self.update_info:
+            return
+        if ja:
+            threading.Thread(target=self.update_uitvoeren, daemon=True).start()
+            return
+        self.update_info, self.update_later_tot = None, time.time() + 4 * 3600
+        self.ui.update(None, None)
+        self.ui.sys("Oké, ik vraag het over een paar uur nog eens.")
+
+    def update_uitvoeren(self):
+        import nova_update as upd
+        info, self.update_info = self.update_info, None
+        if not info:
+            return
+        if not getattr(sys, "frozen", False):
+            self.ui.update(None, None)
+            self.ui.sys("Bijwerken kan alleen in NOVA.exe.")
+            return
+        self.ui.sys(f"Ik werk mezelf bij naar {info['tag']} en start zo opnieuw.")
+        t0 = time.time()
+        while self.bezig and time.time() - t0 < 60:  # een lopend antwoord eerst afmaken
+            time.sleep(0.5)
+        try:
+            if upd.bijwerken(Path(sys.executable), upd.huidige_build(ui_map()), info, on_voortgang=lambda f: self.ui.update(info["tag"], f)):
+                time.sleep(1.0)
+                self.stop()
+                os._exit(0)
+            self.ui.update(None, None)
+        except Exception as e:
+            self.ui.update(None, None)
+            self.ui.fout(f"Bijwerken lukte niet: {e}")
+
+    def update_reactie(self, tekst: str):
+        """Wacht NOVA op een antwoord over bijwerken, dan telt "ja"/"doe maar" of "nee"/"later". Geeft True als het dat was."""
+        if not self.update_info:
+            return False
+        t = re.sub(r"[^a-zà-ÿ ]", "", tekst.lower()).strip()
+        if re.fullmatch(r"(ja|jazeker|jawel|oké|oke|ok|doe maar|doe het|graag|ja graag|ja doe maar|update|bijwerken|nu bijwerken|ja bijwerken)( nova)?( maar)?", t):
+            self.ui.jij(tekst)
+            self.update_antwoord(True)
+            return True
+        if re.fullmatch(r"(nee|nee dank je|nu niet|niet nu|later|straks|nee later)( nova)?", t):
+            self.ui.jij(tekst)
+            self.update_antwoord(False)
+            return True
+        return False
 
     def lokaal_lus(self):
         while True:
@@ -192,7 +250,7 @@ class NovaApp:
     # ---------- praten ----------
     def stuur(self, tekst):
         tekst = (tekst or "").strip()
-        if tekst and not self.bezig:
+        if tekst and not self.bezig and not self.update_reactie(tekst):
             threading.Thread(target=self.vraag, args=(tekst,), daemon=True).start()
 
     def vraag(self, tekst, al_getoond=False):
@@ -240,6 +298,16 @@ class NovaApp:
                 self.ui.staat("idle")
                 return
             self.ui.staat("thinking")
+            if self.update_info:  # NOVA vroeg of hij mag bijwerken: eerst alleen uitschrijven, is het "ja" of "later"?
+                tekst = self.eco.uitschrijven(stem.naar_wav(samples)) if self.brug.online and self.eco.klaar else (stem.vosk_herken(samples) if stem.vosk_klaar() else "")
+                if tekst and self.update_reactie(tekst):
+                    self.ui.staat("idle")
+                    return
+                if tekst:
+                    self.ui.jij(tekst)
+                    self.bezig = False
+                    self.vraag(tekst, al_getoond=True)
+                    return
             if self.actief_brein()[0] == "eco":
                 gestart = {"ja": False}
 
@@ -442,6 +510,7 @@ class WebUI:
     def status(self, s): self._stuur({"t": "status", **s})
     def staat(self, s): self._stuur({"t": "staat", "s": s})
     def melding(self, t, soort): self._stuur({"t": "melding", "tekst": t, "soort": soort})
+    def update(self, tag, voortgang): self._stuur({"t": "update", "tag": tag, "voortgang": voortgang})
 
 
 class Api:
@@ -457,6 +526,7 @@ class Api:
     def brein(self, keuze): self._app.kies_brein(keuze)
     def download(self, model=None): self._app.download(model)
     def klaar(self): self._ui.klaar()
+    def update(self, ja): self._app.update_antwoord(bool(ja))
 
 
 def start_web(webview) -> None:
@@ -556,6 +626,14 @@ class TkUI:
         self.q.put(lambda: (self.lbl.configure(text="● " + s["titel"], fg=kleur), self.sub.configure(text=sub)))
     def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
     def melding(self, t, soort): self.sys(t)
+
+    def update(self, tag, voortgang):
+        if not tag or voortgang is not None:
+            if tag and voortgang is not None and voortgang >= 0.999:
+                self.sys(f"{tag} gedownload.")
+            return
+        from tkinter import messagebox
+        self.q.put(lambda: self.app.update_antwoord(messagebox.askyesno("NOVA", f"Er is een nieuwe NOVA ({tag}). Nu bijwerken?")))
 
     def instellingen(self):
         tk = self.tk
