@@ -41,6 +41,9 @@ bovendien bedienen zolang de laptop-app draait.
   maken. Met MAGNETISCH klikt het vast aan andere blokken en aan de rand (een cyaan hulplijn laat zien waar; Alt ingedrukt = vrij).
   NOVA onthoudt de indeling en schaalt mee als je het venster groter of kleiner maakt.
 - **Typen** onderin en Enter, of **🎙** (of Ctrl+Spatie) en praten; NOVA stopt vanzelf met luisteren als je stil bent.
+- **2× klappen** = hetzelfde als 🎙: klap twee keer kort achter elkaar en ECO luistert. Wordt op de laptop zelf herkend (het geluid
+  gaat nergens heen); één klap, applaus, praten en muziek tellen niet. Aan/uit bij Instellingen → GELUID, of zeg "zet klappen uit".
+  SYSTEEMSTATUS → 2× KLAPPEN laat zien of het werkt (GEEN MICROFOON = geen microfoon gevonden).
 - **Bovenin** zie je welk brein antwoordt: ● VERBONDEN MET ECO of ● VERBONDEN MET NOVA (groen = jouw keuze, oranje = het andere
   brein nam het over). Met NOVA als brein verstaat NOVA je online nog steeds met Whisper (via ECO), anders met Vosk.
 - **Je laptop bedienen**, ook via ECO op je iPhone ("open Spotify op mijn laptop"):

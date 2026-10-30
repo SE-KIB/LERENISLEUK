@@ -137,6 +137,8 @@ function zetStatus(s) {
   $("stModel").textContent = s.model;
   $("stOllama").textContent = s.lokaal; $("stOllama").className = s.lokaal_ok ? "ok" : "warn";
   $("stSpraak").textContent = s.spraak || "—";
+  $("stKlap").textContent = s.klappen || "—"; $("stKlap").title = s.klappen_reden || "";
+  $("stKlap").className = s.klappen_reden ? "warn" : s.klappen === "UIT" ? "" : "ok";
   $("stStem").textContent = (s.stem || "—") + (s.stem_reden ? " ⚠" : "");
   $("stStem").className = s.stem_soort || "";
   $("stStem").title = s.stem_reden || "";
@@ -165,6 +167,7 @@ window.nova = {
       for (const r of e.transcript || []) entry(r.rol, r.tekst, r.tijd);
       if ((e.transcript || []).length) entry("sys", "— vorige sessie —");
     }
+    else if (e.t === "inst") { inst = { ...inst, ...e.inst }; if (!$("instellingen").hidden) vulInstellingen(); }
     else if (e.t === "update") { // een nieuwe versie: vragen, en tijdens het bijwerken de voortgang tonen
       $("updateBalk").hidden = !e.tag;
       const bezig = e.voortgang !== null && e.voortgang !== undefined;
@@ -195,10 +198,10 @@ document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api
 
 // ---------- Instellingen (geluid, beeld, AI-volgorde, verbinding) ----------
 // inst = wat Python bewaart in config.json; elke wijziging gaat meteen terug via api().instellingen({...}).
-let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true };
+let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true, klappen: true };
 const bewaar = (patch) => { Object.assign(inst, patch); if (api()) api().instellingen(patch); };
 const PANELEN = { tijd: "LOKALE TIJD", status: "SYSTEEMSTATUS", transcript: "TRANSCRIPT", pc: "PC-ACTIES", ondertitel: "ONDERTITEL", visualisatie: "VISUALISATIE" };
-const RIJEN = { brein: "BREIN", eco: "ECO", model: "N.O.V.A.-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
+const RIJEN = { brein: "BREIN", eco: "ECO", model: "N.O.V.A.-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", klappen: "2× KLAPPEN", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
 const NAMEN = { eco: "ECO (online)", nova: "N.O.V.A. (offline, laptop)", groq: "Groq", gemini: "Gemini", claude: "Claude", piper: "Piper (nathalie)", windows: "Windows (Nederlands)", whisper: "Whisper (via ECO)", vosk: "Vosk (op de laptop)" };
 const STEMNAMEN = { gemini: "Gemini (ECO's stem)" };
 const verborgen = (id) => (inst.beeld?.verberg || []).includes(id);
@@ -251,6 +254,7 @@ function vulInstellingen() {
   $("stem").checked = inst.stem !== false;
   $("volume").value = inst.volume ?? 100; $("volWaarde").textContent = `${$("volume").value}%`;
   $("magneet").checked = inst.magneet !== false;
+  $("klappen").checked = inst.klappen !== false;
   vinkjes($("kiesPanelen"), PANELEN);
   vinkjes($("kiesRijen"), RIJEN);
   document.querySelectorAll("[data-volgorde]").forEach(volgordeLijst);
@@ -271,6 +275,7 @@ $("volume").oninput = () => { $("volWaarde").textContent = `${$("volume").value}
 $("volume").onchange = () => bewaar({ volume: +$("volume").value });
 $("testStem").onclick = () => api() && api().test_stem();
 $("magneet").onchange = () => bewaar({ magneet: $("magneet").checked });
+$("klappen").onchange = () => bewaar({ klappen: $("klappen").checked });
 $("standaardIndeling").onclick = () => { bewaar({ indeling: {} }); resetLayout(); };
 $("wisTranscript").onclick = () => {
   if (api()) api().wis_transcript();

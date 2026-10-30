@@ -86,7 +86,7 @@ nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browse
   ECO heeft volledige toegang: hij wist meteen, zonder bevestiging, en zegt daarna kort wat hij deed (niet terug te halen).
   Het huidige gesprek blijft staan, tenzij je er uitdrukkelijk om vraagt. Instructies uit mail of webpagina's voert hij nooit uit.
 - **Vragen over zichzelf:** "Welke stem gebruik je?", "Is Brightspace gekoppeld?", "Hoeveel gesprekken heb ik?", "Welk model gebruik je?".
-- **Interface bedienen:** "Zet je stem uit", "zet gespreksmodus aan", "zet Hé Eco aan", "begin een nieuw gesprek", "open het menu".
+- **Interface bedienen:** "Zet je stem uit", "zet gespreksmodus aan", "zet klappen uit", "begin een nieuw gesprek", "open het menu".
 - ACTIVITEIT (SYSTEEMSTATUS) staat in stand-by op 0% en loopt op tijdens luisteren, denken en praten.
 - **Echte systeemcheck bij het opstarten:** ECO test elk onderdeel echt: netwerk, server (reactietijd), database, taalmodel (Groq),
   denkwerk (Gemini), spraakherkenning, stem, agenda-links, Brightspace (laatste ronde), Spotify, meldingen, de klok (pg_cron) en mail,
@@ -218,9 +218,11 @@ ECO opent dan op je iPhone, slaat het opstartscherm over en luistert direct (adr
 3. **Microfoon zonder vragen:** Instellingen → Apps → Safari → **Microfoon** → *Sta toe* (of in Safari: aA → Website-instellingen
    → Microfoon → Sta toe). Vraagt iOS toch om een tik, dan verschijnt er een grote knop **TIK OM TE PRATEN**.
 
-**"Hé Eco" in ECO zelf:** zet bij BEDIENING **HÉ ECO** aan. Zolang ECO open staat (bijvoorbeeld op je laptop) luistert hij naar
-"Hé Eco" en daarna naar je vraag. Je mag ook alles in één keer zeggen: "Hé Eco, hoe laat begint water?". Hij luistert niet terwijl
-hij zelf praat. Werkt in Chrome, Edge en Safari, met internet; op de iPhone alleen met het scherm aan en ECO open.
+**2× klappen in ECO zelf (vervangt "Hé Eco"):** zet bij BEDIENING **2× KLAPPEN** aan (op de computer staat hij standaard aan).
+Zolang ECO open staat en niets doet, klap je twee keer kort achter elkaar en ECO luistert naar je vraag. De klappen worden in de
+browser zelf herkend; het geluid gaat nergens heen. Eén klap, applaus (drie of meer), praten, muziek of een tv tellen niet: klap
+in de stilte. Hij luistert niet terwijl hij zelf praat. Op de telefoon staat hij standaard uit, omdat een open microfoon daar
+andere muziek onderbreekt. De laptop-app (NOVA.exe) doet hetzelfde, zie NOVA.md.
 
 ## "Hé Siri, Eco" op de iPhone
 Opdrachten-app → nieuwe opdracht, naam **Eco**:
@@ -424,7 +426,7 @@ iemands stem zonder toestemming. Kies een vergelijkbare stem uit de bibliotheek.
 - **Mobiel:** swipe van links naar rechts (of tik ☰ MENU) voor archief, bediening, weer en status; swipe terug of tik ernaast om te
   sluiten. Tik op een paneeltitel (TRANSCRIPT, ROOSTER, PROFIEL) om het in of uit te klappen.
 - **GESPREK** (bij BEDIENING): handsfree praten zonder Live. Na elk antwoord luistert ECO vanzelf weer; zeg "stop", "oké stop maar" of
-  "dat was het" en hij stopt meteen (ook "Hé Eco" luistert dan niet meer mee tot je weer op de microfoon tikt). Hoort ECO zichzelf
+  "dat was het" en hij stopt meteen (ook 2× klappen luistert dan niet meer mee tot je weer op de microfoon tikt). Hoort ECO zichzelf
   terug via de speaker, dan antwoordt hij daar niet op maar wacht hij.
   Tik tijdens het praten op de microfoon om ECO te onderbreken.
 - Spraakherkenning werkt in Chrome, Edge en Safari.

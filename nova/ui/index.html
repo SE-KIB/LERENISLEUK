@@ -39,6 +39,7 @@
           <li data-rij="model"><span>N.O.V.A.-MODEL</span><b id="stModel">—</b></li>
           <li data-rij="ollama"><span>OLLAMA</span><b id="stOllama">—</b></li>
           <li data-rij="spraak"><span>SPRAAK</span><b id="stSpraak">—</b></li>
+          <li data-rij="klappen" title="Klap twee keer om ECO te laten luisteren"><span>2× KLAPPEN</span><b id="stKlap">—</b></li>
           <li data-rij="stem" title="Welke stem ECO gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
           <li data-rij="laptop"><span>LAPTOP</span><b id="stNaam">—</b></li>
         </ul>
@@ -108,6 +109,9 @@
       </nav>
       <section data-blad="geluid">
         <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>ECO PRAAT HARDOP</span></label>
+        <label class="switch"><input type="checkbox" id="klappen" checked><i></i><span>2× KLAPPEN = ECO LUISTERT</span></label>
+        <p class="nova-uitleg">Klap twee keer kort achter elkaar en ECO luistert, net als de MIC-knop. Dat wordt op de laptop zelf herkend:
+          het geluid gaat nergens heen. Eén klap, applaus, praten of muziek tellen niet.</p>
         <label class="field"><span>VOLUME VAN DE STEM <b id="volWaarde">100%</b></span><input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
         <button type="button" id="testStem" class="chip">▶ TEST DE STEM</button>
       </section>
