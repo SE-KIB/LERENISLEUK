@@ -154,7 +154,8 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 | 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
 
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
-- **Tests + CI (`/controle` B2):** website- en functietests in de repo met een workflow per PR. Nu alleen NOVA-tests in de bouwstraat.
+- **Tests + CI (`/controle` B2):** begonnen (PR #133, `tests/`, workflow `eco-tests.yml` op elke PR); uitbreiden met de lijst in
+  `/controle` B2 (Web Push, cronTick, lijst/timer/spotify/whatsapp, foto's, planningImport, meer UI).
 - **Beveiligingscontrole (`/controle` B3)** van alles sinds PR #87, met de punten uit de controlelijst.
 - **Serkan instellen:** `GITHUB_DISPATCH_TOKEN` (robot op tijd), optioneel `MISTRAL_API_KEY`, Google-koppeling of
   `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` (dagrapport), Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen.

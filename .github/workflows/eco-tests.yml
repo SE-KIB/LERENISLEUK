@@ -1,0 +1,48 @@
+name: ECO testen
+
+# Bij elke PR (en op main): ECO's functie en de website testen, zonder Supabase en zonder internetdiensten.
+# Functie: Deno (tests/functie_test.ts). Website: Chromium met een nep-Supabase (tests/website.test.mjs).
+# De laptop-app wordt getest in "NOVA bouwen (Windows)".
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ["supabase/**", "ai.js", "ai.css", "index.html", "tests/**", ".github/workflows/eco-tests.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eco-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  functie:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck
+        run: deno check supabase/functions/ai-chat/index.ts
+      - name: Tests
+        run: deno test -A tests/functie_test.ts
+
+  website:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Playwright installeren (zelfde versie als de Brightspace-robot)
+        run: |
+          npm install --no-save --no-package-lock --silent playwright@1.63.0
+          npx playwright install --with-deps chromium > /dev/null
+      - name: Tests
+        run: node tests/website.test.mjs
