@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -161,17 +161,24 @@ Deno.test("Brightspace-robot: de klok start hem één keer per dag, alleen met t
 });
 
 Deno.test("Live: sneller starten en antwoorden (toegangscode tegelijk, einde van de zin eerder herkend)", async () => {
-  const echt = globalThis.fetch;
-  let tokenAt = 0;
+  // Volgorde, geen stopwatch: de toegangscode moet al gevraagd zijn vóórdat het geheugen binnen is.
+  const echt = globalThis.fetch, volgorde: string[] = [];
   globalThis.fetch = (async (url: string) => {
-    if (String(url).includes("auth_tokens")) { tokenAt = performance.now(); return new Response(JSON.stringify({ name: "tok" }), { status: 200 }); }
+    if (String(url).includes("auth_tokens")) { volgorde.push("toegangscode"); return new Response(JSON.stringify({ name: "tok" }), { status: 200 }); }
     return new Response("{}", { status: 404 });
   }) as typeof fetch;
+  const admin = (globalThis as any).__admin;
+  const db = { ...admin, from: (t: string) => {
+    const q = admin.from(t);
+    if (t !== "ai_memory") return q;
+    const wacht: any = { ...q, select: () => wacht, eq: () => wacht, order: () => wacht,
+      limit: () => ({ then: (ok: (x: unknown) => void) => setTimeout(() => { volgorde.push("geheugen"); ok({ data: [] }); }, 20) }) };
+    return wacht;
+  } };
   try {
-    const t0 = performance.now();
-    const r = await m.liveStart((globalThis as any).__admin, "u1", {}, null);
+    const r = await m.liveStart(db, "u1", {}, null);
     gelijk([r.token, r.api], ["tok", "v1beta"]);
-    waar(tokenAt - t0 < 50, "de toegangscode wordt meteen gevraagd, niet pas na agenda en weer");
+    gelijk(volgorde.slice(0, 2), ["toegangscode", "geheugen"], "de toegangscode wordt meteen gevraagd, niet pas na agenda en weer");
     const vad = r.setup.realtimeInputConfig.automaticActivityDetection;
     gelijk([vad.endOfSpeechSensitivity, vad.silenceDurationMs], ["END_SENSITIVITY_HIGH", 600]);
   } finally { globalThis.fetch = echt; }
@@ -239,4 +246,58 @@ Deno.test("planning: een dag over twee screenshots verdeeld blijft compleet (rob
     await m.planningImport({ db, userId: "u1" }, "Wiskunde", plaatje, 0);
     gelijk(tabel.length, 1, "zonder ronde (zelf uploaden): vervangt zoals altijd");
   } finally { globalThis.fetch = echt; Deno.env.delete("GEMINI_API_KEY"); }
+});
+
+Deno.test("WhatsApp: nummers worden internationaal, onzin niet", () => {
+  gelijk(m.waNummer("06 12345678"), "31612345678");
+  gelijk(m.waNummer("+31 6-1234 5678"), "31612345678");
+  gelijk(m.waNummer("0031 (6) 12345678"), "31612345678");
+  gelijk(m.waNummer("+32 470 12 34 56"), "32470123456");
+  gelijk([m.waNummer("abc"), m.waNummer("123"), m.waNummer("")], ["", "", ""]);
+});
+
+Deno.test("pushmeldingen: alleen echte pushdiensten en geldige sleutels", () => {
+  const sleutels = { p256dh: btoa(String.fromCharCode(4, ...new Array(64).fill(7))).replace(/=+$/, ""), auth: btoa("1234567890abcdef").replace(/=+$/, "") };
+  waar(m.pushSub({ endpoint: "https://web.push.apple.com/abc", keys: sleutels }), "Apple");
+  waar(m.pushSub({ endpoint: "https://fcm.googleapis.com/fcm/send/x", keys: sleutels }), "Google");
+  for (const slecht of ["https://evil.example/push", "http://web.push.apple.com/x", "https://push.apple.com.evil.example/x", "https://notpush.apple.com.example/x"]) {
+    gelijk(m.pushSub({ endpoint: slecht, keys: sleutels }), null, slecht);
+  }
+  gelijk(m.pushSub({ endpoint: "https://web.push.apple.com/abc", keys: { ...sleutels, auth: "kort" } }), null, "verkeerde sleutellengte");
+});
+
+Deno.test("pushmeldingen: de versleuteling (RFC 8291) is met de sleutels van de telefoon te openen", async () => {
+  const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const ua = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]) as CryptoKeyPair;
+  const uaPub = new Uint8Array(await crypto.subtle.exportKey("raw", ua.publicKey)), auth = crypto.getRandomValues(new Uint8Array(16));
+  const bericht = JSON.stringify({ title: "☀️ Je briefing staat klaar", body: "Tik om te luisteren" });
+  const body: Uint8Array = await m.encryptPush({ keys: { p256dh: b64(uaPub), auth: b64(auth) } }, new TextEncoder().encode(bericht));
+  // Zoals de telefoon het opent: kop lezen, ECDH met de sleutel van de server, HKDF, AES-GCM.
+  const salt = body.slice(0, 16), rs = new DataView(body.buffer, body.byteOffset).getUint32(16), idlen = body[20], asPub = body.slice(21, 21 + idlen);
+  gelijk([rs, idlen], [4096, 65]);
+  const hk = async (zout: Uint8Array, ikm: Uint8Array, info: Uint8Array, n: number) => new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: zout as BufferSource, info: info as BufferSource }, await crypto.subtle.importKey("raw", ikm as BufferSource, "HKDF", false, ["deriveBits"]), n * 8));
+  const asKey = await crypto.subtle.importKey("raw", asPub as BufferSource, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const ecdh = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: asKey }, ua.privateKey, 256));
+  const te = new TextEncoder(), samen = (...d: Uint8Array[]) => { const o = new Uint8Array(d.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of d) { o.set(x, i); i += x.length; } return o; };
+  const ikm = await hk(auth, ecdh, samen(te.encode("WebPush: info\0"), uaPub, asPub), 32);
+  const cek = await hk(salt, ikm, te.encode("Content-Encoding: aes128gcm\0"), 16), nonce = await hk(salt, ikm, te.encode("Content-Encoding: nonce\0"), 12);
+  const open = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce as BufferSource }, await crypto.subtle.importKey("raw", cek as BufferSource, "AES-GCM", false, ["decrypt"]), body.slice(21 + idlen) as BufferSource));
+  gelijk(open.at(-1), 2, "laatste record eindigt met scheidingsteken 2");
+  gelijk(new TextDecoder().decode(open.slice(0, -1)), bericht);
+});
+
+Deno.test("pushmeldingen: VAPID-handtekening klopt en is voor de juiste dienst", async () => {
+  const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]) as CryptoKeyPair;
+  const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const kop = await m.vapidAuth("https://web.push.apple.com/abc", { publicKey: b64(pub), privateJwk: await crypto.subtle.exportKey("jwk", kp.privateKey) as JsonWebKey });
+  const [, jwt, k] = /^vapid t=([^,]+), k=(.+)$/.exec(kop) ?? [];
+  gelijk(k, b64(pub));
+  const [h, c, sig] = jwt.split(".");
+  const dec = (x: string) => Uint8Array.from(atob(x.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((x.length + 3) % 4)), (t) => t.charCodeAt(0));
+  const claims = JSON.parse(new TextDecoder().decode(dec(c)));
+  gelijk([claims.aud, claims.sub], ["https://web.push.apple.com", "https://sekibar.nl"]);
+  waar(claims.exp > Date.now() / 1000 && claims.exp <= Date.now() / 1000 + 24 * 3600, "verloopt binnen 24 uur (eis van de pushdiensten)");
+  waar(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, kp.publicKey, dec(sig) as BufferSource, new TextEncoder().encode(`${h}.${c}`)), "handtekening klopt");
 });

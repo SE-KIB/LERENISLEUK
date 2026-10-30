@@ -160,6 +160,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 | 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
 
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
+- **Eigen sleutel voor de laptop (`NOVA_KEY`)** — Serkan: "oké, dat doen we zo" (30 okt). Bouwen: nova-acties (wacht/klaar/
+  geheugen) en de pc-tool via Live alleen met `NOVA_KEY` zodra die bestaat; zonder `NOVA_KEY` blijft JARVIS_KEY werken (niets
+  stuk). Laptop: veld bij ⚙ Instellingen → Verbinding. Serkan: lange geheime tekst in Supabase-secret `NOVA_KEY` + in de app.
 - **Tests + CI (`/controle` B2):** begonnen (PR #133, `tests/`, workflow `eco-tests.yml` op elke PR); uitbreiden met de lijst in
   `/controle` B2 (Web Push, cronTick, lijst/timer/spotify/whatsapp, foto's, planningImport, meer UI).
 - **Beveiligingscontrole (`/controle` B3):** gedaan (PR #133, #134, #137; zie `/controle` B3). Open: eigen sleutel voor de laptop-brug
