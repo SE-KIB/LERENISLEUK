@@ -109,6 +109,17 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   meer op een scherm → gecentreerd). Instellingen → Beeld → TRANSCRIPT WISSEN.
 - Hernoemd voor Serkan: app = ECO (titel "ECO — op je laptop", merk E.C.O.), offline brein = N.O.V.A.; documenten in Documenten\ECO.
 
+## 2× klappen = luisteren, vervangt "Hé ECO" (30 okt)
+- Serkan: "ik wil niet meer starten met Hé ECO, maar met twee keer klappen". Website én laptop-app.
+- Herkenning lokaal (geluid gaat nergens heen): per 10 ms RMS + nuldoorgangen; een klap = plots ≥ 3× harder dan het vorige stukje,
+  boven 6× het achtergrondgeluid, veel hoge tonen, binnen 0,15 s terug onder 25% van de piek. Precies twee, 0,15–0,8 s na elkaar,
+  in de stilte (geen ander hard geluid ervoor/ertussen/erna; galm van de klap telt niet), 0,35 s wachten op een derde (= applaus).
+  Laptop: `nova/nova_klap.py` + `NovaApp.klap_lus` (microfoon alleen open in stand-by, niet tijdens antwoord of praten; cfg `klappen`,
+  Instellingen → GELUID, SYSTEEMSTATUS → 2× KLAPPEN). Website: `KlapDetector` in ai.js (zelfde regels), schakelaar BEDIENING →
+  2× KLAPPEN (`eco-klap`; standaard aan op de computer, uit op de telefoon), vraagt de microfoon pas na de eerste tik als er nog geen
+  toestemming is. Tool `interface` onderdeel `klappen` (oud `he_eco` werkt nog), ook in de laptop-app (`t:"ui"`).
+- "Hé Eco" via iOS Spraakopdrachten (Siri-opdracht Start Eco) blijft bestaan; dat is iets van de iPhone zelf.
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met

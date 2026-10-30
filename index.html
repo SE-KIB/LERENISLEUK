@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="ai.css?v=128">
+<link rel="stylesheet" href="ai.css?v=129">
 </head>
 <body data-state="idle">
   <div class="fx-grid" aria-hidden="true"></div>
@@ -108,7 +108,7 @@
         <label class="switch" title="Handsfree: na elk antwoord luistert ECO vanzelf weer. Zeg &quot;stop&quot; of &quot;bedankt&quot; om te pauzeren."><input type="checkbox" id="convo"><i></i><span>GESPREK</span></label>
         <label class="switch" title="Praat ertussen terwijl ECO praat: hij stopt meteen en luistert. (Op de iPhone klinkt ECO dan iets zachter.)"><input type="checkbox" id="barge"><i></i><span>ONDERBREKEN</span></label>
         <label class="switch" title="Realtime praten zoals met JARVIS (Gemini Live, gratis): ECO luistert en antwoordt meteen, en je kunt hem altijd onderbreken. Zeg &quot;stop&quot; of &quot;dat was het&quot; om te stoppen; na een minuut stilte hangt hij vanzelf op."><input type="checkbox" id="live" checked><i></i><span>LIVE</span></label>
-        <label class="switch" id="wakeSwitch" title="Zolang ECO open staat luistert hij naar &quot;Hé Eco&quot;. Zeg daarna je vraag, of zeg alles in één keer: &quot;Hé Eco, hoe laat begint water?&quot;"><input type="checkbox" id="wake"><i></i><span>HÉ ECO</span></label>
+        <label class="switch" id="klapSwitch" title="Klap twee keer kort achter elkaar en ECO luistert. Dat wordt in de browser zelf herkend: het geluid gaat nergens heen."><input type="checkbox" id="klap"><i></i><span>2× KLAPPEN</span></label>
         <div class="push-row mic-row" title="Kies welke microfoon ECO gebruikt (bv. de iPhone-microfoon in de auto) en test of ECO je hoort. Geldt voor Live, gewone spraak en onderbreken.">
           <select id="micSel" aria-label="Microfoon"><option value="">MICROFOON: AUTOMATISCH</option></select>
           <button type="button" id="micTestBtn" class="link">TEST</button>
@@ -243,6 +243,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-  <script src="ai.js?v=128"></script>
+  <script src="ai.js?v=129"></script>
 </body>
 </html>
