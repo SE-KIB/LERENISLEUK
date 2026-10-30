@@ -506,3 +506,31 @@ body[data-werk=on] .hud .core .caption{flex:none;min-height:2.6em;max-height:5.6
   body[data-werk=on] .hud .core .main-reactor{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));width:96px;z-index:30}
   body[data-werk=on] .hud .core .caption{padding-right:0}
 }
+
+/* Instellingen (zoals bij N.O.V.A.): BEDIENING blijft rustig, de rest staat hier in tabbladen */
+.inst-knop{grid-column:1/-1;justify-self:stretch;background:rgba(0,225,255,.06);border:1px solid var(--cd);color:var(--c);font:600 .62rem/1 var(--f-head);letter-spacing:.22em;padding:.65rem;cursor:pointer;transition:background .25s,border-color .25s,box-shadow .25s}
+.inst-knop:hover,.inst-knop:focus-visible{border-color:var(--c);background:rgba(0,225,255,.12);box-shadow:var(--glow);outline:none}
+.inst .inst-doos{width:min(680px,100%);animation:instIn .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes instIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.inst-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--cd);padding-bottom:10px}
+.inst-tabs button{background:none;border:1px solid var(--cd);color:var(--muted);font:600 .56rem/1 var(--f-head);letter-spacing:.2em;padding:.5rem .7rem;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+.inst-tabs button:hover{color:var(--c2);border-color:var(--c)}
+.inst-tabs button.on{background:var(--c);border-color:var(--c);color:#01070c}
+.inst-blad{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;align-items:center;min-height:120px;align-content:start}
+.inst-blad[hidden]{display:none}
+.inst-blad>.push-row,.inst-blad>.mic-meter,.inst-blad>p,.inst-blad>.link{grid-column:1/-1}
+.inst-blad .link{text-align:left}
+.inst-blad .switch{font-size:.62rem}
+.inst-uitleg{margin:0;color:var(--muted);font:.85rem/1.45 var(--f-body)}
+@media (max-width:600px){.inst-blad{grid-template-columns:1fr}}
+
+/* Rustig scherm: panelen glijden opzij zodra ECO werkt; alleen werk, reactor en opdrachtregel blijven */
+@media (min-width:901px){
+  .hud [data-win]:not([data-win=kern]):not([data-win=cmd]){transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s ease,filter .5s ease}
+  body[data-rustig=on] .hud [data-win]:not([data-win=kern]):not([data-win=cmd]):not(.docked){transform:translateX(var(--weg,0)) scale(.92);opacity:0;filter:blur(2px);pointer-events:none}
+  body[data-rustig=on] .sysline{opacity:.35;transition:opacity .5s}
+}
+.panelen-terug{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:40;writing-mode:vertical-rl;rotate:180deg;background:rgba(2,18,26,.85);border:1px solid var(--cd);border-left:0;color:var(--c);font:600 .56rem/1 var(--f-head);letter-spacing:.25em;padding:.9rem .45rem;cursor:pointer;opacity:.7;transition:opacity .25s,box-shadow .25s;animation:instIn .5s .3s both}
+.panelen-terug:hover{opacity:1;box-shadow:var(--glow)}
+.panelen-terug[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.hud [data-win]{transition:none!important}.inst .inst-doos,.panelen-terug{animation:none}}
