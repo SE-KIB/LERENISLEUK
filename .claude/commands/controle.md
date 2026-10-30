@@ -24,7 +24,7 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
 1. Laatste runs van `brightspace-sync.yml`: lukte elke ronde ("2 van 2 delen gelezen")? Hoe laat startte de geplande
    ronde vergeleken met de cron `20 5 * * *` (UTC)? Op 30 okt startte hij pas om 11:27 UTC, 6 uur te laat.
 2. Laatste runs van `deploy-function.yml` en `nova-build.yml`: groen?
-3. `list_workflows`: staat er een workflow op `disabled_inactivity`? (`website-monitor.yml` staat sinds 17 okt uit.)
+3. `list_workflows`: staat er een workflow op `disabled_inactivity`?
 4. Zoek in de code of er ECO-tests en een testworkflow zijn (op 30 okt: nee, alleen NOVA heeft tests).
 
 ## B. Technische punten die jij oplost
@@ -86,7 +86,7 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
 4. ✅ **Workflows bijwerken** (30 okt, PR #125): `checkout@v7`, `setup-node@v7`, `setup-python@v7`, `upload-artifact@v7`,
    `action-gh-release@v3` (allemaal Node 24) en `supabase/setup-cli@v3` (composite); validate-lessons draait nu op Node 22.
 5. ✅ **Docs opgeruimd in `AI-SETUP.md`** (30 okt, PR #125): User UID en `JARVIS_USER_ID` weg; "Volgende stappen" bijgewerkt.
-6. **Oude `website-monitor.yml`** (van de vorige site, staat uit). Gevraagd aan Serkan op 30 okt; nog geen antwoord.
+6. ✅ Oude `website-monitor.yml` weggehaald (30 okt, Serkan: "doe maar").
    Weer aanzetten zou bij elke update een issue openen.
 
 ## C. Vragen aan Serkan: is dit getest? (vraag het in één bericht, daarna oplossen wat niet werkt)

@@ -191,7 +191,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   schermplaatje), Live: sneller? kapt hij je af bij nadenken? (dan `LIVE_STILTE_MS` 800), sarcasme goed zo (2 op 3)?
 - Na #139: is "STORING: SERVER · Geen toegang" bij het opstarten weg? Na #140: lipjes slepen, alleen GROQ/GEMINI in beeld.
 **Jij beslissen / antwoorden**
-- Muis-klikken door ECO (nu niet); `website-monitor.yml` weg (B6)?; merk van de lampen; avondoverzicht of studieplanner?
+- Muis-klikken door ECO (nu niet); merk van de lampen; avondoverzicht of studieplanner?
 - Melding als Groq's quotum op is (aangeboden, geen antwoord). Meerdere Groq-accounts: afgewezen (tegen de regels).
 - Nooit gevraagd (`/controle` C): start "speel mijn liked songs" vanzelf? vraagt de beginscherm-app nog om de microfoon?
   kwam de briefing om 07:30 en las ECO hem voor? wat zegt ECO op "hoe staat je klok ervoor"? onderbreken, foto's/pdf's,
