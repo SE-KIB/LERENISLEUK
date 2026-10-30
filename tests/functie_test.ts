@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, gelijkGeheim };\n";
+  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, gelijkGeheim, robotStarten };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -17,7 +17,8 @@ const nepKv: Record<string, unknown> = { bs_state: { cookies: [{ name: "d2lSessi
 const kvTabel = () => {
   let sleutel = "";
   const q: any = { select: () => q, eq: (_k: string, v: string) => { sleutel = v; return q; }, maybeSingle: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }),
-    single: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }), upsert: async () => ({}) };
+    single: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }),
+    upsert: async (rij: { key: string; value: unknown }) => { nepKv[rij.key] = rij.value; return {}; } };
   return q;
 };
 (globalThis as any).__admin = {
@@ -117,4 +118,29 @@ Deno.test("robot-sleutel: alleen een kloppende sleutel geeft de Brightspace-sess
   gelijk(goed.status, 200, "goede sleutel");
   gelijk(m.gelijkGeheim("abc", "abc"), true);
   gelijk([m.gelijkGeheim("abc", "abd"), m.gelijkGeheim("abc", "abcd"), m.gelijkGeheim("", ""), m.gelijkGeheim("x", "")], [false, false, false, false]);
+});
+
+Deno.test("Brightspace-robot: de klok start hem één keer per dag, alleen met token en als Brightspace gekoppeld is", async () => {
+  const echt = globalThis.fetch, verzoeken: { url: string; init?: RequestInit }[] = [];
+  globalThis.fetch = (async (url: string, init?: RequestInit) => { verzoeken.push({ url: String(url), init }); return new Response(null, { status: 204 }); }) as typeof fetch;
+  const db = (globalThis as any).__admin;
+  try {
+    Deno.env.delete("GITHUB_DISPATCH_TOKEN");
+    await m.robotStarten(db, "2026-10-31");
+    gelijk(verzoeken.length, 0, "zonder token niets");
+    Deno.env.set("GITHUB_DISPATCH_TOKEN", "tok");
+    await m.robotStarten(db, "2026-10-31");
+    await m.robotStarten(db, "2026-10-31");
+    gelijk(verzoeken.length, 1, "één keer per dag");
+    waar(verzoeken[0].url.endsWith("/repos/SE-KIB/LERENISLEUK/actions/workflows/brightspace-sync.yml/dispatches"), verzoeken[0].url);
+    gelijk(JSON.parse(String(verzoeken[0].init?.body)), { ref: "main" });
+    gelijk((nepKv.bs_robot as any).ok, true);
+    await m.robotStarten(db, "2026-11-01");
+    gelijk(verzoeken.length, 2, "de volgende dag weer");
+    const koppeling = nepKv.bs_state;
+    delete nepKv.bs_state;
+    await m.robotStarten(db, "2026-11-02");
+    gelijk(verzoeken.length, 2, "niet gekoppeld: niets");
+    nepKv.bs_state = koppeling;
+  } finally { globalThis.fetch = echt; Deno.env.delete("GITHUB_DISPATCH_TOKEN"); }
 });
