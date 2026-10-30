@@ -220,7 +220,7 @@ class TestApp(unittest.TestCase):
         app = nova.NovaApp(ui)
         app.cfg.update(eco_sleutel="x", stem=False)
         app.brug.online = True
-        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
+        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None, on_werk=None: (on_tool("pc"), on_delta("Spotify "), on_delta("staat aan."), ("Spotify staat aan.", "c1"))[-1]
         app.vraag("open spotify")
         self.assertEqual([e[0] for e in ui.ev], ["staat", "jij", "tool", "nova_start", "delta", "delta", "nova_eind", "staat"])
         self.assertEqual(app.conv, "c1")
@@ -653,6 +653,63 @@ class TestKlappen(unittest.TestCase):
             core.bewaar_config = oud
 
 
+class TestWerkmodus(unittest.TestCase):
+    """Werkmodus: live laten zien wat ECO doet, met een schermplaatje na een laptop-actie."""
+
+    def test_pc_actie_met_beeld(self):
+        ui, app = nep_app(online=True)
+        app.uitvoeren = lambda actie, args: {"status": "gelukt", "controle": "Spotify staat open"}
+        with mock.patch.object(pc, "schermpje_jpeg", lambda breed=560: "QUJD"), mock.patch("time.sleep", lambda s: None):
+            app.pc_actie("app_openen", {"naam": "Spotify"})
+            wacht_op(lambda: any(e[0] == "werk" and e[1]["t"] == "tool_beeld" for e in ui.ev))
+        werk = [e[1] for e in ui.ev if e[0] == "werk"]
+        self.assertEqual([w["t"] for w in werk], ["tool", "tool_klaar", "tool_beeld"])
+        self.assertEqual(werk[0]["info"], "app openen Spotify")
+        self.assertTrue(werk[1]["ok"])
+        self.assertEqual(werk[1]["uit"], "Spotify staat open")
+        self.assertEqual(werk[2]["beeld"], "QUJD")
+        self.assertEqual(len({w["id"] for w in werk}), 1)
+
+    def test_mislukt_en_uit(self):
+        ui, app = nep_app(online=True)
+        app.uitvoeren = lambda actie, args: {"status": "mislukt", "fout": "app niet gevonden"}
+        app.pc_actie("vergrendelen", {})
+        klaar = [e[1] for e in ui.ev if e[0] == "werk" and e[1]["t"] == "tool_klaar"][0]
+        self.assertFalse(klaar["ok"])
+        self.assertEqual(klaar["uit"], "app niet gevonden")
+        ui.ev.clear()
+        app.cfg["werkmodus"] = False
+        app.pc_actie("vergrendelen", {})
+        self.assertFalse([e for e in ui.ev if e[0] == "werk"])
+        self.assertTrue([e for e in ui.ev if e[0] == "pc"])  # het PC-paneel blijft gewoon werken
+
+    def test_stappen_van_eco(self):
+        ui, app = nep_app(online=True)
+        app.cfg["stem"] = False
+        regels = ['data: {"t":"tool","name":"web_zoeken","id":"w1","info":"weer Den Haag"}', "",
+                  'data: {"t":"tool_klaar","name":"web_zoeken","id":"w1","ok":true,"uit":"12 graden","bronnen":["KNMI"]}', "",
+                  'data: {"t":"tool","name":"pc","id":"w2","info":"app_openen"}', "",
+                  'data: {"t":"done","reply":"Het is 12 graden."}', ""]
+        r = types.SimpleNamespace(iter_lines=lambda decode_unicode=True: iter(regels), encoding=None)
+        with mock.patch.object(app.eco, "_post", lambda *a, **k: r):
+            app.vraag("wat voor weer is het")
+        werk = [e[1] for e in ui.ev if e[0] == "werk"]
+        self.assertEqual([(w["t"], w["name"]) for w in werk], [("tool", "web_zoeken"), ("tool_klaar", "web_zoeken")])  # pc toont de laptop zelf
+        self.assertEqual(werk[1]["bronnen"], ["KNMI"])
+
+    def test_instelling(self):
+        pad = Path(tempfile.mkdtemp()) / "config.json"
+        oud = core.bewaar_config
+        core.bewaar_config = lambda cfg, p=None: oud(cfg, pad)
+        try:
+            _, app = nep_app(online=True)
+            self.assertTrue(app.inst()["werkmodus"])
+            app.instellingen({"werkmodus": False})
+            self.assertFalse(core.laad_config(pad)["werkmodus"])
+        finally:
+            core.bewaar_config = oud
+
+
 class TestOnthouden(unittest.TestCase):
     """NOVA onthoudt het transcript, de PC-acties, het gesprek en de plek van het venster als hij uit en aan gaat."""
 
@@ -660,7 +717,7 @@ class TestOnthouden(unittest.TestCase):
         map_ = Path(tempfile.mkdtemp())
         ui, app = nep_app(online=True, map_=map_)
         app.cfg.update(stem=False)
-        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None: (on_delta("Het is 13:05."), ("Het is 13:05.", "conv-7"))[-1]
+        app.eco.chat = lambda t, c, on_delta, on_tool, on_ui=None, on_werk=None: (on_delta("Het is 13:05."), ("Het is 13:05.", "conv-7"))[-1]
         app.vraag("hoe laat is het")
         app.pc_actie("info", {})
         # NOVA uit en weer aan

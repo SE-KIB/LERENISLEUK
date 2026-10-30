@@ -240,6 +240,16 @@ def screenshot_jpeg() -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
+def schermpje_jpeg(breed: int = 560) -> str:
+    """Een klein plaatje van het scherm voor de werkmodus (blijft op de laptop)."""
+    from PIL import ImageGrab  # type: ignore
+    img = ImageGrab.grab(all_screens=False)
+    img.thumbnail((breed, breed))
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, "JPEG", quality=60)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 def info() -> dict:
     uit = {"tijd": time.strftime("%H:%M"), "datum": time.strftime("%d-%m-%Y")}
     if WINDOWS:

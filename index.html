@@ -108,7 +108,8 @@
         <label class="switch" title="Handsfree: na elk antwoord luistert ECO vanzelf weer. Zeg &quot;stop&quot; of &quot;bedankt&quot; om te pauzeren."><input type="checkbox" id="convo"><i></i><span>GESPREK</span></label>
         <label class="switch" title="Praat ertussen terwijl ECO praat: hij stopt meteen en luistert. (Op de iPhone klinkt ECO dan iets zachter.)"><input type="checkbox" id="barge"><i></i><span>ONDERBREKEN</span></label>
         <label class="switch" title="Realtime praten zoals met JARVIS (Gemini Live, gratis): ECO luistert en antwoordt meteen, en je kunt hem altijd onderbreken. Zeg &quot;stop&quot; of &quot;dat was het&quot; om te stoppen; na een minuut stilte hangt hij vanzelf op."><input type="checkbox" id="live" checked><i></i><span>LIVE</span></label>
-        <label class="switch" id="klapSwitch" title="Klap twee keer kort achter elkaar en ECO luistert. Dat wordt in de browser zelf herkend: het geluid gaat nergens heen."><input type="checkbox" id="klap"><i></i><span>2× KLAPPEN</span></label>
+        <label class="switch" title="Gebruikt ECO een tool (zoeken, een pagina lezen, je agenda, de laptop), dan schuift de reactor naar rechtsonder en zie je live elke stap."><input type="checkbox" id="werkmodus" checked><i></i><span>WERKMODUS</span></label>
+        <label class="switch" id="klapSwitch" title="Klap twee keer kort achter elkaar en ECO luistert. Dat wordt in de browser zelf herkend: het geluid gaat nergens heen."><input type="checkbox" id="klap"><i></i><span>2×&nbsp;KLAPPEN</span></label>
         <div class="push-row mic-row" title="Kies welke microfoon ECO gebruikt (bv. de iPhone-microfoon in de auto) en test of ECO je hoort. Geldt voor Live, gewone spraak en onderbreken.">
           <select id="micSel" aria-label="Microfoon"><option value="">MICROFOON: AUTOMATISCH</option></select>
           <button type="button" id="micTestBtn" class="link">TEST</button>
@@ -138,6 +139,10 @@
         <div class="readout tl" aria-hidden="true" id="roA"></div>
         <div class="readout br" aria-hidden="true" id="roB"></div>
       </div>
+      <section id="werk" class="werk" hidden aria-live="polite" aria-label="Waar ECO mee bezig is">
+        <header class="werk-kop"><span>ECO WERKT · LIVE</span><button type="button" id="werkSluit" class="werk-x" title="Sluiten">✕</button></header>
+        <ol id="werkLijst" class="werk-lijst"></ol>
+      </section>
       <div id="timers" class="timers" aria-live="polite"></div>
       <div id="caption" class="caption" aria-live="polite"></div>
       <video id="ziePreview" class="zie-preview" muted playsinline hidden title="Dit ziet ECO"></video>

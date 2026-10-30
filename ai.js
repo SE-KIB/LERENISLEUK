@@ -45,6 +45,7 @@ function setState(s) {
   $("stateLabel").textContent = STATE_LABEL[s];
   wakeOnState(s); // 2× klappen luistert alleen in stand-by, niet terwijl ECO luistert, denkt of praat
   bargeOnState(s); // onderbreken: tijdens het praten luistert ECO of jij ertussen praat
+  if (s === "idle") werk?.rust(); // werkmodus: na het antwoord schuift de reactor terug
 }
 
 // ---------- Geluid (UI-tonen via Web Audio, geen bestanden) ----------
@@ -961,6 +962,74 @@ const TOOL_LABEL = {
   mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
   lijst: "Lijstje bijwerken", timer: "Timer zetten", spotify: "Spotify", whatsapp: "WhatsApp klaarzetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
   nadenken: "Nadenken", diep_nadenken: "Diep nadenken", archief_zoeken: "Archief doorzoeken", volgen: "Onderwerp volgen", ongedaan_maken: "Ongedaan maken",
+  web_lezen: "Pagina lezen", pc: "Laptop bedienen", tv: "Tv bedienen", interface: "Interface aanpassen",
+};
+// ---------- Werkmodus: zien wat ECO doet ----------
+// Gebruikt ECO een tool (zoeken, een pagina lezen, je agenda, de laptop), dan schuift de reactor naar rechtsonder en zie je
+// live elke stap: wat hij doet, waarmee, en wat eruit kwam (bronnen, paginatitel, een stukje van de tekst). Na het antwoord
+// schuift hij na een paar seconden terug. Alles komt van ECO's eigen server en staat alleen op jouw scherm.
+const WERK_ICOON = { web_zoeken: "🔎", web_lezen: "📄", agenda_bekijken: "📅", afspraak_maken: "📅", pc: "💻", spotify: "🎵", tv: "📺",
+  weer: "🌦", mail_zoeken: "✉", mail_lezen: "✉", mail_concept_maken: "✉", nadenken: "🧠", diep_nadenken: "🧠", onthouden: "💾",
+  vergeten: "🗑", route_plannen: "🧭", rekenen: "🧮", valuta: "💱", lijst: "📝", timer: "⏱", archief_zoeken: "🗂", whatsapp: "💬",
+  tijd: "🕒", dagrapport: "📊", ochtendbriefing: "☀", volgen: "👁", ongedaan_maken: "↩", eco_status: "📟", interface: "🎛", gesprekken_beheren: "🗂" };
+// Schuift de reactor vloeiend naar zijn nieuwe plek (FLIP): eerst meten, dan veranderen, dan het verschil wegspelen.
+function flip(verander) {
+  const el = document.querySelector(".main-reactor"), voor = el?.getBoundingClientRect();
+  verander();
+  if (!el || !voor?.width || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const na = el.getBoundingClientRect();
+  if (!na.width) return;
+  el.animate([{ transformOrigin: "0 0", transform: `translate(${voor.left - na.left}px,${voor.top - na.top}px) scale(${voor.width / na.width})` },
+    { transformOrigin: "0 0", transform: "none" }], { duration: 480, easing: "cubic-bezier(.2,.8,.2,1)" });
+}
+var werk = {
+  kaarten: new Map(), timer: 0, vers: true,
+  aan: () => $("werkmodus")?.checked !== false,
+  open: () => document.body.dataset.werk === "on",
+  beurt() { this.vers = true; clearTimeout(this.timer); if (this.open()) this.sluit(); }, // nieuwe vraag: schone lijst
+  start(ev) {
+    if (!this.aan() || !$("werk")) return;
+    clearTimeout(this.timer);
+    if (this.vers) { $("werkLijst").textContent = ""; this.kaarten.clear(); this.vers = false; }
+    if (!this.open()) flip(() => { document.body.dataset.werk = "on"; $("werk").hidden = false; });
+    const li = document.createElement("li");
+    li.className = "werk-stap bezig";
+    li.innerHTML = "<i></i><div><b></b><span></span><em></em></div><time></time>";
+    li.querySelector("i").textContent = WERK_ICOON[ev.name] || "⚙";
+    li.querySelector("b").textContent = TOOL_LABEL[ev.name] || String(ev.name || "Bezig").replace(/_/g, " ");
+    li.querySelector("span").textContent = ev.info || "";
+    $("werkLijst").append(li);
+    this.kaarten.set(ev.id || `${ev.name}-${Date.now()}`, { li, t: performance.now() });
+    $("werkLijst").scrollTop = $("werkLijst").scrollHeight;
+  },
+  klaar(ev) {
+    const k = this.kaarten.get(ev.id);
+    if (!k) return;
+    this.kaarten.delete(ev.id);
+    const { li } = k, em = li.querySelector("em");
+    li.classList.remove("bezig"); li.classList.add(ev.ok === false ? "mis" : "ok");
+    li.querySelector("time").textContent = `${((ev.ms ?? performance.now() - k.t) / 1000).toFixed(1)} s`;
+    em.textContent = ev.uit || "";
+    if (ev.url && /^https?:\/\//.test(ev.url)) {
+      const a = document.createElement("a");
+      a.href = ev.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      try { a.textContent = new URL(ev.url).hostname.replace(/^www\./, ""); } catch { a.textContent = "link"; }
+      em.append(" · ", a);
+    }
+    if (ev.bronnen?.length) {
+      const ul = document.createElement("ul");
+      for (const b of ev.bronnen) ul.appendChild(document.createElement("li")).textContent = b;
+      li.querySelector("div").append(ul);
+    }
+    if (ev.voorbeeld) li.querySelector("div").appendChild(document.createElement("q")).textContent = ev.voorbeeld;
+  },
+  klaarAlles() { for (const id of [...this.kaarten.keys()]) this.klaar({ id, ok: true }); }, // het antwoord komt: niets meer "bezig"
+  rust() { if (this.open()) { this.klaarAlles(); clearTimeout(this.timer); this.timer = setTimeout(() => this.sluit(), 9000); } },
+  sluit() {
+    clearTimeout(this.timer);
+    if (!this.open()) return;
+    flip(() => { document.body.dataset.werk = "off"; $("werk").hidden = true; });
+  },
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
@@ -1023,6 +1092,7 @@ async function ask({ text = "", audio = null }) {
   let full = "", body = null, firstText = 0, rendered = false, heardExit = false, heardNothing = false, unsure = false, done = null;
   const afterDone = [];
   stopSpeaking();
+  werk.beurt();
   speech.open = true; speech.fromAsk = true;
   let audioAt = 0, modelFirst = null;
   const showLat = () => {
@@ -1086,9 +1156,12 @@ async function ask({ text = "", audio = null }) {
         applyUi(ev, afterDone);
       } else if (ev.t === "tool") {
         if (!full) setCaption((TOOL_LABEL[ev.name] || "Bezig") + "…", "tool");
+        werk.start(ev);
         if (ev.name === "afspraak_maken") setTimeout(loadRooster, 4000);
+      } else if (ev.t === "tool_klaar") {
+        werk.klaar(ev);
       } else if (ev.t === "delta") {
-        if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; sfx.reply(); }
+        if (!body) { body = entry("assistant", ""); firstText = performance.now() - t0; sfx.reply(); werk.klaarAlles(); }
         full += ev.text;
         speech.feed(full);
         if (!rendered) { rendered = true; requestAnimationFrame(render); }
@@ -1453,6 +1526,12 @@ const hervat = () => { luisterPauze = false; };
 // ---------- Gespreksmodus: na elk antwoord vanzelf weer luisteren (handsfree) ----------
 const convo = { get on() { return $("convo")?.checked; }, paused: false };
 try { if ($("convo")) $("convo").checked = localStorage.getItem("eco-convo") === "1"; } catch { /* geen opslag */ }
+try { if ($("werkmodus")) $("werkmodus").checked = localStorage.getItem("eco-werk") !== "0"; } catch { /* geen opslag */ }
+$("werkmodus")?.addEventListener("change", (e) => {
+  try { localStorage.setItem("eco-werk", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
+  if (!e.target.checked) werk.sluit();
+});
+$("werkSluit")?.addEventListener("click", () => werk.sluit());
 $("convo")?.addEventListener("change", (e) => {
   try { localStorage.setItem("eco-convo", e.target.checked ? "1" : "0"); } catch { /* geen opslag */ }
   convo.paused = false;
@@ -1932,6 +2011,7 @@ function liveFlush() {
   if (live.on) setState("listening");
 }
 function liveTurnDone() {
+  werk.vers = true; werk.rust(); // Live: elke beurt een schone lijst
   const user = live.userText.trim(), eco = live.ecoText.trim();
   live.userText = ""; live.ecoText = ""; live.userEl = null; live.ecoEl = null;
   if (user || eco) callFn({ live: { actie: "opslaan", convId: currentConv, user, assistant: eco } }).then((r) => {
@@ -1955,8 +2035,10 @@ function liveTools(calls) {
   for (const fc of calls) {
     live.lastActivity = Date.now();
     if (!live.ecoText) setCaption((TOOL_LABEL[fc.name] || "Bezig") + "…", "tool");
+    werk.start({ name: fc.name, id: fc.id, info: Object.values(fc.args || {}).filter((v) => v !== "" && typeof v !== "object").join(" · ").slice(0, 200) });
     callFn({ live: { actie: "tool", name: fc.name, args: fc.args || {}, convId: currentConv, ui: uiState() } })
-      .then((r) => { liveEffects(r); return r.result; }, (e) => ({ fout: e.message }))
+      .then((r) => { liveEffects(r); werk.klaar({ id: fc.id, ...(r.werk || { ok: !r.result?.fout }) }); return r.result; },
+        (e) => { werk.klaar({ id: fc.id, ok: false, uit: e.message }); return { fout: e.message }; })
       .then((result) => {
         live.lastActivity = Date.now();
         if (live.cancelled.has(fc.id)) return;

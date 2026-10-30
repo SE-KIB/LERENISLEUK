@@ -120,6 +120,17 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   toestemming is. Tool `interface` onderdeel `klappen` (oud `he_eco` werkt nog), ook in de laptop-app (`t:"ui"`).
 - "Hé Eco" via iOS Spraakopdrachten (Siri-opdracht Start Eco) blijft bestaan; dat is iets van de iPhone zelf.
 
+## Werkmodus: reactor naar rechtsonder + live meekijken (30 okt)
+- Serkan (video ROSE): "als ECO bezig is, reactor naar rechtsonder en real-time laten zien waar hij mee bezig is", voor website
+  en laptop-app.
+- Server: `runToolLive` stuurt per tool `{t:"tool", name, id, info}` en `{t:"tool_klaar", id, ok, ms, uit, bronnen?, url?, voorbeeld?}`
+  (`werkInfo`/`werkUitkomst`); slimme baan `nadenken` (id `slim`) ook. Live-tools: het live-antwoord heeft `werk`.
+- Website: `werk` in ai.js (FLIP-animatie van `.main-reactor`, kaarten in `#werkLijst`, sluit 9 s na stand-by), schakelaar
+  WERKMODUS (`eco-werk`). Laptop: `NovaApp.pc_actie` maakt zelf de kaart + `tool_beeld` (schermplaatje 560 px, 0,8 s na de actie;
+  `pc.schermpje_jpeg`), ECO's eigen `pc`-stappen worden daar overgeslagen (`werk_van_eco`); cfg `werkmodus`.
+- **Muis:** Serkan zei "het liefst zien waar hij met de muis op klikt". ECO klikt niet zelf (afspraak: geen browser/muis die zelf
+  klikt). Wil hij dat toch, dan eerst samen beslissen (risico: verkeerde knop, aankopen, verwijderen); niet zomaar bouwen.
+
 ## Alles wat Serkan zei (sessie 29–30 okt) en de stand
 | # | Wens van Serkan | Stand |
 |---|---|---|

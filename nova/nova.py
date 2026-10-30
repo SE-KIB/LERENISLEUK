@@ -337,12 +337,38 @@ class NovaApp:
             time.sleep(60)
 
     # ---------- pc-acties (van ECO via de brug, of van het eigen brein) ----------
+    # Acties waarna een klein schermplaatje laat zien wat er gebeurde (werkmodus).
+    MET_BEELD = ("app_openen", "website_openen", "typen", "bestand_openen", "document_maken", "media", "volume", "screenshot")
+
     def pc_actie(self, actie, args):
-        result = self.uitvoeren(actie, args)
         waarden = [str(v) for k, v in (args or {}).items() if str(v) and v != actie and not (actie == "document_maken" and k == "tekst")]
         tekst = f"{actie.replace('_', ' ')} {' '.join(waarden)}".strip()[:90]
-        self.ui.pc(tekst, result.get("status", ""), result.get("controle") or result.get("fout") or "")
+        wid, t0 = f"pc{time.time_ns()}", time.time()
+        werk = self.cfg.get("werkmodus", True) is not False
+        if werk:
+            self.ui.werk({"t": "tool", "name": "pc", "id": wid, "info": tekst})
+        result = self.uitvoeren(actie, args)
+        detail = result.get("controle") or result.get("fout") or ""
+        self.ui.pc(tekst, result.get("status", ""), detail)
+        if werk:
+            self.ui.werk({"t": "tool_klaar", "name": "pc", "id": wid, "ms": int((time.time() - t0) * 1000),
+                          "ok": "fout" not in result and result.get("status") != "mislukt", "uit": detail or result.get("status", "") or "gedaan"})
+            if actie in self.MET_BEELD:
+                threading.Thread(target=self.werk_beeld, args=(wid,), daemon=True).start()
         return result
+
+    def werk_beeld(self, wid: str, wacht: float = 0.8):
+        """Na een laptop-actie even wachten (het venster opent) en dan een klein plaatje van het scherm in de werkmodus."""
+        time.sleep(wacht)
+        try:
+            self.ui.werk({"t": "tool_beeld", "id": wid, "beeld": pc.schermpje_jpeg()})
+        except Exception:
+            pass  # geen scherm (vergrendeld) of geen Pillow: dan geen plaatje
+
+    def werk_van_eco(self, ev: dict):
+        """Werkmodus-stappen van ECO's server. De laptop-acties zelf toont pc_actie (met schermplaatje)."""
+        if ev.get("name") != "pc" and self.cfg.get("werkmodus", True) is not False:
+            self.ui.werk(ev)
 
     # ---------- praten ----------
     def stuur(self, tekst):
@@ -365,7 +391,8 @@ class NovaApp:
                 self.ui.delta(d)
             brein, reden = self.actief_brein()
             if brein == "eco":
-                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht)
+                antwoord, self.conv = self.eco.chat(tekst, self.conv, on_delta=delta, on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht,
+                                                    on_werk=self.werk_van_eco)
                 self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
             elif brein == "nova":
                 antwoord = self.lokaal.chat(tekst, on_tool=lambda n: self.ui.tool(n))
@@ -478,7 +505,7 @@ class NovaApp:
                         self.ui.nova_start()
                     self.ui.delta(d)
                 antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta,
-                                                              on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht)
+                                                              on_tool=lambda n: self.ui.tool(n), on_ui=self.ui_opdracht, on_werk=self.werk_van_eco)
                 self.logboek.zet_gesprek(self.conv, self.lokaal.geschiedenis)
                 self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
@@ -594,13 +621,14 @@ class NovaApp:
         return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en N.O.V.A. niet klaar)."
 
     # ---------- instellingen ----------
-    INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet", "klappen")
+    INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet", "klappen", "werkmodus")
 
     def inst(self) -> dict:
         """Wat de pagina nodig heeft voor Instellingen (geluid, beeld, AI-volgorde, indeling)."""
         return {"volume": int(self.cfg.get("volume", 100)), "stem": bool(self.cfg.get("stem", True)), "beeld": self.cfg.get("beeld") or {"verberg": []},
                 "volgorde": {soort: core.volgorde(self.cfg, soort) for soort in core.VOLGORDES}, "indeling": self.cfg.get("indeling") or {},
-                "magneet": self.cfg.get("magneet", True) is not False, "klappen": self.cfg.get("klappen", True) is not False}
+                "magneet": self.cfg.get("magneet", True) is not False, "klappen": self.cfg.get("klappen", True) is not False,
+                "werkmodus": self.cfg.get("werkmodus", True) is not False}
 
     def instellingen(self, patch: dict):
         """Bewaart wat er in Instellingen veranderde (alleen bekende sleutels, gecontroleerd)."""
@@ -614,6 +642,8 @@ class NovaApp:
         if "klappen" in p:
             self.cfg["klappen"] = bool(p["klappen"])
             self.klap_fout = ""
+        if "werkmodus" in p:
+            self.cfg["werkmodus"] = bool(p["werkmodus"])
         if isinstance(p.get("beeld"), dict):
             self.cfg["beeld"] = {"verberg": [str(x)[:30] for x in (p["beeld"].get("verberg") or [])][:40]}
         if isinstance(p.get("indeling"), dict):
@@ -749,6 +779,7 @@ class WebUI:
     def herstel(self, d): self._stuur({"t": "herstel", **d})
     def update(self, tag, voortgang): self._stuur({"t": "update", "tag": tag, "voortgang": voortgang})
     def inst(self, d): self._stuur({"t": "inst", "inst": d})
+    def werk(self, ev): self._stuur({**ev, "t": "werk", "soort": ev.get("t")})
 
 
 class Api:
@@ -881,6 +912,7 @@ class TkUI:
     def staat(self, s): self.q.put(lambda: self.micknop.configure(bg=K["warn"] if s == "listening" else K["paneel"]))
     def melding(self, t, soort): self.sys(t)
     def inst(self, d): pass
+    def werk(self, ev): pass
 
     def herstel(self, d):
         for r in d.get("transcript", [])[-40:]:
