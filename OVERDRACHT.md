@@ -160,6 +160,13 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 | 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
 
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
+- **Stand 30 okt avond:** `GITHUB_DISPATCH_TOKEN` staat erin (Serkan); check 31 okt 05:45 of de robot om 05:30 startte.
+  PR #140 (modelnamen GROQ/GEMINI, versleepbare lipjes) wachtte nog op CI. Snelle nalooplijst voortaan: `/vergeten`.
+- **Gekozen door Serkan (30 okt): 3 en 4.** (3) Dagrapport uit Gmail: Serkan zet `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`
+  (Google-account → Beveiliging → Tweestapsverificatie aan → App-wachtwoorden → "ECO") in Supabase-secrets; privacy: mail
+  gaat dan via de gratis Groq/Gemini. (4) Mistral: console.mistral.ai → plan Experiment → API Keys → Create → Supabase-secret
+  `MISTRAL_API_KEY` (gratis plan traint op gesprekken). Code is er al; daarna controleren met "welk model gebruik je?".
+- **Ideeën (Serkan mag kiezen):** avondoverzicht (21:00 melding met morgen + open taken), studieplanner (leerschema naar toetsen/deadlines).
 - **Eigen sleutel voor de laptop (`NOVA_KEY`)** — Serkan: "oké, dat doen we zo" (30 okt). Bouwen: nova-acties (wacht/klaar/
   geheugen) en de pc-tool via Live alleen met `NOVA_KEY` zodra die bestaat; zonder `NOVA_KEY` blijft JARVIS_KEY werken (niets
   stuk). Laptop: veld bij ⚙ Instellingen → Verbinding. Serkan: lange geheime tekst in Supabase-secret `NOVA_KEY` + in de app.
