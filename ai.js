@@ -357,7 +357,7 @@ function render(session) {
 }
 function autoListen() {
   if (liveWanted()) return void setTimeout(() => liveStart(), 400);
-  setCaption("Ik luister…", "user");
+  luisterTekst();
   setTimeout(() => {
     listen();
     // Wil de browser eerst een tik (iOS), toon dan een grote knop.
@@ -456,19 +456,6 @@ addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
   addEventListener("touchend", end);
   addEventListener("touchcancel", end);
 })();
-// Panelen in- en uitklappen (mobiel): tik op de titel. PROFIEL begint ingeklapt.
-const COLLAPSE_KEY = "eco-collapsed";
-let collapsed;
-try { collapsed = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY)) ?? ["profiel"]); } catch { collapsed = new Set(["profiel"]); }
-for (const p of document.querySelectorAll(".right .panel[data-win]")) {
-  if (collapsed.has(p.dataset.win)) p.classList.add("collapsed");
-  p.querySelector(":scope > .panel-h > span:first-child")?.addEventListener("click", () => {
-    if (matchMedia("(min-width: 901px)").matches) return;
-    const on = p.classList.toggle("collapsed");
-    on ? collapsed.add(p.dataset.win) : collapsed.delete(p.dataset.win);
-    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsed])); } catch { /* geen opslag */ }
-  });
-}
 
 // ---------- Lijstjes (taken, boodschappen, notities) ----------
 const lijstNaam = (t) => t.trim().toLowerCase().replace(/^(de|het|mijn)\s+/, "").replace(/\s*lijst(je)?$/, "").trim().slice(0, 60);
@@ -935,8 +922,16 @@ function entry(role, text, time = hhmmss()) {
   return body;
 }
 let typeTimer = null;
+// Een antwoord blijft 2 minuten staan: weer gaan luisteren (gesprek, Live) vervangt het niet door "Ik luister…".
+let antwoordTot = 0;
+const onthoudAntwoord = (text, cls) => { if (!cls && String(text).length > 30) antwoordTot = Date.now() + 120000; else if (cls === "err") antwoordTot = 0; };
+function luisterTekst() {
+  if (Date.now() < antwoordTot && $("caption").textContent.trim()) $("caption").classList.add("wacht");
+  else setCaption("Ik luister…", "user");
+}
 function typeCaption(text, cls = "") {
   clearInterval(typeTimer);
+  onthoudAntwoord(text, cls);
   const el = $("caption");
   el.className = "caption " + cls;
   if (REDUCED || !text) { el.textContent = text; return; }
@@ -1045,6 +1040,7 @@ var werk = {
 };
 function setCaption(text, cls = "") {
   clearInterval(typeTimer);
+  onthoudAntwoord(text, cls);
   const el = $("caption");
   el.className = "caption " + cls;
   el.textContent = text;
@@ -2256,7 +2252,7 @@ function stopListening() {
 }
 function micOn(on) {
   $("mic").classList.toggle("on", on);
-  if (on) { setState("listening"); sfx.listen(); typeCaption("Ik luister…", "user"); }
+  if (on) { setState("listening"); sfx.listen(); luisterTekst(); }
   else if (document.body.dataset.state === "listening") setState("idle");
 }
 
@@ -2311,7 +2307,7 @@ async function recordWhisper(existing = null) {
     stream.getTracks().forEach((t) => t.stop());
     recording = null; micOn(false);
     if (an && !spoke) { // niets gezegd of per ongeluk getikt
-      if (convo.on) setCaption("Gespreksmodus wacht. Tik op de microfoon om verder te gaan.", "user"); else typeCaption("");
+      if (Date.now() < antwoordTot) $("caption").classList.remove("wacht"); else if (convo.on) setCaption("Gespreksmodus wacht. Tik op de microfoon om verder te gaan.", "user"); else typeCaption("");
       return;
     }
     const blob = new Blob(parts, { type: mr.mimeType || type || "audio/webm" });
@@ -2759,4 +2755,31 @@ function rustig(aan) {
   k.textContent = "PANELEN"; k.title = "Panelen terughalen";
   k.onclick = () => rustig(false);
   $("app").append(k);
+}
+
+// ---------- iPhone: de panelen onder de reactor als tabbladen, standaard dicht (rustig); één tegelijk open ----------
+{
+  const rechts = document.querySelector(".col.right"), MOB = matchMedia("(max-width: 900px)");
+  const tabs = [["transcript", "GESPREK"], ["rooster", "ROOSTER"], ["lijstjes", "LIJSTJES"], ["profiel", "PROFIEL"]];
+  const balk = document.createElement("nav");
+  balk.className = "mob-tabs"; balk.setAttribute("aria-label", "Panelen");
+  balk.innerHTML = tabs.map(([w, t]) => `<button type="button" data-mob="${w}" aria-pressed="false">${t}</button>`).join("");
+  rechts.prepend(balk);
+  let open = "";
+  try { open = localStorage.getItem("eco-mob-tab") || ""; } catch { /* geen opslag */ }
+  const toon = (w) => {
+    open = w;
+    try { localStorage.setItem("eco-mob-tab", w); } catch { /* geen opslag */ }
+    for (const b of balk.children) b.setAttribute("aria-pressed", String(b.dataset.mob === w));
+    for (const [win] of tabs) { const el = rechts.querySelector(`[data-win="${win}"]`); el?.classList.toggle("mob-open", win === w); }
+    rechts.classList.toggle("mob-iets", !!w);
+  };
+  balk.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mob]");
+    if (!b) return;
+    toon(open === b.dataset.mob ? "" : b.dataset.mob);
+    if (open) setTimeout(() => rechts.querySelector(".mob-open")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+  });
+  toon(open);
+  MOB.addEventListener?.("change", () => toon(open));
 }

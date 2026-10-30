@@ -141,6 +141,16 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
   ok(await page.$eval("#micSel", (e) => e.offsetParent !== null) && await page.$eval("#sfx", (e) => e.closest("[data-blad]").hidden), `${naam}: tabblad MICROFOON`);
   await page.keyboard.press("Escape");
   ok(await page.$eval("#instellingen", (m) => m.hidden), `${naam}: Escape sluit`);
+  if (naam === "telefoon") {
+    ok(await page.$$eval(".right>.panel[data-win]", (l) => l.every((p) => getComputedStyle(p).display === "none")), "telefoon: panelen standaard dicht (rustig)");
+    await page.click('.mob-tabs [data-mob="rooster"]');
+    ok(await page.$eval('[data-win="rooster"]', (p) => getComputedStyle(p).display !== "none") && await page.$eval('[data-win="lijstjes"]', (p) => getComputedStyle(p).display === "none"), "telefoon: tab ROOSTER toont alleen het rooster");
+    await page.click('.mob-tabs [data-mob="rooster"]');
+    ok(await page.$eval('[data-win="rooster"]', (p) => getComputedStyle(p).display === "none"), "telefoon: nog eens tikken sluit");
+  }
+  // Een antwoord blijft staan als ECO weer gaat luisteren
+  await page.evaluate(() => { setCaption("Morgen heb je om 08:45 werkcollege en om 11:00 een vragenuur."); micOn(true); micOn(false); });
+  ok(/werkcollege/.test(await page.$eval("#caption", (c) => c.textContent)), `${naam}: antwoord blijft staan tijdens luisteren`);
   await page.close();
 }
 await browser.close();
