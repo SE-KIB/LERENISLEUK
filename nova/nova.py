@@ -67,7 +67,7 @@ class NovaApp:
 
     # ---------- welk brein: ECO (cloud) of NOVA (eigen brein op de laptop) ----------
     def gekozen(self) -> str:
-        return "nova" if self.cfg.get("brein") == "nova" else "eco"
+        return core.volgorde(self.cfg, "brein")[0]
 
     def actief_brein(self) -> tuple[str, str]:
         """Het brein dat nu antwoordt ("eco", "nova" of "") en waarom het niet het gekozen brein is (leeg als het dat wel is)."""
@@ -82,6 +82,7 @@ class NovaApp:
 
     def kies_brein(self, keuze: str):
         self.cfg["brein"] = "nova" if keuze == "nova" else "eco"
+        self.cfg["volgorde"] = {**(self.cfg.get("volgorde") or {}), "brein": [self.cfg["brein"], "eco" if self.cfg["brein"] == "nova" else "nova"]}
         core.bewaar_config(self.cfg)
         brein, reden = self.actief_brein()
         self.toon_status()
@@ -113,7 +114,8 @@ class NovaApp:
         brein, reden = self.actief_brein()
         basis = {"eco": "BEREIKBAAR" if self.brug.online else (self.brug.reden or "NIET BEREIKBAAR").upper()[:40], "model": self.cfg["model"],
                  "lokaal": "KLAAR" if self.lokaal_ok else self.lokaal_reden.upper()[:40], "lokaal_ok": self.lokaal_ok, "spraak": spraak,
-                 "naam": self.cfg["naam"], "versie": self.versie(), "gekozen": self.gekozen(), "brein": brein, "reden": reden, **stemstatus}
+                 "naam": self.cfg["naam"], "versie": self.versie(), "gekozen": self.gekozen(), "brein": brein, "reden": reden,
+                 "brein_volgorde": core.volgorde(self.cfg, "brein"), **stemstatus}
         # "modus" bepaalt de kleur: groen = het gekozen brein antwoordt, oranje = het andere nam het over, rood = geen brein.
         modus = "geen" if not brein else "online" if brein == self.gekozen() else "offline"
         titel = f"VERBONDEN MET {brein.upper()}" if brein else "GEEN BREIN BESCHIKBAAR"
@@ -308,8 +310,9 @@ class NovaApp:
                     self.bezig = False
                     self.vraag(tekst, al_getoond=True)
                     return
-            if self.actief_brein()[0] == "eco":
-                gestart = {"ja": False}
+            whisper_kan = self.brug.online and self.eco.klaar
+            if self.actief_brein()[0] == "eco" and core.volgorde(self.cfg, "spraak")[0] == "whisper" and whisper_kan:
+                gestart = {"ja": False}  # uitschrijven en antwoorden in één verzoek bij ECO: het snelst
 
                 def delta(d):
                     if not gestart["ja"]:
@@ -319,17 +322,20 @@ class NovaApp:
                 antwoord, self.conv, _ = self.eco.spraak_chat(stem.naar_wav(samples), self.conv, on_heard=self.ui.jij, on_delta=delta, on_tool=lambda n: self.ui.tool(n))
                 self.ui.nova_eind(antwoord)
                 self.spreek(antwoord)
-            else:  # NOVA antwoordt: uitschrijven met Whisper (via ECO) als dat kan, anders Vosk op de laptop
+            else:  # eerst uitschrijven in de gekozen volgorde (Whisper via ECO, Vosk op de laptop), dan het gekozen brein
                 tekst = None
-                if self.brug.online and self.eco.klaar:
+                for bron in core.volgorde(self.cfg, "spraak"):
                     try:
-                        tekst = self.eco.uitschrijven(stem.naar_wav(samples))
+                        if bron == "whisper" and whisper_kan:
+                            tekst = self.eco.uitschrijven(stem.naar_wav(samples))
+                        elif bron == "vosk" and stem.vosk_klaar():
+                            tekst = stem.vosk_herken(samples)
                     except Exception:
                         tekst = None
+                    if tekst is not None:
+                        break
                 if tekst is None:
-                    if not stem.vosk_klaar():
-                        raise RuntimeError("Offline spraakherkenning is nog niet gedownload (gebeurt vanzelf als je online bent). Typ je vraag.")
-                    tekst = stem.vosk_herken(samples)
+                    raise RuntimeError("Geen spraakherkenning beschikbaar (offline en Vosk nog niet gedownload; dat gebeurt vanzelf als je online bent). Typ je vraag.")
                 if not tekst:
                     self.ui.sys("Ik verstond niets.")
                     self.ui.staat("idle")
@@ -362,44 +368,50 @@ class NovaApp:
         threading.Thread(target=doe, daemon=True).start()
 
     def spreek_met_stem(self, tekst):
-        """ECO's stem (online, gestreamd), anders Piper (nathalie), anders een Nederlandse Windows-stem. Nooit een Engelse stem:
-        dan alleen tekst. Geeft (welke stem sprak, waarom de betere stemmen niet lukten), of None als je hem onderbrak."""
+        """Spreekt met de eerste stem uit de gekozen volgorde die werkt (standaard: ECO's stem gestreamd, Piper (nathalie), een
+        Nederlandse Windows-stem). Nooit een Engelse stem: dan alleen tekst. Geeft (welke stem sprak, waarom de stemmen ervoor niet
+        lukten), of None als je hem onderbrak."""
         import nova_stem as stem
         stem.nieuw_spreken()
+        stem.VOLUME = max(0, min(100, int(self.cfg.get("volume", 100)))) / 100
         redenen = []
-        if self.brug.online and self.eco.klaar:
-            speler = None
-            try:
-                rate, r = self.eco.tts_stroom(tekst)
-                with r, stem.Speler(rate) as speler:
-                    for stuk in r.iter_content(4800):
-                        if not speler.schrijf(stuk):
-                            break
-                return "GEMINI (ECO)", ""
-            except Exception as e:
-                if speler and speler.gespeeld:  # al half uitgesproken: niet opnieuw beginnen met een andere stem
-                    return "GEMINI (ECO)", f"ECO's stem viel halverwege weg ({kort(e)})"
-                redenen.append(f"ECO's stem lukte niet ({kort(e)})")
-        elif not self.brug.online:
-            redenen.append("offline")
-        if stem.gestopt():
-            return None
-        if stem.piper_klaar():
-            try:
-                stem.piper_spreek(tekst)
-                return "PIPER (NATHALIE)", "; ".join(redenen)
-            except Exception as e:
-                redenen.append(f"Piper lukte niet ({kort(e)})")
+        for bron in core.volgorde(self.cfg, "stem"):
             if stem.gestopt():
                 return None
-        else:
-            redenen.append("de Nederlandse stem (Piper) is nog niet gedownload; dat gebeurt vanzelf zodra NOVA online is")
-        try:
-            if stem.windows_stem(tekst):
-                return "WINDOWS (NEDERLANDS)", "; ".join(redenen)
-            redenen.append("geen Nederlandse Windows-stem (een Engelse stem gebruik ik niet)")
-        except Exception as e:
-            redenen.append(f"Windows-stem lukte niet ({kort(e)})")
+            if bron == "gemini":
+                if not (self.brug.online and self.eco.klaar):
+                    redenen.append("offline")
+                    continue
+                speler = None
+                try:
+                    rate, r = self.eco.tts_stroom(tekst)
+                    with r, stem.Speler(rate) as speler:
+                        for stuk in r.iter_content(4800):
+                            if not speler.schrijf(stuk):
+                                break
+                    return "GEMINI (ECO)", "; ".join(redenen)
+                except Exception as e:
+                    if speler and speler.gespeeld:  # al half uitgesproken: niet opnieuw beginnen met een andere stem
+                        return "GEMINI (ECO)", f"ECO's stem viel halverwege weg ({kort(e)})"
+                    redenen.append(f"ECO's stem lukte niet ({kort(e)})")
+            elif bron == "piper":
+                if not stem.piper_klaar():
+                    redenen.append("de Nederlandse stem (Piper) is nog niet gedownload; dat gebeurt vanzelf zodra NOVA online is")
+                    continue
+                try:
+                    stem.piper_spreek(tekst)
+                    return "PIPER (NATHALIE)", "; ".join(redenen)
+                except Exception as e:
+                    redenen.append(f"Piper lukte niet ({kort(e)})")
+            elif bron == "windows":
+                try:
+                    if stem.windows_stem(tekst):
+                        return "WINDOWS (NEDERLANDS)", "; ".join(redenen)
+                    redenen.append("geen Nederlandse Windows-stem (een Engelse stem gebruik ik niet)")
+                except Exception as e:
+                    redenen.append(f"Windows-stem lukte niet ({kort(e)})")
+        if stem.gestopt():
+            return None
         return "GEEN — ALLEEN TEKST", "; ".join(redenen)
 
     def stem_gebruikt(self, naam, reden):
@@ -422,10 +434,47 @@ class NovaApp:
         return "Ik kan het scherm nu niet bekijken (ECO niet bereikbaar en NOVA niet klaar)."
 
     # ---------- instellingen ----------
+    INSTELLINGEN = ("volume", "stem", "beeld", "volgorde", "indeling", "magneet")
+
+    def inst(self) -> dict:
+        """Wat de pagina nodig heeft voor Instellingen (geluid, beeld, AI-volgorde, indeling)."""
+        return {"volume": int(self.cfg.get("volume", 100)), "stem": bool(self.cfg.get("stem", True)), "beeld": self.cfg.get("beeld") or {"verberg": []},
+                "volgorde": {soort: core.volgorde(self.cfg, soort) for soort in core.VOLGORDES}, "indeling": self.cfg.get("indeling") or {},
+                "magneet": self.cfg.get("magneet", True) is not False}
+
+    def instellingen(self, patch: dict):
+        """Bewaart wat er in Instellingen veranderde (alleen bekende sleutels, gecontroleerd)."""
+        p = {k: v for k, v in (patch or {}).items() if k in self.INSTELLINGEN}
+        if "volume" in p:
+            self.cfg["volume"] = max(0, min(100, int(p["volume"])))
+        if "stem" in p:
+            self.cfg["stem"] = bool(p["stem"])
+        if "magneet" in p:
+            self.cfg["magneet"] = bool(p["magneet"])
+        if isinstance(p.get("beeld"), dict):
+            self.cfg["beeld"] = {"verberg": [str(x)[:30] for x in (p["beeld"].get("verberg") or [])][:40]}
+        if isinstance(p.get("indeling"), dict):
+            self.cfg["indeling"] = {str(k)[:20]: {a: float(v.get(a, 0)) for a in ("x", "y", "w", "h", "z")}
+                                    for k, v in p["indeling"].items() if isinstance(v, dict)}
+        if isinstance(p.get("volgorde"), dict):
+            eigen = dict(self.cfg.get("volgorde") or {})
+            for soort, lijst in p["volgorde"].items():
+                if soort in core.VOLGORDES and isinstance(lijst, list):
+                    eigen[soort] = [str(x) for x in lijst]
+            self.cfg["volgorde"] = eigen
+            self.cfg["brein"] = core.volgorde(self.cfg, "brein")[0]
+        core.bewaar_config(self.cfg)
+        if "volgorde" in p:
+            self.toon_status()
+
+    def test_stem(self):
+        self.spreek("Hallo Serkan, zo klink ik nu.")
+
     def info(self):
         import nova_update as upd
         build = upd.huidige_build(ui_map())
         return {"modellen": core.MODELLEN, "model": self.cfg["model"], "naam": self.cfg["naam"], "stem": bool(self.cfg.get("stem", True)), "brein": self.gekozen(),
+                "inst": self.inst(),
                 "heeft_sleutel": self.eco.klaar, "versie": f"{core.VERSIE}.{build}" if build else core.VERSIE}
 
     def opslaan(self, d: dict):
@@ -524,6 +573,8 @@ class Api:
     def info(self): return self._app.info()
     def opslaan(self, d): self._app.opslaan(d or {})
     def brein(self, keuze): self._app.kies_brein(keuze)
+    def instellingen(self, patch): self._app.instellingen(patch or {})
+    def test_stem(self): self._app.test_stem()
     def download(self, model=None): self._app.download(model)
     def klaar(self): self._ui.klaar()
     def update(self, ja): self._app.update_antwoord(bool(ja))
@@ -559,6 +610,10 @@ class TkUI:
         self.tk, self.root, self.q = tk, root, queue.Queue()
         root.title("NOVA — Nice Operating Variant Agent")
         root.geometry("460x680")
+        try:
+            root.iconbitmap(str(ui_map() / "nova.ico"))
+        except Exception:
+            pass  # geen icoon (bv. bij ontwikkelen zonder nova.ico): dan het standaardicoon
         root.configure(bg=K["bg"])
         kop = tk.Frame(root, bg=K["bg"])
         kop.pack(fill="x", padx=14, pady=(12, 4))

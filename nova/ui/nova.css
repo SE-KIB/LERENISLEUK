@@ -15,8 +15,41 @@
 .entry.sys .body{color:var(--muted);font-family:var(--f-mono);font-size:.8rem}
 .entry.fout .body{color:var(--red)}
 .hud{grid-template-columns:270px 1fr 340px}
-.center{position:relative}
-.nova-update{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;
+.nova-update{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
   padding:8px 12px;background:rgba(2,18,26,.92);border:1px solid var(--c);box-shadow:0 0 18px rgba(0,225,255,.25);font-family:var(--f-mono);font-size:.8rem;color:var(--c2);white-space:nowrap}
 .nova-update[hidden]{display:none}
 .nova-update #updateJa{background:var(--c);color:#01070c;border-color:var(--c)}
+
+/* BEDIENING: alleen de schakelaar ECO/NOVA en de knop naar de instellingen */
+.nova-inst-knop{align-self:stretch;text-align:center;padding:.6rem}
+/* Verbergen via Instellingen → Beeld */
+.verborgen{display:none!important}
+/* Instellingen: venster over de HUD */
+.nova-modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(1,7,12,.72);backdrop-filter:blur(3px)}
+.nova-modal[hidden]{display:none}
+.nova-modal-doos{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;display:flex;flex-direction:column;gap:12px}
+.nova-modal-doos .panel-h{display:flex;align-items:center}
+.nova-modal-doos .panel-h .chip{margin-left:auto;padding:.2rem .55rem}
+.nova-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.nova-tabs .chip.on,.nova-brein .chip.on{background:var(--c);color:#01070c;border-color:var(--c)}
+.nova-modal section{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.nova-modal section[hidden]{display:none}
+.nova-modal h4{margin:.4rem 0 0;font-family:var(--f-head);font-size:.62rem;letter-spacing:.22em;color:var(--c);font-weight:500}
+.nova-modal .field{align-self:stretch}
+.nova-modal .field b{float:right;color:var(--c2);font-weight:400}
+.nova-modal input[type=range]{width:100%;accent-color:var(--c)}
+.nova-modal select{background:rgba(0,20,30,.6);border:1px solid var(--cd);padding:.55rem .6rem;font-family:var(--f-mono);color:var(--c2);outline:none;color-scheme:dark}
+.nova-uitleg{margin:0;color:var(--muted);font-size:.82rem;line-height:1.4}
+.nova-vinkjes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 16px;align-self:stretch}
+.nova-volgordes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px 18px;align-self:stretch}
+.nova-volgorde{margin:0;padding:0 0 0 1.4em;display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:.82rem;color:var(--c2)}
+.nova-volgorde li{display:flex;align-items:center;gap:6px}
+.nova-volgorde li::marker{color:var(--c)}
+.nova-volgorde li span{flex:1}
+.nova-volgorde .chip{padding:.15rem .45rem;font-size:.7rem}
+.nova-volgorde .chip:disabled{opacity:.3}
+/* Magnetisch vastklikken: hulplijnen tijdens het slepen */
+.snap-lijn{position:fixed;z-index:40;pointer-events:none;background:var(--c);box-shadow:0 0 8px var(--c);opacity:.8}
+.snap-lijn[hidden]{display:none}
+.snap-lijn.x{top:0;bottom:0;width:1px}
+.snap-lijn.y{left:0;right:0;height:1px}

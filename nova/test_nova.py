@@ -454,6 +454,73 @@ class TestUpdateVragen(unittest.TestCase):
             srv.stop()
 
 
+class TestInstellingen(unittest.TestCase):
+    """Instellingen: geluid, beeld, AI-volgorde en indeling worden bewaard, en de volgordes worden echt gebruikt."""
+
+    def setUp(self):
+        self.pad = Path(tempfile.mkdtemp()) / "config.json"
+        self.oud = core.bewaar_config
+        core.bewaar_config = lambda cfg, pad=None: self.oud(cfg, self.pad)
+        self.ui, self.app = nep_app(online=True)
+        self.app.cfg.update(stem=False)
+
+    def tearDown(self):
+        core.bewaar_config = self.oud
+
+    def test_volgorde_helper(self):
+        self.assertEqual(core.volgorde({}, "stem"), ["gemini", "piper", "windows"])
+        self.assertEqual(core.volgorde({"volgorde": {"stem": ["piper", "onzin", "piper"]}}, "stem"), ["piper", "gemini", "windows"])
+        self.assertEqual(core.volgorde({"brein": "nova"}, "brein"), ["nova", "eco"])  # oude instelling telt nog
+
+    def test_bewaren_en_controleren(self):
+        self.app.instellingen({"volume": 250, "beeld": {"verberg": ["ollama", "pc"]}, "magneet": False, "geheim": "nee",
+                               "volgorde": {"brein": ["nova", "eco"], "eco": ["gemini", "groq"], "nep": ["x"]},
+                               "indeling": {"kern": {"x": 0.3, "y": 0.1, "w": 0.4, "h": 0.6, "z": 3}}})
+        cfg = core.laad_config(self.pad)
+        self.assertEqual(cfg["volume"], 100)  # begrensd
+        self.assertEqual(cfg["beeld"]["verberg"], ["ollama", "pc"])
+        self.assertFalse(cfg["magneet"])
+        self.assertNotIn("geheim", cfg)
+        self.assertNotIn("nep", cfg["volgorde"])
+        self.assertEqual((cfg["brein"], self.app.gekozen()), ("nova", "nova"))
+        self.assertEqual(cfg["indeling"]["kern"]["w"], 0.4)
+        inst = self.app.inst()
+        self.assertEqual(inst["volgorde"]["eco"], ["gemini", "groq", "claude"])
+        self.assertEqual(self.app.info()["inst"]["volume"], 100)
+
+    def test_eco_krijgt_de_modelvolgorde(self):
+        self.app.instellingen({"volgorde": {"eco": ["claude", "gemini"]}})
+        self.assertEqual(self.app.eco._ui()["modellen"], ["claude", "gemini", "groq"])
+
+    def test_stem_volgt_de_volgorde(self):
+        self.app.instellingen({"volgorde": {"stem": ["piper", "gemini", "windows"]}})
+        self.app.eco.tts_stroom = lambda t: self.fail("Gemini mag niet als eerste als Piper bovenaan staat")
+        gezegd = []
+        with mock.patch.object(stem, "piper_klaar", lambda: True), mock.patch.object(stem, "piper_spreek", gezegd.append):
+            self.assertEqual(self.app.spreek_met_stem("hoi"), ("PIPER (NATHALIE)", ""))
+        self.assertEqual(gezegd, ["hoi"])
+
+    def test_volume_maakt_zachter(self):
+        self.app.instellingen({"volume": 50})
+        self.app.eco.tts_stroom = lambda t: (24000, NepAntwoord([np.full(24000, 1000, np.int16).tobytes()]))
+        with nep_geluid():
+            self.app.spreek_met_stem("hoi")
+        gespeeld = np.frombuffer(b"".join(NepStroom.gespeeld), np.int16)
+        self.assertEqual(int(gespeeld.max()), 500)
+        stem.VOLUME = 1.0
+
+    def test_spraak_volgorde_vosk_eerst(self):
+        self.app.instellingen({"volgorde": {"spraak": ["vosk", "whisper"]}})
+        self.app.eco.spraak_chat = lambda *a, **k: self.fail("met Vosk bovenaan niet via ECO's spraak")
+        self.app.eco.uitschrijven = lambda wav: self.fail("Vosk staat bovenaan")
+        gevraagd = []
+        with mock.patch.object(stem, "opnemen", lambda: np.ones(16000, np.int16)), mock.patch.object(stem, "stop_spelen", lambda: None), \
+                mock.patch.object(stem, "vosk_klaar", lambda: True), mock.patch.object(stem, "vosk_herken", lambda s: "hoe laat is het"), \
+                mock.patch.object(self.app, "vraag", lambda t, al_getoond=False: gevraagd.append(t)):
+            self.app.luister()
+        self.assertEqual(gevraagd, ["hoe laat is het"])
+
+
 class TestNovaStem(unittest.TestCase):
     """Welke stem NOVA gebruikt: ECO's stem, dan Piper, dan een Nederlandse Windows-stem; nooit een Engelse."""
 

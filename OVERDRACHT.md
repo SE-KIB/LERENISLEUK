@@ -95,6 +95,13 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Nieuwe tests (nooit in het echt gezien):** slimme baan ("Waarom is de lucht blauw?": eerst "Nadenken…", dan het antwoord) en de
   systeemcheck bij het opstarten (staat er ergens STORING? Die regel doorgeven).
 
+## NOVA: instellingen, AI-volgorde, indeling en icoon (PR #127)
+- BEDIENING bevat alleen **BREIN ECO | NOVA** en **⚙ INSTELLINGEN** (venster met GELUID, BEELD, AI-VOLGORDE, VERBINDING).
+- Config: `volume`, `beeld.verberg`, `volgorde` (brein/eco/stem/spraak, `core.volgorde()`), `indeling` (delen van het venster), `magneet`.
+  ECO's server volgt `ui.modellen` van NOVA (`volgordeVan`); denkwerk/foto's blijven eerst naar de slimme baan gaan.
+- Vrije indeling zoals ECO's site, met magnetisch vastklikken (randen en 14 px ernaast, 10 px vangafstand, hulplijnen).
+- App-icoon: `nova/maak_icoon.py` → `ui/nova.ico` → `pyinstaller --icon` (ook het venster, pywebview pakt het exe-icoon).
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met

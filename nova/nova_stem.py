@@ -26,6 +26,7 @@ PIPER_STEM = "nl_BE-nathalie-medium"
 PIPER_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/"
 PIPER_MAP = MAP / "stem"
 _stop = threading.Event()
+VOLUME = 1.0  # stemvolume (0..1), uit Instellingen → Geluid
 
 
 def stilte_detectie(blokken, rate: int = RATE, stilte_s: float = 1.2, max_s: float = 30.0, niets_s: float = 8.0):
@@ -107,6 +108,8 @@ class Speler:
             return True
         heel = len(data) // 2 * 2  # een stukje kan midden in een sample eindigen
         data, self._rest = data[:heel], data[heel:]
+        if VOLUME < 0.999:
+            data = (np.frombuffer(data, np.int16).astype(np.float32) * max(0.0, VOLUME)).astype(np.int16).tobytes()
         if self._stroom is None:
             import sounddevice as sd
             self._stroom = sd.RawOutputStream(samplerate=self.rate, channels=1, dtype="int16")
@@ -272,6 +275,7 @@ def windows_stem(tekst: str) -> bool:
         return False
     motor.setProperty("voice", nl.id)
     motor.setProperty("rate", 185)
+    motor.setProperty("volume", max(0.0, min(1.0, VOLUME)))
     motor.say(tekst)
     motor.runAndWait()
     return True

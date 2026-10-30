@@ -3014,6 +3014,13 @@ type ChatIn = { userId: string; convId?: string; message: string | Promise<strin
 // Foto's bij een vraag (camera of bibliotheek): hooguit 3, alleen gangbare beeldformaten, de browser verkleint ze al.
 type Foto = { mime: string; data: string };
 // Bijlagen bij een vraag: foto's (tot ~3 MB) en PDF's (tot ~8 MB), hooguit drie en samen hooguit ~11 MB (Gemini neemt ~20 MB per verzoek).
+// Eigen volgorde van de modellen (bv. uit NOVA's instellingen); onbekende namen tellen niet, niet genoemde komen achteraan.
+function volgordeVan(lijst: string[], voorkeur: unknown) {
+  if (!Array.isArray(voorkeur)) return lijst;
+  const v = voorkeur.map((m) => String(m).toLowerCase() === "claude" ? "anthropic" : String(m).toLowerCase());
+  const plek = (p: string) => (v.indexOf(p) + 1) || 99;
+  return [...lijst].sort((a, b) => plek(a) - plek(b));
+}
 function fotosVan(x: unknown): Foto[] {
   if (!Array.isArray(x)) return [];
   let samen = 0;
@@ -3093,7 +3100,8 @@ async function chat(admin: any, inp: ChatIn) {
   if (!PROVIDERS.length) throw new Error("geen AI-sleutel ingesteld (GROQ_API_KEY, GEMINI_API_KEY of ANTHROPIC_API_KEY)");
   const errors: string[] = [];
   // Met foto's: alleen modellen die kunnen kijken (Gemini, Claude); Groq kan dat niet.
-  const providers = fotos.length ? PROVIDERS.filter((p) => p !== "groq") : PROVIDERS;
+  // NOVA kan een eigen volgorde meegeven (Instellingen → AI-volgorde): ui.modellen = ["gemini", "groq", "claude"].
+  const providers = volgordeVan((fotos.length ? PROVIDERS.filter((p) => p !== "groq") : PROVIDERS), actions.ui?.modellen);
   if (!providers.length) throw new Error("foto's bekijken kan alleen met GEMINI_API_KEY of ANTHROPIC_API_KEY");
   // Denkwerk en foto's eerst naar de slimme baan (Gemini die eerst nadenkt); gewone vragen eerst naar het snelste model.
   const lanes = [...(SMART && (actions.effort === "medium" || fotos.length) ? ["slim"] : []), ...providers];

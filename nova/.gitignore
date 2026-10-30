@@ -4,3 +4,4 @@ dist/
 *.spec
 ui/ai.css
 ui/build.txt
+ui/nova.ico
