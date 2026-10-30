@@ -7,7 +7,9 @@
 //            { tts, stream: true } → kale PCM-audio; { warm: true } → caches vullen.
 // Model: helemaal gratis met Groq (GROQ_API_KEY, snelst) en Gemini (GEMINI_API_KEY), allebei gestreamd. Gewone vragen gaan
 //          eerst naar Groq; denkwerk en foto's naar de slimme baan (Gemini met denktijd, SMART_MODEL). Claude (ANTHROPIC_API_KEY,
-//          betaald) is optioneel. Volgorde met AI_PROVIDERS (standaard groq → gemini → anthropic). Modellen: GROQ_MODEL, AI_MODEL, CLAUDE_MODEL.
+//          betaald) is optioneel; Mistral (MISTRAL_API_KEY, gratis "Experiment"-plan) is een extra gratis reserve. Volgorde met
+//          AI_PROVIDERS (standaard groq → gemini → mistral → anthropic). Eerst alleen de grote modellen (elk model heeft een eigen
+//          gratis quotum); de kleine (RESERVE_MODELS) pas als alle grote op zijn. Modellen: GROQ_MODEL, AI_MODEL, MISTRAL_MODEL, CLAUDE_MODEL.
 // Secrets: ALLOWED_EMAILS, JARVIS_KEY, JARVIS_USER_ID,
 //          GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, ICLOUD_EMAIL, ICLOUD_APP_PASSWORD, AGENDA_FEEDS,
 //          GMAIL_EMAIL + GMAIL_APP_PASSWORD (dagrapport), optioneel AI_TIMEOUT_MS, AI_MODEL_FALLBACKS, TIMEZONE, ALLOWED_ORIGIN,
@@ -21,12 +23,18 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers": "Server-Timing, X-Audio-Rate, X-Voice",
 };
-const KEYS: Record<string, string> = { groq: "GROQ_API_KEY", gemini: "GEMINI_API_KEY", anthropic: "ANTHROPIC_API_KEY" };
-const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,anthropic")
+const KEYS: Record<string, string> = { groq: "GROQ_API_KEY", gemini: "GEMINI_API_KEY", mistral: "MISTRAL_API_KEY", anthropic: "ANTHROPIC_API_KEY" };
+const PROVIDERS = (env("AI_PROVIDERS") || env("AI_PROVIDER") || "groq,gemini,mistral,anthropic")
   .split(",").map((p) => p.trim()).filter((p) => KEYS[p] && env(KEYS[p]));
 const MODEL = env("AI_MODEL", "gemini-flash-latest");            // Gemini
 const CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5");
-const GROQ_MODELS = env("GROQ_MODEL", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim()).filter(Boolean);
+const lijst = (k: string, d: string) => env(k, d).split(",").map((m) => m.trim()).filter(Boolean);
+const GROQ_MODELS = lijst("GROQ_MODEL", "openai/gpt-oss-120b");
+const MISTRAL_MODELS = lijst("MISTRAL_MODEL", "mistral-medium-latest,mistral-large-latest");
+// Kleine modellen pas als laatste redmiddel, na alle grote bij alle aanbieders ("aanbieder:model").
+const RESERVE_MODELS = lijst("RESERVE_MODELS", "groq:openai/gpt-oss-20b,gemini:gemini-flash-lite-latest,mistral:mistral-small-latest");
+// OpenAI-compatibele aanbieders (zelfde code): Groq en Mistral.
+const OPENAI_API: Record<string, string> = { groq: "https://api.groq.com/openai/v1/chat/completions", mistral: "https://api.mistral.ai/v1/chat/completions" };
 // Snelle route: korte vragen eerst naar een kleiner model (bv. openai/gpt-oss-20b). Standaard uit: 120b is veel slimmer en nauwelijks trager.
 const GROQ_FAST = env("GROQ_FAST_MODEL", "").trim();
 // Denk-instellingen per Groq-model: gpt-oss kent reasoning_effort; Qwen 3.x (bv. qwen/qwen3.8-27b, gratis bij Groq) kent alleen
@@ -2481,7 +2489,8 @@ async function ecoStatus(actions: Actions, input: Record<string, unknown> = {}) 
     wie: "ECO, de persoonlijke assistent van Serkan op sekibar.nl (Supabase Edge Function + Groq/Gemini).",
     modellen: {
       eerste_keuze: PROVIDERS[0] ?? "geen", snel: GROQ_FAST || "uit", gewone_vragen: GROQ_MODELS[0],
-      denkwerk_en_fotos: SMART ? `${SMART_MODELS[0]} (denkt eerst na, gratis laag)` : "uit", reserve: PROVIDERS.slice(1), dit_antwoord: actions.model ?? "",
+      denkwerk_en_fotos: SMART ? `${SMART_MODELS[0]} (denkt eerst na, gratis laag)` : "uit", reserve: PROVIDERS.slice(1),
+      kleine_modellen_als_laatste: reserveVan(PROVIDERS).map(([, m]) => m), dit_antwoord: actions.model ?? "",
     },
     stem: m.eco_tts === "elevenlabs" ? "ElevenLabs (eigen stem)" : `Gemini TTS, stem ${(m.eco_gemini_voice as string) || "Charon"}`,
     spraakherkenning: env("GROQ_API_KEY") ? "Whisper large-v3 (Groq)" : "browser",
@@ -2679,7 +2688,7 @@ const thinkingIdx = new Map<string, number>();
 const geminiRust = new Map<string, number>();
 
 // Reserve bij een Groq-storing: bij drukte (500/503) eerst kort opnieuw proberen, daarna het volgende model.
-const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-flash-lite-latest,gemini-2.5-flash").split(",").map((m) => m.trim())]
+const GEMINI_MODELS = [MODEL, ...env("AI_MODEL_FALLBACKS", "gemini-3.6-flash,gemini-2.5-flash").split(",").map((m) => m.trim())]
   .filter((m, i, a) => m && a.indexOf(m) === i);
 
 // Eén gestreamde Gemini-ronde. Tekst gaat via onText meteen door; alle delen komen ongewijzigd terug,
@@ -2749,11 +2758,12 @@ async function diepNadenken(vraag: string, actions: Actions) {
 }
 
 // Groq (OpenAI-compatibele API): zeer snel en gestreamd. Tekst gaat woord voor woord door naar de browser,
-// tool-aanroepen worden onderweg verzameld en daarna (tegelijk) uitgevoerd.
-async function askGroq(history: Turn[], actions: Actions): Promise<string> {
+// tool-aanroepen worden onderweg verzameld en daarna (tegelijk) uitgevoerd. Mistral gebruikt dezelfde code (aanbieder "mistral").
+async function askGroq(history: Turn[], actions: Actions, aanbieder = "groq", eigen?: string[]): Promise<string> {
   const tools = toolsFor("groq").map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
   let last = "";
-  const models = actions.fast && GROQ_FAST ? [GROQ_FAST, ...GROQ_MODELS.filter((m) => m !== GROQ_FAST)] : GROQ_MODELS;
+  const naam = aanbieder === "mistral" ? "Mistral" : "Groq";
+  const models = eigen ?? (aanbieder === "mistral" ? MISTRAL_MODELS : actions.fast && GROQ_FAST ? [GROQ_FAST, ...GROQ_MODELS.filter((m) => m !== GROQ_FAST)] : GROQ_MODELS);
   nextModel: for (const model of models) {
     const messages: any[] = [{ role: "system", content: systemPrompt(actions.memory, actions.context) }, ...history];
     let said = ""; // al naar de browser gestuurd; kan niet meer terug
@@ -2764,12 +2774,13 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
       let first = 0, text = "";
       const calls: any[] = [];
       try {
-        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const max = actions.effort === "medium" ? 4096 : 2048;
+        const r = await fetch(OPENAI_API[aanbieder], {
           method: "POST",
-          headers: { Authorization: `Bearer ${env("GROQ_API_KEY")}`, "content-type": "application/json" },
+          headers: { Authorization: `Bearer ${env(KEYS[aanbieder])}`, "content-type": "application/json" },
           body: JSON.stringify({
-            model, messages, tools, tool_choice: "auto", max_completion_tokens: actions.effort === "medium" ? 4096 : 2048, temperature: 0.7, stream: true,
-            ...groqDenken(model, actions.effort ?? "low"),
+            model, messages, tools, tool_choice: "auto", temperature: 0.7, stream: true,
+            ...(aanbieder === "groq" ? { max_completion_tokens: max, ...groqDenken(model, actions.effort ?? "low") } : { max_tokens: max }),
           }),
           signal: ctrl.signal,
         });
@@ -2793,13 +2804,13 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
       } catch (e) {
         clearTimeout(timer);
         last = `${model} ${ctrl.signal.aborted ? "te traag" : String((e as Error)?.message ?? e)}`;
-        actions.attempts.push(`groq/${model}:fout:${Date.now() - t}ms`);
-        console.warn("Groq-model overgeslagen:", last);
+        actions.attempts.push(`${aanbieder}/${model}:fout:${Date.now() - t}ms`);
+        console.warn(`${naam}-model overgeslagen:`, last);
         if (said) return said.trim(); // halverwege: houden wat er al staat
         continue nextModel;
       }
       clearTimeout(timer);
-      actions.attempts.push(`groq/${model}:${first}ms/${Date.now() - t}ms`);
+      actions.attempts.push(`${aanbieder}/${model}:${first}ms/${Date.now() - t}ms`);
       actions.model = model;
       const todo = calls.filter((c) => c?.function?.name);
       if (!todo.length) {
@@ -2821,7 +2832,7 @@ async function askGroq(history: Turn[], actions: Actions): Promise<string> {
     if (said.trim()) return said.trim();
     last = `${model} kwam na ${MAX_STEPS} stappen niet tot een antwoord`;
   }
-  throw new Error(`Groq-fout: ${last}`);
+  throw new Error(`${naam}-fout: ${last}`);
 }
 
 // Gemini met tools, gestreamd: tekst gaat woord voor woord door naar de browser, tool-aanroepen worden daarna (tegelijk) uitgevoerd.
@@ -3015,6 +3026,22 @@ type ChatIn = { userId: string; convId?: string; message: string | Promise<strin
 type Foto = { mime: string; data: string };
 // Bijlagen bij een vraag: foto's (tot ~3 MB) en PDF's (tot ~8 MB), hooguit drie en samen hooguit ~11 MB (Gemini neemt ~20 MB per verzoek).
 // Eigen volgorde van de modellen (bv. uit NOVA's instellingen); onbekende namen tellen niet, niet genoemde komen achteraan.
+// De kleine modellen ("aanbieder:model") van de aanbieders die nu meedoen, in de volgorde van RESERVE_MODELS.
+function reserveVan(providers: string[]): [string, string][] {
+  return RESERVE_MODELS.map((r) => [r.slice(0, r.indexOf(":")), r.slice(r.indexOf(":") + 1)] as [string, string])
+    .filter(([p, m]) => m && providers.includes(p) && p !== "anthropic");
+}
+// Laatste redmiddel: alle grote modellen gaven een fout (meestal quotum op), dan de kleine.
+async function askKlein(history: Turn[], actions: Actions, reserve: [string, string][]): Promise<string> {
+  const fouten: string[] = [];
+  for (const [p, m] of reserve) {
+    try {
+      const r = p === "gemini" ? await askGemini(history, actions, { models: [m], level: "low", timeout: CALL_TIMEOUT }) : await askGroq(history, actions, p, [m]);
+      if (r) return r;
+    } catch (e) { fouten.push(String((e as Error)?.message ?? e)); }
+  }
+  throw new Error(`ook de kleine modellen lukten niet: ${fouten.join(" | ")}`);
+}
 function volgordeVan(lijst: string[], voorkeur: unknown) {
   if (!Array.isArray(voorkeur)) return lijst;
   const v = voorkeur.map((m) => String(m).toLowerCase() === "claude" ? "anthropic" : String(m).toLowerCase());
@@ -3097,20 +3124,21 @@ async function chat(admin: any, inp: ChatIn) {
     ].filter(Boolean).join("\n\n"),
   };
   let provider = "", reply = "";
-  if (!PROVIDERS.length) throw new Error("geen AI-sleutel ingesteld (GROQ_API_KEY, GEMINI_API_KEY of ANTHROPIC_API_KEY)");
+  if (!PROVIDERS.length) throw new Error("geen AI-sleutel ingesteld (GROQ_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY of ANTHROPIC_API_KEY)");
   const errors: string[] = [];
   // Met foto's: alleen modellen die kunnen kijken (Gemini, Claude); Groq kan dat niet.
   // NOVA kan een eigen volgorde meegeven (Instellingen → AI-volgorde): ui.modellen = ["gemini", "groq", "claude"].
-  const providers = volgordeVan((fotos.length ? PROVIDERS.filter((p) => p !== "groq") : PROVIDERS), actions.ui?.modellen);
+  const providers = volgordeVan((fotos.length ? PROVIDERS.filter((p) => p !== "groq" && p !== "mistral") : PROVIDERS), actions.ui?.modellen);
   if (!providers.length) throw new Error("foto's bekijken kan alleen met GEMINI_API_KEY of ANTHROPIC_API_KEY");
   // Denkwerk en foto's eerst naar de slimme baan (Gemini die eerst nadenkt); gewone vragen eerst naar het snelste model.
-  const lanes = [...(SMART && (actions.effort === "medium" || fotos.length) ? ["slim"] : []), ...providers];
+  const lanes = [...(SMART && (actions.effort === "medium" || fotos.length) ? ["slim"] : []), ...providers, ...(reserveVan(providers).length ? ["klein"] : [])];
   for (const p of lanes) {
     try {
       if (p === "slim") {
         inp.emit?.({ t: "tool", name: "nadenken" });
         reply = await askGemini(history, actions, { models: SMART_MODELS, level: "medium", timeout: SMART_TIMEOUT });
-      } else if (p === "groq") reply = await askGroq(history, actions);
+      } else if (p === "groq" || p === "mistral") reply = await askGroq(history, actions, p);
+      else if (p === "klein") reply = await askKlein(history, actions, reserveVan(providers));
       else if (p === "gemini") reply = await askGemini(history, actions, { models: GEMINI_MODELS, level: "low", timeout: CALL_TIMEOUT });
       else {
         reply = await askClaude(history, actions);
