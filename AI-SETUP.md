@@ -47,9 +47,10 @@ Klaar: ECO gebruikt dan eerst Groq en valt bij een storing terug op Gemini. Ande
 ## Spraakherkenning (Whisper via Groq)
 Met `GROQ_API_KEY` neemt de microfoonknop je stem op en laat die uitschrijven door `whisper-large-v3`
 (reserve: `whisper-large-v3-turbo`; instelbaar met `STT_MODEL`, taal met `STT_LANGUAGE`, standaard `nl`).
-Whisper krijgt een woordenlijst mee met je vaknamen uit het rooster, zodat hij die goed verstaat. Twijfelt hij (lage zekerheid,
+Whisper krijgt een woordenlijst mee met je vaknamen uit het rooster, zodat hij die goed verstaat. Twijfelt hij echt (heel lage zekerheid,
 of hij herhaalt zichzelf), dan vraagt ECO om het nog eens te zeggen in plaats van te gokken; drempel instelbaar met `STT_MIN_LOGPROB`
-(standaard -0.7). Tik op je eigen bericht in het transcript om een verkeerd verstane zin te verbeteren.
+(standaard -1.0, net als Whisper zelf). Een duidelijke opdracht of vraag ("ECO, open Spotify", "hoe laat is het") voert ECO altijd uit;
+klinkt die onlogisch, dan vraagt het model zelf na. Tik op je eigen bericht in het transcript om een verkeerd verstane zin te verbeteren.
 Opnemen stopt vanzelf na ~1,3 s stilte (na een lange zin 1,1 s). De opname gaat in **één verzoek** naar de server: uitschrijven,
 nadenken en antwoorden gebeuren achter elkaar, zonder extra rondje via de browser. Zonder Groq-sleutel gebruikt ECO de spraakherkenning van de browser.
 
