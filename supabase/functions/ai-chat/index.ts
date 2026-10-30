@@ -3084,9 +3084,15 @@ function sttConfidence(segments: any[]) {
     dur += d; lp += (s.avg_logprob ?? 0) * d; ns += (s.no_speech_prob ?? 0) * d; cr = Math.max(cr, s.compression_ratio ?? 0);
   }
   const logprob = lp / dur, noSpeech = ns / dur;
+  // Zelfde grenzen als Whisper zelf (log-kans -1.0, geen spraak 0.6). Korte opdrachten met namen ("ECO, open Spotify") en stilte
+  // eromheen scoren vaak -0.5 tot -0.9 met veel "geen spraak", en zijn dan gewoon goed verstaan.
   // compression_ratio > 2.4 = Whisper herhaalt zichzelf (bekend teken van verzonnen tekst)
-  return { logprob, noSpeech, unsure: logprob < Number(env("STT_MIN_LOGPROB", "-0.7")) || (noSpeech > 0.5 && logprob < -0.4) || cr > 2.4 };
+  return { logprob, noSpeech, herhaalt: cr > 2.4, unsure: logprob < Number(env("STT_MIN_LOGPROB", "-1.0")) || (noSpeech > 0.6 && logprob < -0.8) || cr > 2.4 };
 }
+// Een duidelijke opdracht of vraag ("ECO, open Spotify", "zet de muziek harder", "hoe laat is het") is nooit "niet verstaan",
+// ook als Whisper twijfelt: het model ziet zelf of de zin onlogisch is en vraagt dan na.
+const OPDRACHT = /^(?:(?:hé|hey|hee|he|oké|okay|ok|yo)(?=[\s,!.]|$)[\s,!.]*)?(?:eco\b[\s,!.]*)?(?:open|start|speel|zet|stop|pauzeer|pauze|ga|volgende|vorige|harder|zachter|doe|maak|lees|stuur|bel|zoek|geef|vertel|toon|laat|onthoud|vergeet|wat|hoe|wanneer|waar|wie|welke|hoeveel|waarom|kun|kan|wil|heb|is|zijn|hoe laat)\b/i;
+const duidelijk = (t: string) => OPDRACHT.test(t.trim()) && t.trim().split(/\s+/).length <= 14;
 async function transcribe(file: File, prompt = "") {
   let last = "";
   for (const model of env("STT_MODEL", "whisper-large-v3,whisper-large-v3-turbo").split(",").map((m) => m.trim())) {
@@ -3182,10 +3188,11 @@ Deno.serve(async (req) => {
     return eventStream(async (emit) => {
       const t = Date.now();
       const vak = await cached(`vocab:${localParts(Date.now()).datum}`, 6 * 3600000, 250, () => vocab({ db: admin, userId: userId! }));
-      const heard = transcribe(file, vak ? `${STT_PROMPT} Vakken: ${vak}.` : STT_PROMPT).then(({ text, unsure, logprob, noSpeech }) => {
+      const heard = transcribe(file, vak ? `${STT_PROMPT} Vakken: ${vak}.` : STT_PROMPT).then(({ text, unsure: twijfel, herhaalt, logprob, noSpeech }) => {
         const said = isGhost(text) ? "" : dedupe(text);
-        emit({ t: "heard", text: said, unsure: !!(said && unsure), q: { logprob: +logprob.toFixed(2), noSpeech: +noSpeech.toFixed(2) }, ms: Date.now() - t });
-        return said && unsure ? "" : said; // onzeker verstaan: niet raden, de browser vraagt om herhaling
+        const unsure = !!said && twijfel && (herhaalt || !duidelijk(said));
+        emit({ t: "heard", text: said, unsure, q: { logprob: +logprob.toFixed(2), noSpeech: +noSpeech.toFixed(2) }, ms: Date.now() - t });
+        return unsure ? "" : said; // echt onzeker verstaan: niet raden, de browser vraagt om herhaling
       });
       const res = await chat(admin, { userId: userId!, convId, message: heard, loc: { lat, lon }, viaKey, emit, spoken: true, ui, images });
       if (!("empty" in res)) emit({ t: "done", ...res });
