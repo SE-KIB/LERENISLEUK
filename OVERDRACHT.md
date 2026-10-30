@@ -198,7 +198,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   archief zoeken, WhatsApp klaarzetten, timer met melding terwijl ECO dicht is.
 **Ik (AI) kan zo doen**
 - Check 31 okt 05:45: startte ECO's klok de Brightspace-robot om 05:30 (`GITHUB_DISPATCH_TOKEN` staat erin)? Gepland.
-- Open PR's #140 (modelnamen, versleepbare lipjes) en #141 (skills /vergeten, /nieuwe-chat) groen krijgen en mergen.
+- (Gedaan: #138–#141 gemerged; geen open PR's meer bij het sluiten van deze chat.)
 - Tests uitbreiden (`/controle` B2): cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini, meer UI.
 - Restrisico beveiliging: DNS-rebinding bij web_lezen (fetch kan het IP niet vastzetten); eigen laptopsleutel (zie boven).
 - Ideeën zodra Serkan kiest: avondoverzicht (21:00), studieplanner.
@@ -224,7 +224,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).
-- **Niet doen:** vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis).
+- **Niet doen:** vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
+  meerdere Groq-accounts/sleutels om de gratis limiet te omzeilen (tegen de regels; 30 okt nogmaals gevraagd en afgewezen),
+  ECO zelf met de muis laten klikken (tenzij Serkan dat later expliciet beslist).
 
 ## Documentatie
 AI-SETUP.md (ECO), NOVA.md (NOVA), dit bestand (overdracht).
