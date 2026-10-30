@@ -1,7 +1,7 @@
 // Edge Function "ai-chat": ECO, de persoonlijke assistent.
 // Toegang: (a) ingelogde Supabase-gebruiker uit ALLOWED_EMAILS, of
 //          (b) header "x-jarvis-key" = JARVIS_KEY (voor de iPhone-opdracht / Siri).
-// Verzoeken: { message, stream: true } → Server-Sent Events (conv, heard, tool, delta, done, error);
+// Verzoeken: { message, stream: true } → Server-Sent Events (conv, heard, tool, tool_klaar, delta, done, error);
 //            { message } zonder stream → JSON { conversationId, reply } (Siri);
 //            multipart audio ("file") met veld "chat" → uitschrijven + antwoorden in één gestreamd verzoek;
 //            { tts, stream: true } → kale PCM-audio; { warm: true } → caches vullen.
@@ -2078,7 +2078,6 @@ async function pcTool(input: any, actions: Actions) {
   const args = Object.fromEntries(Object.entries(input).filter(([k]) => k !== "actie").map(([k, v]) => [k, String(v ?? "").slice(0, k === "tekst" && actie === "document_maken" ? 20000 : 2000)]));
   const rij: any[] = (await kvGet(db, "pc_queue").catch(() => null)) ?? [];
   await kvSet(db, "pc_queue", [...rij.filter((x) => Date.now() - Date.parse(x.at) < 60000), { id, actie, args, at: new Date().toISOString() }]);
-  actions.emit?.({ t: "tool", name: "pc" });
   const tot = Date.now() + 12000; // NOVA haalt de opdracht binnen ~1 s op; wacht hooguit 12 s op het resultaat
   while (Date.now() < tot) {
     await wait(600);
@@ -2275,6 +2274,35 @@ async function gisterenContext(who: Who) {
   }
   await kvSet(who.db, `gisteren:${dag}`, { tekst, at: new Date().toISOString() }).catch(() => {});
   return tekst;
+}
+
+// ---------- Werkmodus: live laten zien wat ECO doet ----------
+// Per tool gaat "tool" (wat en waarmee) en daarna "tool_klaar" (gelukt?, kort resultaat, bronnen) naar de website en de
+// laptop-app. Alleen naar Serkans eigen scherm, nooit in logs.
+const kortVan = (v: unknown, n: number) => { const t = String(v ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+function werkInfo(input: Record<string, unknown>) {
+  return Object.values(input ?? {}).filter((v) => v !== undefined && v !== null && v !== "" && typeof v !== "object")
+    .map((v) => kortVan(v, 80)).join(" · ").slice(0, 200);
+}
+function werkUitkomst(out: any) {
+  if (!out || typeof out !== "object" || Array.isArray(out)) return { ok: true, uit: kortVan(Array.isArray(out) ? `${out.length} gevonden` : out ?? "gedaan", 220) };
+  if ("fout" in out) return { ok: false, uit: kortVan(out.fout, 220) };
+  const bronnen = (Array.isArray(out.bronnen) ? out.bronnen : []).map((b: any) => kortVan(typeof b === "string" ? b : b?.titel ?? b?.title ?? b?.naam ?? b?.url, 90)).filter(Boolean).slice(0, 5);
+  const tekst = [out.antwoord, out.samenvatting, out.titel, out.melding, out.status, out.controle].find((x) => typeof x === "string" && x);
+  const lijst = Object.values(out).find(Array.isArray) as unknown[] | undefined;
+  return {
+    ok: true, uit: kortVan(tekst ?? (lijst ? `${lijst.length} gevonden` : "gedaan"), 220),
+    ...(bronnen.length ? { bronnen } : {}), ...(typeof out.url === "string" && /^https?:/.test(out.url) ? { url: out.url.slice(0, 300) } : {}),
+    ...(typeof out.tekst === "string" && out.tekst ? { voorbeeld: kortVan(out.tekst, 280) } : {}),
+  };
+}
+let werkTeller = 0;
+async function runToolLive(name: string, input: Record<string, string>, actions: Actions) {
+  const id = `w${++werkTeller}`, t0 = Date.now();
+  actions.emit?.({ t: "tool", name, id, info: werkInfo(input) });
+  const out = await runTool(name, input, actions).catch((e) => ({ fout: String(e) }));
+  actions.emit?.({ t: "tool_klaar", id, name, ms: Date.now() - t0, ...werkUitkomst(out) });
+  return out;
 }
 
 async function runTool(name: string, input: Record<string, string>, actions: Actions) {
@@ -2670,8 +2698,7 @@ async function askClaude(history: Turn[], actions: Actions): Promise<string> {
       return res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
     }
     const results = await Promise.all(res.content.filter((b: any) => b.type === "tool_use").map(async (b: any) => {
-      actions.emit?.({ t: "tool", name: b.name });
-      return { type: "tool_result", tool_use_id: b.id, content: JSON.stringify(await runTool(b.name, b.input, actions).catch((e) => ({ fout: String(e) }))) };
+      return { type: "tool_result", tool_use_id: b.id, content: JSON.stringify(await runToolLive(b.name, b.input, actions)) };
     }));
     messages.push({ role: "user", content: results });
   }
@@ -2823,8 +2850,7 @@ async function askGroq(history: Turn[], actions: Actions, aanbieder = "groq", ei
       const outs = await Promise.all(todo.map(async (tc: any) => {
         let args = {};
         try { args = JSON.parse(tc.function.arguments || "{}"); } catch { /* lege argumenten */ }
-        actions.emit?.({ t: "tool", name: tc.function.name });
-        const out = await runTool(tc.function.name, args as Record<string, string>, actions).catch((e) => ({ fout: String(e) }));
+        const out = await runToolLive(tc.function.name, args as Record<string, string>, actions);
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) };
       }));
       messages.push(...outs);
@@ -2870,8 +2896,7 @@ async function askGemini(history: Turn[], actions: Actions, o: { models: string[
       }
       contents.push({ role: "model", parts });
       const responses = await Promise.all(calls.map(async ({ functionCall: c }) => {
-        actions.emit?.({ t: "tool", name: c.name });
-        const result = await runTool(c.name, c.args ?? {}, actions).catch((e) => ({ fout: String(e) }));
+        const result = await runToolLive(c.name, c.args ?? {}, actions);
         return { functionResponse: { ...(c.id ? { id: c.id } : {}), name: c.name, response: { result } } };
       }));
       contents.push({ role: "user", parts: responses });
@@ -3136,8 +3161,10 @@ async function chat(admin: any, inp: ChatIn) {
   for (const p of lanes) {
     try {
       if (p === "slim") {
-        inp.emit?.({ t: "tool", name: "nadenken" });
-        reply = await askGemini(history, actions, { models: SMART_MODELS, level: "medium", timeout: SMART_TIMEOUT });
+        inp.emit?.({ t: "tool", name: "nadenken", id: "slim", info: "Gemini denkt eerst na" });
+        const t0 = Date.now();
+        try { reply = await askGemini(history, actions, { models: SMART_MODELS, level: "medium", timeout: SMART_TIMEOUT }); }
+        finally { inp.emit?.({ t: "tool_klaar", id: "slim", name: "nadenken", ms: Date.now() - t0, ok: !!reply, uit: reply ? "klaar met nadenken" : "lukte niet; een ander model neemt het over" }); }
       } else if (p === "groq" || p === "mistral") reply = await askGroq(history, actions, p);
       else if (p === "klein") reply = await askKlein(history, actions, reserveVan(providers));
       else if (p === "gemini") reply = await askGemini(history, actions, { models: GEMINI_MODELS, level: "low", timeout: CALL_TIMEOUT });
@@ -3448,7 +3475,7 @@ Deno.serve(async (req) => {
         const actions: Actions = { userId: userId!, db: admin, attempts: [], toolMemo: new Map(), convId: String(lv.convId ?? "") || undefined, reqId: crypto.randomUUID(),
           ui: lv.ui && typeof lv.ui === "object" ? lv.ui : undefined, emit: (e) => ev.push(e), memory: "" };
         const result = await runTool(String(lv.name ?? ""), (lv.args && typeof lv.args === "object" ? lv.args : {}) as Record<string, string>, actions).catch((e) => ({ fout: String(e) }));
-        return json({ result, events: ev.filter((e) => e.t === "ui"), open: actions.open ?? "", openApp: actions.openApp ?? "", openLabel: actions.openLabel ?? "", memoryChanged: !!actions.memoryChanged, convDeleted: !!actions.convDeleted });
+        return json({ result, werk: werkUitkomst(result), events: ev.filter((e) => e.t === "ui"), open: actions.open ?? "", openApp: actions.openApp ?? "", openLabel: actions.openLabel ?? "", memoryChanged: !!actions.memoryChanged, convDeleted: !!actions.convDeleted });
       }
       if (lv?.actie === "opslaan") return json(await liveOpslaan(admin, userId!, String(lv.convId ?? ""), String(lv.user ?? ""), String(lv.assistant ?? "")));
       return json({ error: "Onbekende live-actie" }, 400);

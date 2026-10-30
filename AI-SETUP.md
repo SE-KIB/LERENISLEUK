@@ -233,6 +233,14 @@ browser zelf herkend; het geluid gaat nergens heen. Eén klap, applaus (drie of 
 in de stilte. Hij luistert niet terwijl hij zelf praat. Op de telefoon staat hij standaard uit, omdat een open microfoon daar
 andere muziek onderbreekt. De laptop-app (NOVA.exe) doet hetzelfde, zie NOVA.md.
 
+## Werkmodus: zien wat ECO doet
+Gebruikt ECO een tool (op internet zoeken, een pagina lezen, je agenda, mail, de laptop bedienen, nadenken), dan schuift de
+reactor naar rechtsonder en zie je live elke stap: wat hij doet, waarmee (de zoekvraag, het adres), hoe lang het duurde en wat
+eruit kwam (bronnen, paginatitel, een stukje van de tekst, of de fout). Na het antwoord schuift hij na 9 seconden terug (of
+tik op ✕). Aan/uit bij BEDIENING → **WERKMODUS**. Werkt ook bij Live praten. In de laptop-app (NOVA.exe) hetzelfde, met na
+elke laptop-actie een klein plaatje van je scherm. ECO klikt zelf niet met de muis (zo afgesproken); hij opent apps,
+websites en bestanden, typt en bedient media/volume.
+
 ## "Hé Siri, Eco" op de iPhone
 Opdrachten-app → nieuwe opdracht, naam **Eco**:
 1. *Dicteer tekst* (taal Nederlands).
