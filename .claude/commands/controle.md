@@ -28,7 +28,7 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
 4. Zoek in de code of er ECO-tests en een testworkflow zijn (op 30 okt: nee, alleen NOVA heeft tests).
 
 ## B. Technische punten die jij oplost
-1. **Brightspace-robot op tijd.** GitHub start geplande workflows vaak uren te laat, waardoor de briefing van 07:30
+1. ✅ (code klaar 30 okt; werkt zodra Serkan `GITHUB_DISPATCH_TOKEN` zet, stappen in AI-SETUP.md) **Brightspace-robot op tijd.** GitHub start geplande workflows vaak uren te laat, waardoor de briefing van 07:30
    geen verse planning heeft.
    - Laat de ECO-klok (`cronTick` in `index.ts`, pg_cron elke 30 s) de robot één keer per dag rond 05:30
      Nederlandse tijd starten via de GitHub API (`POST /repos/SE-KIB/LERENISLEUK/actions/workflows/brightspace-sync.yml/dispatches`,

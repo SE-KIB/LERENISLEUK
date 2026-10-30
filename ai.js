@@ -835,8 +835,9 @@ async function loadBs() {
     bsPages = info.pages || [];
     const st = info.status, el = $("bsStatus");
     const when = st?.at ? new Date(st.at).toLocaleString("nl-NL", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "";
-    el.textContent = !info.gekoppeld ? "niet gekoppeld" : st ? `${st.ok ? "✓" : "⚠"} ${st.tekst}${when ? ` · ${when}` : ""}` : "✓ gekoppeld";
-    el.className = info.gekoppeld && st?.ok !== false ? "ok" : "warn";
+    el.textContent = !info.gekoppeld ? "niet gekoppeld" : st ? `${st.ok && !info.oud ? "✓" : "⚠"} ${st.tekst}${when ? ` · ${when}` : ""}${info.oud ? ` · ${info.oud}` : ""}` : "✓ gekoppeld";
+    el.className = info.gekoppeld && st?.ok !== false && !info.oud ? "ok" : "warn";
+    el.title = info.klok_start ? `ECO's klok start de robot elke ochtend om 05:30${info.robot?.at ? ` (laatst: ${new Date(info.robot.at).toLocaleString("nl-NL")}${info.robot.ok === false ? `, fout ${info.robot.status}` : ""})` : ""}` : "De robot draait via GitHub (vaak later). Sneller: GITHUB_DISPATCH_TOKEN, zie AI-SETUP.md";
     $("bsPages").replaceChildren(...bsPages.map((p, i) => {
       const chip = document.createElement("span");
       chip.className = "vak"; chip.title = "Rooster-pagina in Brightspace"; chip.textContent = p.vak;

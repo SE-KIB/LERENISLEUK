@@ -8,7 +8,10 @@ name: Brightspace bijwerken
 
 on:
   schedule:
+    - cron: "20 3 * * *"   # reserve: 04:20 (winter) / 05:20 (zomer) Nederlandse tijd; GitHub start dit vaak later
     - cron: "20 5 * * *"   # 06:20 (winter) / 07:20 (zomer) Nederlandse tijd
+  # ECO's klok start deze robot ook zelf om 05:30 (Supabase-secret GITHUB_DISPATCH_TOKEN). Twee rondes op een dag kunnen geen
+  # kwaad: de import vervangt alleen de dagen die hij inleest.
   workflow_dispatch:
 
 permissions:

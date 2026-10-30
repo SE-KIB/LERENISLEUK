@@ -131,12 +131,44 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Muis:** Serkan zei "het liefst zien waar hij met de muis op klikt". ECO klikt niet zelf (afspraak: geen browser/muis die zelf
   klikt). Wil hij dat toch, dan eerst samen beslissen (risico: verkeerde knop, aankopen, verwijderen); niet zomaar bouwen.
 
+## Alles wat Serkan zei (sessie 29–30 okt) en de stand
+| # | Wens van Serkan | Stand |
+|---|---|---|
+| 1 | NOVA een Nederlandse stem | ✅ #118 |
+| 2 | Skills voor ECO en NOVA (webpagina's, PDF's, documenten) | ✅ #119 |
+| 3 | Widget: weer per uur in de hoek, compleet nieuw script | ✅ #120 · Serkan: script één keer opnieuw in Scriptable |
+| 4 | "Hij ziet alles als een vraag" ((?) verstond ik niet) | ✅ #121 |
+| 5 | Via de iPhone naar AirPlay/tv, Spotify en YouTube op de tv | ✅ #122 · Serkan: opdracht "ECO TV" maken (AI-SETUP.md) |
+| 6 | "Verbonden met ECO / N.O.V.A." in plaats van "offline-reserve: qwen", en kunnen wisselen | ✅ #123, #128 |
+| 7 | Controlelijst nalopen | ✅ B4, B5 (#125), B1 code (#132, wacht op `GITHUB_DISPATCH_TOKEN`) · B6 wacht op antwoord · B2, B3 open |
+| 8 | NOVA hoeft niet automatisch te starten | ✅ vastgelegd, niet meer voorstellen |
+| 9 | NOVA vraagt of hij mag bijwerken en doet het bij "ja" meteen | ✅ #126 |
+| 10 | Instellingen-knop (geluid, beeld per regel, transcript, AI-volgorde), Windows-icoon, magnetische indeling | ✅ #127 |
+| 11 | Alles bewaren na uit/aan | ✅ #128 |
+| 12 | Laptop-app heet ECO; offline brein N.O.V.A. | ✅ #128 |
+| 13 | Video "How to build Jarvis" handig? | ✅ beoordeeld: niets nieuws; geen extra Groq-accounts, geen stemkloon |
+| 14 | Werkmodus zoals ROSE: reactor naar rechtsonder, live zien wat ECO doet | ✅ #131 (website + laptop, schermplaatje na laptop-acties) |
+| 15 | "Zien waar hij met de muis op klikt" | ⏸ ECO klikt niet zelf (afspraak); eerst samen beslissen of dat mag |
+| 16 | Starten met 2× klappen in plaats van "Hé ECO" | ✅ #129 (website + laptop) |
+| 17 | Beste gratis AI, meer gebruik van de beste in plaats van kleine varianten | ✅ #130 (grote modellen eerst, kleine als laatste; Mistral als extra gratis dienst) · Serkan: optioneel `MISTRAL_API_KEY` |
+| 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
+
+**Nog open (gemist of overgeslagen, op volgorde van nut):**
+- **Tests + CI (`/controle` B2):** website- en functietests in de repo met een workflow per PR. Nu alleen NOVA-tests in de bouwstraat.
+- **Beveiligingscontrole (`/controle` B3)** van alles sinds PR #87, met de punten uit de controlelijst.
+- **Serkan instellen:** `GITHUB_DISPATCH_TOKEN` (robot op tijd), optioneel `MISTRAL_API_KEY`, Google-koppeling of
+  `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` (dagrapport), Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen.
+- **Serkan testen** (zie "Later"): klappen op de laptop en de site, werkmodus, tv, Live praten, NOVA-stem.
+- **Beslissen:** muis-klikken (punt 15), `website-monitor.yml` weg (B6), welke ideeën (studieplanner, avondoverzicht).
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met
   "gisteren"; NOVA: "open Spotify", vanaf iPhone "zet het volume van mijn laptop op 30", wifi uit (NOVA neemt het over);
   NOVA-stem (STEM "GEMINI (ECO)" zonder ⚠?); NOVA BREIN ECO/NOVA wisselen; ECO TV/AirPlay (eerst de opdracht "ECO TV" maken);
-  slimme baan ("Waarom is de lucht blauw?" → eerst "Nadenken…"); systeemcheck bij opstarten (ergens STORING?).
+  slimme baan ("Waarom is de lucht blauw?" → eerst "Nadenken…"); systeemcheck bij opstarten (ergens STORING?);
+  2× klappen (laptop en site, ook met muziek aan: telt die niet?); werkmodus ("zoek de openingstijden van de AH" → reactor
+  rechtsonder met de stappen; "open Spotify" op de laptop → schermplaatje).
 - **Uit de eerste overdracht nog niet bevestigd:** start "speel mijn liked songs" vanzelf? Vraagt de beginscherm-app nog
   steeds om microfoontoestemming?
 - **Extra gratis reserve:** Mistral zit erin (30 okt) en doet mee zodra Serkan `MISTRAL_API_KEY` zet (gratis Experiment-plan; traint
