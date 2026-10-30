@@ -28,7 +28,30 @@ STANDAARD = {
     "naam": platform.node() or "laptop",
     "stem": True,
     "brein": "eco",               # wie antwoordt: "eco" (ECO's brein in de cloud) of "nova" (NOVA's eigen brein op de laptop)
+    "volume": 100,                # stemvolume in procent
+    "beeld": {"verberg": []},     # panelen en SYSTEEMSTATUS-regels die Serkan uitzette
+    "volgorde": {},               # eigen volgorde per soort (zie VOLGORDES); leeg = standaard
+    "indeling": {},               # eigen plek en grootte van de blokken (delen van het venster)
+    "magneet": True,              # blokken klikken vast aan elkaar
 }
+# Wat NOVA probeert, in volgorde: het eerste dat werkt, wint.
+VOLGORDES = {
+    "brein": ["eco", "nova"],                 # wie antwoordt
+    "eco": ["groq", "gemini", "claude"],      # welk model ECO eerst gebruikt (denkwerk en foto's gaan altijd eerst naar Gemini met denktijd)
+    "stem": ["gemini", "piper", "windows"],   # welke stem spreekt
+    "spraak": ["whisper", "vosk"],            # wie je spraak uitschrijft
+}
+
+
+def volgorde(cfg: dict, soort: str) -> list[str]:
+    """De volgorde die Serkan koos (onbekende namen eruit, ontbrekende achteraan); "brein" volgt ook de oude sleutel "brein"."""
+    standaard = VOLGORDES[soort]
+    eigen = (cfg.get("volgorde") or {}).get(soort)
+    if not isinstance(eigen, list) and soort == "brein":
+        eigen = [cfg.get("brein", "eco")]
+    lijst = [x for x in (eigen or []) if x in standaard]
+    lijst = list(dict.fromkeys(lijst))
+    return lijst + [x for x in standaard if x not in lijst]
 MODELLEN = ["qwen3.5:9b", "gemma4:12b", "gpt-oss:20b", "gemma4:26b", "qwen3.8:27b"]
 
 
@@ -125,13 +148,17 @@ class Eco:
                 raise EcoFout(ev.get("error", "onbekende fout"))
         return tekst.strip(), conv, gehoord
 
+    def _ui(self) -> dict:
+        """Wat ECO over NOVA weet: welk scherm, en in welke volgorde Serkan ECO's modellen wil."""
+        return {"app": "NOVA", "scherm": "laptop", "modellen": volgorde(self.cfg, "eco")}
+
     def chat(self, tekst: str, conv_id: str | None = None, on_delta=None, on_tool=None):
-        r = self._post({"message": tekst, "conversationId": conv_id, "stream": True, "ui": {"app": "NOVA", "scherm": "laptop"}}, timeout=90, stream=True)
+        r = self._post({"message": tekst, "conversationId": conv_id, "stream": True, "ui": self._ui()}, timeout=90, stream=True)
         antwoord, conv, _ = self._stroom(r, on_delta, on_tool)
         return antwoord, conv or conv_id
 
     def spraak_chat(self, wav: bytes, conv_id: str | None = None, on_heard=None, on_delta=None, on_tool=None):
-        data = {"chat": "1", "ui": json.dumps({"app": "NOVA", "scherm": "laptop"})}
+        data = {"chat": "1", "ui": json.dumps(self._ui())}
         if conv_id:
             data["conversationId"] = conv_id
         r = self._post(files={"file": ("spraak.wav", wav, "audio/wav")}, data=data, timeout=90, stream=True)

@@ -132,6 +132,7 @@ function zetStatus(s) {
   $("stBrein").title = s.reden || "";
   $("stEco").textContent = s.eco; $("stEco").className = s.eco === "BEREIKBAAR" ? "ok" : "warn";
   document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === s.gekozen));
+  if (s.brein_volgorde) inst.volgorde = { ...inst.volgorde, brein: s.brein_volgorde };
   $("stModel").textContent = s.model;
   $("stOllama").textContent = s.lokaal; $("stOllama").className = s.lokaal_ok ? "ok" : "warn";
   $("stSpraak").textContent = s.spraak || "—";
@@ -157,7 +158,7 @@ window.nova = {
     else if (e.t === "pc") { pcActie(e); }
     else if (e.t === "status") { zetStatus(e); }
     else if (e.t === "staat") { setState(e.s); $("mic").classList.toggle("on", e.s === "listening"); }
-    else if (e.t === "melding") { $("setMsg").textContent = e.tekst; $("setMsg").className = "login-msg push-msg " + (e.soort || ""); }
+    else if (e.t === "melding") { for (const id of ["setMsg", "instMsg"]) { $(id).textContent = e.tekst; $(id).className = "login-msg push-msg " + (e.soort || ""); } }
     else if (e.t === "update") { // een nieuwe NOVA: vragen, en tijdens het bijwerken de voortgang tonen
       $("updateBalk").hidden = !e.tag;
       const bezig = e.voortgang !== null && e.voortgang !== undefined;
@@ -178,19 +179,247 @@ $("chatForm").addEventListener("submit", (e) => {
 });
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chatForm").requestSubmit(); } });
 $("mic").onclick = () => api() && api().mic();
-addEventListener("keydown", (e) => { if (e.ctrlKey && e.code === "Space") { e.preventDefault(); $("mic").click(); } });
-$("opslaan").onclick = () => api() && api().opslaan({ eco_sleutel: $("sleutel").value, naam: $("naam").value, model: $("model").value, stem: $("stem").checked });
-$("download").onclick = () => api() && api().download($("model").value);
+addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.code === "Space") { e.preventDefault(); $("mic").click(); }
+  if (e.key === "Escape" && !$("instellingen").hidden) sluitInstellingen();
+});
 $("updateJa").onclick = () => { if (api()) { api().update(true); $("updateTekst").textContent = "Bijwerken…"; $("updateJa").hidden = $("updateLater").hidden = true; } };
 $("updateLater").onclick = () => api() && api().update(false);
-$("stem").onchange = () => $("opslaan").click();
 document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api() && api().brein(b.dataset.brein); });
+
+// ---------- Instellingen (geluid, beeld, AI-volgorde, verbinding) ----------
+// inst = wat Python bewaart in config.json; elke wijziging gaat meteen terug via api().instellingen({...}).
+let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true };
+const bewaar = (patch) => { Object.assign(inst, patch); if (api()) api().instellingen(patch); };
+const PANELEN = { tijd: "LOKALE TIJD", status: "SYSTEEMSTATUS", transcript: "TRANSCRIPT", pc: "PC-ACTIES", ondertitel: "ONDERTITEL", visualisatie: "VISUALISATIE" };
+const RIJEN = { brein: "BREIN", eco: "ECO", model: "NOVA-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
+const NAMEN = { eco: "ECO (cloud)", nova: "NOVA (laptop)", groq: "Groq", gemini: "Gemini", claude: "Claude", piper: "Piper (nathalie)", windows: "Windows (Nederlands)", whisper: "Whisper (via ECO)", vosk: "Vosk (op de laptop)" };
+const STEMNAMEN = { gemini: "Gemini (ECO's stem)" };
+const verborgen = (id) => (inst.beeld?.verberg || []).includes(id);
+
+function pasBeeldToe() {
+  for (const [id] of Object.entries(PANELEN)) {
+    const el = id === "ondertitel" ? $("caption") : id === "visualisatie" ? $("viz") : document.querySelector(`[data-win="${id}"]`);
+    if (el) el.classList.toggle("verborgen", verborgen(id));
+  }
+  document.querySelectorAll("[data-rij]").forEach((r) => r.classList.toggle("verborgen", verborgen(r.dataset.rij)));
+}
+function vinkjes(doos, lijst) {
+  doos.replaceChildren(...Object.entries(lijst).map(([id, naam]) => {
+    const l = document.createElement("label");
+    l.className = "switch";
+    l.innerHTML = `<input type="checkbox"><i></i><span></span>`;
+    l.querySelector("span").textContent = naam;
+    const cb = l.querySelector("input");
+    cb.checked = !verborgen(id);
+    cb.onchange = () => {
+      const v = new Set(inst.beeld?.verberg || []);
+      if (cb.checked) v.delete(id); else v.add(id);
+      bewaar({ beeld: { ...inst.beeld, verberg: [...v] } });
+      pasBeeldToe();
+      layoutOpnieuw();
+    };
+    return l;
+  }));
+}
+function volgordeLijst(ol) {
+  const soort = ol.dataset.volgorde, items = inst.volgorde?.[soort] || [];
+  ol.replaceChildren(...items.map((id, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span></span><button type="button" class="chip" aria-label="Hoger">▲</button><button type="button" class="chip" aria-label="Lager">▼</button>`;
+    li.firstChild.textContent = (soort === "stem" && STEMNAMEN[id]) || NAMEN[id] || id;
+    const [op, neer] = li.querySelectorAll("button");
+    op.disabled = i === 0; neer.disabled = i === items.length - 1;
+    const wissel = (j) => {
+      const n = [...items];
+      [n[i], n[j]] = [n[j], n[i]];
+      bewaar({ volgorde: { ...inst.volgorde, [soort]: n } });
+      volgordeLijst(ol);
+    };
+    op.onclick = () => wissel(i - 1);
+    neer.onclick = () => wissel(i + 1);
+    return li;
+  }));
+}
+function vulInstellingen() {
+  $("stem").checked = inst.stem !== false;
+  $("volume").value = inst.volume ?? 100; $("volWaarde").textContent = `${$("volume").value}%`;
+  $("magneet").checked = inst.magneet !== false;
+  vinkjes($("kiesPanelen"), PANELEN);
+  vinkjes($("kiesRijen"), RIJEN);
+  document.querySelectorAll("[data-volgorde]").forEach(volgordeLijst);
+}
+function openInstellingen() { vulInstellingen(); $("instellingen").hidden = false; $("instMsg").textContent = ""; }
+function sluitInstellingen() { $("instellingen").hidden = true; }
+$("openInst").onclick = openInstellingen;
+$("sluitInst").onclick = sluitInstellingen;
+$("instellingen").addEventListener("pointerdown", (e) => { if (e.target === $("instellingen")) sluitInstellingen(); });
+document.querySelectorAll("[data-tab]").forEach((t) => {
+  t.onclick = () => {
+    document.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("on", x === t));
+    document.querySelectorAll("[data-blad]").forEach((b) => { b.hidden = b.dataset.blad !== t.dataset.tab; });
+  };
+});
+$("stem").onchange = () => bewaar({ stem: $("stem").checked });
+$("volume").oninput = () => { $("volWaarde").textContent = `${$("volume").value}%`; };
+$("volume").onchange = () => bewaar({ volume: +$("volume").value });
+$("testStem").onclick = () => api() && api().test_stem();
+$("magneet").onchange = () => bewaar({ magneet: $("magneet").checked });
+$("standaardIndeling").onclick = () => { bewaar({ indeling: {} }); resetLayout(); };
+$("opslaan").onclick = () => api() && api().opslaan({ eco_sleutel: $("sleutel").value, naam: $("naam").value, model: $("model").value, stem: $("stem").checked });
+$("download").onclick = () => api() && api().download($("model").value);
+
+// ---------- Indeling: blokken verplaatsen en vergroten, magnetisch (zoals ECO's vrije indeling) ----------
+// Posities worden bewaard als deel van het venster (0..1), zodat de indeling meeschaalt als het venster groter of kleiner wordt.
+const DESKTOP = matchMedia("(min-width: 901px)");
+const hud = $("app");
+const wins = [...hud.querySelectorAll("[data-win]")];
+const MIN = { kern: [240, 240], cmd: [320, 58], bediening: [200, 90] };
+const AUTO_H = new Set(["cmd", "bediening", "tijd", "status"]); // hoogte volgt de inhoud (dan valt er nooit een regel weg)
+const MARGE = 14, VANG = 10; // ruimte tussen blokken, en hoe dichtbij (px) iets vastklikt
+let zTop = 10;
+const titelVan = (w) => w.dataset.title || w.querySelector(".panel-h span")?.textContent || w.dataset.win.toUpperCase();
+const zichtbaar = () => wins.filter((w) => !w.classList.contains("verborgen"));
+const bovenrand = () => hud.querySelector(".topbar").offsetHeight + MARGE;
+
+for (const w of wins) { // grepen één keer toevoegen
+  let kop = w.querySelector(":scope > .panel-h");
+  if (!kop) {
+    kop = document.createElement("div");
+    kop.className = "win-h";
+    kop.innerHTML = w.dataset.win === "cmd" ? `<span class="grip" title="Slepen om te verplaatsen">⋮⋮</span>` : `<span>${titelVan(w)}</span>`;
+    w.prepend(kop);
+  }
+  const rs = document.createElement("div");
+  rs.className = "win-rs"; rs.title = "Slepen om te vergroten of te verkleinen";
+  w.append(rs);
+  slepen(kop, w, "verplaats");
+  slepen(rs, w, "schaal");
+  w.addEventListener("pointerdown", () => { if (hud.classList.contains("free")) w.style.zIndex = ++zTop; });
+}
+function plaats(w, r) {
+  w.style.left = Math.round(r.x) + "px"; w.style.top = Math.round(r.y) + "px";
+  w.style.width = Math.round(r.w) + "px";
+  if (!AUTO_H.has(w.dataset.win)) w.style.height = Math.round(r.h) + "px";
+  if (r.z) { w.style.zIndex = r.z; zTop = Math.max(zTop, r.z); }
+}
+function binnen(w) {
+  const W = hud.clientWidth, H = hud.clientHeight, top = bovenrand();
+  const breed = Math.min(w.offsetWidth, W - 2 * MARGE);
+  if (breed !== w.offsetWidth) w.style.width = breed + "px";
+  w.style.left = Math.min(Math.max(MARGE, w.offsetLeft), W - MARGE - w.offsetWidth) + "px";
+  w.style.top = Math.min(Math.max(top, w.offsetTop), Math.max(top, H - MARGE - w.offsetHeight)) + "px";
+}
+function bewaarIndeling() {
+  const W = hud.clientWidth, H = hud.clientHeight, l = {};
+  for (const w of wins) l[w.dataset.win] = { x: w.offsetLeft / W, y: w.offsetTop / H, w: w.offsetWidth / W, h: w.offsetHeight / H, z: +w.style.zIndex || 2 };
+  bewaar({ indeling: l });
+}
+function initLayout() {
+  if (!DESKTOP.matches || hud.classList.contains("free")) return;
+  const W = hud.clientWidth, H = hud.clientHeight, opgeslagen = inst.indeling || {};
+  const compleet = wins.every((w) => opgeslagen[w.dataset.win]);
+  const basis = hud.getBoundingClientRect();
+  const gemeten = new Map(wins.map((w) => { const r = w.getBoundingClientRect(); return [w, { x: r.left - basis.left, y: r.top - basis.top, w: r.width, h: r.height }]; }));
+  hud.classList.add("free");
+  for (const w of wins) {
+    const o = compleet ? opgeslagen[w.dataset.win] : null;
+    plaats(w, o ? { x: o.x * W, y: o.y * H, w: o.w * W, h: o.h * H, z: o.z } : gemeten.get(w));
+    binnen(w);
+  }
+}
+function resetLayout() {
+  hud.classList.remove("free");
+  for (const w of wins) w.removeAttribute("style");
+  requestAnimationFrame(initLayout);
+}
+function layoutOpnieuw() { if (!(inst.indeling && Object.keys(inst.indeling).length)) resetLayout(); }
+
+// Magnetisch: randen die binnen VANG px van een andere rand (of de schermrand) komen, klikken daar vast; ook op MARGE ernaast.
+function vangLijnen(w, as) {
+  const W = hud.clientWidth, H = hud.clientHeight;
+  const lijnen = as === "x" ? [MARGE, W - MARGE] : [bovenrand(), H - MARGE];
+  for (const a of zichtbaar()) {
+    if (a === w) continue;
+    const begin = as === "x" ? a.offsetLeft : a.offsetTop, eind = begin + (as === "x" ? a.offsetWidth : a.offsetHeight);
+    lijnen.push(begin, eind, begin - MARGE, eind + MARGE);
+  }
+  return lijnen;
+}
+function vang(waarden, lijnen) { // beste verschuiving zodat één van de randen op een lijn valt
+  let best = null;
+  for (const v of waarden) for (const l of lijnen) { const d = l - v; if (Math.abs(d) <= VANG && (best === null || Math.abs(d) < Math.abs(best.d))) best = { d, l }; }
+  return best;
+}
+function toonLijn(id, best, as) {
+  const el = $(id);
+  el.hidden = !best;
+  if (!best) return;
+  const r = hud.getBoundingClientRect();
+  if (as === "x") el.style.left = r.left + best.l + "px"; else el.style.top = r.top + best.l + "px";
+}
+function slepen(greep, w, soort) {
+  greep.addEventListener("pointerdown", (e) => {
+    if (!hud.classList.contains("free") || e.button !== 0) return;
+    if (soort === "verplaats" && e.target.closest("button, a, input, label, select, textarea")) return;
+    e.preventDefault();
+    greep.setPointerCapture(e.pointerId);
+    const sx = e.clientX, sy = e.clientY, ox = w.offsetLeft, oy = w.offsetTop, ow = w.offsetWidth, oh = w.offsetHeight;
+    const [mw, mh] = MIN[w.dataset.win] || [180, 90];
+    const lx = vangLijnen(w, "x"), ly = vangLijnen(w, "y");
+    w.classList.add("dragging"); w.style.zIndex = ++zTop;
+    const beweeg = (ev) => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy, magneet = inst.magneet !== false && !ev.altKey; // Alt ingedrukt = vrij
+      let bx = null, by = null;
+      if (soort === "verplaats") {
+        let x = ox + dx, y = oy + dy;
+        if (magneet) {
+          bx = vang([x, x + ow], lx); if (bx) x += bx.d;
+          by = vang([y, y + oh], ly); if (by) y += by.d;
+        }
+        w.style.left = x + "px"; w.style.top = y + "px";
+      } else {
+        let b = Math.max(mw, ow + dx), h = Math.max(mh, oh + dy);
+        if (magneet) {
+          bx = vang([ox + b], lx); if (bx && ox + b + bx.d - ox >= mw) b += bx.d; else bx = null;
+          if (!AUTO_H.has(w.dataset.win)) { by = vang([oy + h], ly); if (by && h + by.d >= mh) h += by.d; else by = null; }
+        }
+        w.style.width = b + "px";
+        if (!AUTO_H.has(w.dataset.win)) w.style.height = h + "px";
+      }
+      toonLijn("snapX", bx, "x"); toonLijn("snapY", by, "y");
+    };
+    const los = () => {
+      greep.removeEventListener("pointermove", beweeg);
+      w.classList.remove("dragging");
+      $("snapX").hidden = $("snapY").hidden = true;
+      binnen(w); bewaarIndeling();
+    };
+    greep.addEventListener("pointermove", beweeg);
+    greep.addEventListener("pointerup", los, { once: true });
+    greep.addEventListener("pointercancel", los, { once: true });
+  });
+}
+DESKTOP.addEventListener("change", () => {
+  if (DESKTOP.matches) requestAnimationFrame(initLayout);
+  else { hud.classList.remove("free"); for (const w of wins) w.removeAttribute("style"); }
+});
+addEventListener("resize", () => {
+  if (!hud.classList.contains("free")) return;
+  const W = hud.clientWidth, H = hud.clientHeight, o = inst.indeling || {};
+  for (const w of wins) { if (o[w.dataset.win]) { const r = o[w.dataset.win]; plaats(w, { x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H }); } binnen(w); }
+});
+
 window.addEventListener("pywebviewready", async () => {
   const i = await api().info();
+  inst = { ...inst, ...i.inst };
   $("model").innerHTML = i.modellen.map((m) => `<option>${m}</option>`).join("");
-  $("model").value = i.model; $("naam").value = i.naam; $("stem").checked = i.stem;
+  $("model").value = i.model; $("naam").value = i.naam;
   document.querySelectorAll("[data-brein]").forEach((b) => b.classList.toggle("on", b.dataset.brein === i.brein));
   $("sleutel").placeholder = i.heeft_sleutel ? "•••••••• (ingesteld; leeg laten = zo houden)" : "vul je JARVIS_KEY in";
-  if (!i.heeft_sleutel) $("sleutel").focus();
+  $("instVersie").textContent = `NOVA ${i.versie}`;
+  pasBeeldToe();
+  requestAnimationFrame(initLayout);
+  if (!i.heeft_sleutel) { openInstellingen(); document.querySelector('[data-tab="algemeen"]').click(); $("sleutel").focus(); }
   api().klaar();
 });

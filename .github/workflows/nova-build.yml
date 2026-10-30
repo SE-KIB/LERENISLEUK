@@ -40,9 +40,10 @@ jobs:
         run: |
           Copy-Item ..\ai.css ui\ai.css
           Set-Content ui\build.txt "${{ github.run_number }}"  # NOVA vergelijkt dit nummer om zichzelf bij te werken
+          python maak_icoon.py ui\nova.ico  # het app-icoon (de reactor), voor de exe, de taakbalk en het venster
           # Piper (Nederlandse stem): alleen de uitspraakregels van espeak-ng mee, niet de Arabische/Hebreeuwse modellen
           $piper = python -c "import os, piper; print(os.path.dirname(piper.__file__))"
-          pyinstaller --noconfirm --onefile --windowed --name NOVA --add-data "ui;ui" --add-data "$piper\espeak-ng-data;piper\espeak-ng-data" --hidden-import piper.espeakbridge --collect-binaries onnxruntime --collect-data docx --collect-data pptx --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
+          pyinstaller --noconfirm --onefile --windowed --name NOVA --icon ui\nova.ico --add-data "ui;ui" --add-data "$piper\espeak-ng-data;piper\espeak-ng-data" --hidden-import piper.espeakbridge --collect-binaries onnxruntime --collect-data docx --collect-data pptx --collect-all vosk --collect-all sounddevice --hidden-import clr --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import comtypes.stream nova.py
           "NOVA.exe: {0:N0} MB" -f ((Get-Item dist\NOVA.exe).Length / 1MB)
       - name: Zelftest van de exe
         shell: pwsh
@@ -92,5 +93,5 @@ jobs:
           files: nova/dist/NOVA.exe
           body: |
             NOVA: ECO op je Windows-laptop. Download NOVA.exe en start hem; uitleg in NOVA.md.
-            NOVA werkt zichzelf daarna automatisch bij (bij het starten en elke 6 uur).
+            Daarna vraagt NOVA bij elke nieuwe versie of hij zich mag bijwerken (zodra hij verbonden is); bij "ja" doet hij het meteen.
             Windows kan waarschuwen ("Windows heeft uw pc beschermd") omdat de exe niet ondertekend is: kies "Meer info" → "Toch uitvoeren".

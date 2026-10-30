@@ -22,9 +22,20 @@ bedienen, ook vanaf je iPhone, zolang NOVA draait.
 
 ## Gebruiken
 - **Zelfde interface als ECO:** reactor, LOKALE TIJD, SYSTEEMSTATUS (brein, ECO, NOVA-model, Ollama, spraak, stem), BEDIENING
-  (brein ECO/NOVA, stem, ECO-sleutel, naam, NOVA-model, MODEL DOWNLOADEN), TRANSCRIPT en PC-ACTIES (wat NOVA op je laptop deed, met
+  (alleen **BREIN: ECO | NOVA** en **⚙ INSTELLINGEN**), TRANSCRIPT en PC-ACTIES (wat NOVA op je laptop deed, met
   gedaan / niet gecontroleerd / mislukt). Het venster gebruikt ECO's eigen opmaak via de browsermotor van Windows (WebView2).
   Lukt dat niet, dan opent NOVA een eenvoudig venster (`NOVA.exe --eenvoudig` doet dat ook).
+- **⚙ INSTELLINGEN** (in BEDIENING), zodat de HUD rustig blijft:
+  - **Geluid:** stem aan/uit, volume, TEST DE STEM.
+  - **Beeld:** elk paneel (klok, systeemstatus, transcript, PC-acties, ondertitel, visualisatie) en elke regel van SYSTEEMSTATUS
+    aan/uit; **MAGNETISCH** aan/uit en **STANDAARDINDELING**.
+  - **AI-volgorde:** 1e/2e/3e keus voor het antwoord (ECO of NOVA), de modellen binnen ECO (Groq, Gemini, Claude), de stem
+    (Gemini, Piper, Windows) en de spraakherkenning (Whisper, Vosk). Lukt de eerste niet, dan neemt de volgende het over.
+    Plus het NOVA-model en MODEL DOWNLOADEN.
+  - **Verbinding:** ECO-sleutel en de naam van de laptop.
+- **Indeling naar wens:** sleep elk blok aan de kop naar een andere plek en aan de hoek rechtsonder om het groter of kleiner te
+  maken. Met MAGNETISCH klikt het vast aan andere blokken en aan de rand (een cyaan hulplijn laat zien waar; Alt ingedrukt = vrij).
+  NOVA onthoudt de indeling en schaalt mee als je het venster groter of kleiner maakt.
 - **Typen** onderin en Enter, of **🎙** (of Ctrl+Spatie) en praten; NOVA stopt vanzelf met luisteren als je stil bent.
 - **Bovenin** zie je welk brein antwoordt: ● VERBONDEN MET ECO of ● VERBONDEN MET NOVA (groen = jouw keuze, oranje = het andere
   brein nam het over). Met NOVA als brein verstaat NOVA je online nog steeds met Whisper (via ECO), anders met Vosk.
@@ -56,6 +67,7 @@ bedienen, ook vanaf je iPhone, zolang NOVA draait.
 - **"Ollama draait niet":** start Ollama (staat na installatie rechtsonder bij de klok) en kies opnieuw MODEL DOWNLOADEN.
 
 ## Voor ontwikkelaars
+Het app-icoon (de reactor) maakt de bouwstraat met `nova/maak_icoon.py`.
 Code: `nova/` (`nova.py` venster, `nova_core.py` ECO-verbinding/brug/lokaal brein, `nova_pc.py` pc-acties, `nova_doc.py` documenten
 lezen/maken (pypdf, python-docx, openpyxl, python-pptx, fpdf2), `nova_stem.py` stem:
 opnemen, Vosk, ECO's stem als stroom (`{ tts, stream: true }` → `audio/l16`, 24 kHz), Piper `nl_BE-nathalie-medium` in `%APPDATA%\NOVA\stem`).

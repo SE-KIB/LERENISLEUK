@@ -26,39 +26,34 @@
     </header>
 
     <aside class="col left">
-      <div class="panel">
+      <div class="panel" data-win="tijd">
         <div class="panel-h"><span>LOKALE TIJD</span><i>CET</i></div>
         <div id="clock" class="clock">00:00<small>:00</small></div>
         <div id="date" class="date"></div>
       </div>
-      <div class="panel">
+      <div class="panel" data-win="status">
         <div class="panel-h"><span>SYSTEEMSTATUS</span><i id="uptime">00:00:00</i></div>
         <ul class="stats">
-          <li><span>BREIN</span><b id="stBrein">—</b></li>
-          <li><span>ECO</span><b id="stEco">—</b></li>
-          <li><span>NOVA-MODEL</span><b id="stModel">—</b></li>
-          <li><span>OLLAMA</span><b id="stOllama">—</b></li>
-          <li><span>SPRAAK</span><b id="stSpraak">—</b></li>
-          <li title="Welke stem NOVA gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
-          <li><span>LAPTOP</span><b id="stNaam">—</b></li>
+          <li data-rij="brein"><span>BREIN</span><b id="stBrein">—</b></li>
+          <li data-rij="eco"><span>ECO</span><b id="stEco">—</b></li>
+          <li data-rij="model"><span>NOVA-MODEL</span><b id="stModel">—</b></li>
+          <li data-rij="ollama"><span>OLLAMA</span><b id="stOllama">—</b></li>
+          <li data-rij="spraak"><span>SPRAAK</span><b id="stSpraak">—</b></li>
+          <li data-rij="stem" title="Welke stem NOVA gebruikt; wijs aan voor de reden als hij terugviel"><span>STEM</span><b id="stStem">—</b></li>
+          <li data-rij="laptop"><span>LAPTOP</span><b id="stNaam">—</b></li>
         </ul>
-        <div class="meter-row"><span>ACTIVITEIT</span><b id="meterPct">0%</b></div>
-        <div class="meter"><span id="meterFill"></span></div>
+        <div data-rij="activiteit">
+          <div class="meter-row"><span>ACTIVITEIT</span><b id="meterPct">0%</b></div>
+          <div class="meter"><span id="meterFill"></span></div>
+        </div>
       </div>
-      <div class="panel nova-set">
+      <div class="panel nova-set" data-win="bediening">
         <div class="panel-h"><span>BEDIENING</span></div>
         <div class="nova-brein" role="group" aria-label="Brein"><span>BREIN</span>
           <button type="button" class="chip" data-brein="eco" title="ECO's brein in de cloud (Groq/Gemini), met je geheugen en agenda">ECO</button>
           <button type="button" class="chip" data-brein="nova" title="NOVA's eigen brein op deze laptop (Ollama), werkt ook zonder internet">NOVA</button>
         </div>
-        <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>STEM</span></label>
-        <label class="field"><span>ECO-SLEUTEL (JARVIS_KEY)</span><input id="sleutel" type="password" autocomplete="off" spellcheck="false" placeholder="geheime tekst"></label>
-        <label class="field"><span>NAAM VAN DEZE LAPTOP</span><input id="naam" autocomplete="off" spellcheck="false"></label>
-        <label class="field"><span>NOVA-MODEL (OLLAMA)</span><select id="model"></select></label>
-        <div class="nova-knoppen">
-          <button type="button" id="opslaan" class="chip">OPSLAAN</button>
-          <button type="button" id="download" class="chip">MODEL DOWNLOADEN</button>
-        </div>
+        <button type="button" id="openInst" class="chip nova-inst-knop" title="Geluid, beeld, AI-volgorde, indeling en verbinding">⚙ INSTELLINGEN</button>
         <p id="setMsg" class="login-msg push-msg"></p>
       </div>
     </aside>
@@ -69,7 +64,7 @@
         <button type="button" id="updateJa" class="chip">NU BIJWERKEN</button>
         <button type="button" id="updateLater" class="chip">LATER</button>
       </div>
-      <div class="core">
+      <div class="core" data-win="kern" data-title="KERN">
         <div class="reactor-wrap main-reactor">
           <canvas id="viz" aria-hidden="true"></canvas>
           <div class="reactor" data-reactor></div>
@@ -77,7 +72,7 @@
         </div>
         <div id="caption" class="caption" aria-live="polite"></div>
       </div>
-      <form id="chatForm" class="cmd">
+      <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
         <button type="button" id="mic" class="mic" title="Praat met NOVA (Ctrl+Spatie)" aria-label="Spreek">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
         </button>
@@ -88,16 +83,66 @@
     </main>
 
     <aside class="col right">
-      <div class="panel grow">
+      <div class="panel grow" data-win="transcript">
         <div class="panel-h"><span>TRANSCRIPT</span><i id="brein">—</i></div>
         <div id="messages" class="log"></div>
       </div>
-      <div class="panel nova-pc">
+      <div class="panel nova-pc" data-win="pc">
         <div class="panel-h"><span>PC-ACTIES</span><i id="pcCount">0</i></div>
         <ul id="pcList" class="mem-list"><li class="empty">Nog niets. Vraag bv. "open Spotify" of "zet het volume op 30".</li></ul>
       </div>
     </aside>
   </section>
+  <div id="snapX" class="snap-lijn x" hidden></div>
+  <div id="snapY" class="snap-lijn y" hidden></div>
+
+  <!-- Instellingen: alles wat de HUD rustig houdt (geluid, beeld, AI-volgorde, verbinding) -->
+  <div id="instellingen" class="nova-modal" role="dialog" aria-modal="true" aria-labelledby="instTitel" hidden>
+    <div class="nova-modal-doos panel">
+      <div class="panel-h"><span id="instTitel">INSTELLINGEN</span><button type="button" id="sluitInst" class="chip" aria-label="Sluiten">✕</button></div>
+      <nav class="nova-tabs" role="tablist">
+        <button type="button" role="tab" data-tab="geluid" class="chip on">GELUID</button>
+        <button type="button" role="tab" data-tab="beeld" class="chip">BEELD</button>
+        <button type="button" role="tab" data-tab="ai" class="chip">AI-VOLGORDE</button>
+        <button type="button" role="tab" data-tab="algemeen" class="chip">VERBINDING</button>
+      </nav>
+      <section data-blad="geluid">
+        <label class="switch"><input type="checkbox" id="stem" checked><i></i><span>NOVA PRAAT HARDOP</span></label>
+        <label class="field"><span>VOLUME VAN DE STEM <b id="volWaarde">100%</b></span><input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
+        <button type="button" id="testStem" class="chip">▶ TEST DE STEM</button>
+      </section>
+      <section data-blad="beeld" hidden>
+        <h4>PANELEN</h4>
+        <div id="kiesPanelen" class="nova-vinkjes"></div>
+        <h4>SYSTEEMSTATUS: WELKE REGELS</h4>
+        <div id="kiesRijen" class="nova-vinkjes"></div>
+        <h4>INDELING</h4>
+        <p class="nova-uitleg">Sleep een blok aan de kop om het te verplaatsen en aan de hoek rechtsonder om het te vergroten of te verkleinen.
+          Met MAGNETISCH klikt het vast aan andere blokken en aan de rand.</p>
+        <label class="switch"><input type="checkbox" id="magneet" checked><i></i><span>MAGNETISCH</span></label>
+        <button type="button" id="standaardIndeling" class="chip">STANDAARDINDELING</button>
+      </section>
+      <section data-blad="ai" hidden>
+        <p class="nova-uitleg">Bovenaan = eerste keus. Lukt die niet, dan neemt de volgende het over.</p>
+        <div class="nova-volgordes">
+          <div><h4>ANTWOORD (BREIN)</h4><ol class="nova-volgorde" data-volgorde="brein"></ol></div>
+          <div><h4>MODELLEN BINNEN ECO</h4><ol class="nova-volgorde" data-volgorde="eco"></ol>
+            <p class="nova-uitleg">Denkwerk en foto's gaan altijd eerst naar Gemini met denktijd. Claude alleen als die sleutel in ECO staat.</p></div>
+          <div><h4>STEM</h4><ol class="nova-volgorde" data-volgorde="stem"></ol></div>
+          <div><h4>SPRAAKHERKENNING</h4><ol class="nova-volgorde" data-volgorde="spraak"></ol></div>
+        </div>
+        <label class="field"><span>NOVA-MODEL (OLLAMA)</span><select id="model"></select></label>
+        <button type="button" id="download" class="chip">MODEL DOWNLOADEN</button>
+      </section>
+      <section data-blad="algemeen" hidden>
+        <label class="field"><span>ECO-SLEUTEL (JARVIS_KEY)</span><input id="sleutel" type="password" autocomplete="off" spellcheck="false" placeholder="geheime tekst"></label>
+        <label class="field"><span>NAAM VAN DEZE LAPTOP</span><input id="naam" autocomplete="off" spellcheck="false"></label>
+        <button type="button" id="opslaan" class="chip">OPSLAAN</button>
+        <p class="nova-uitleg" id="instVersie"></p>
+      </section>
+      <p id="instMsg" class="login-msg push-msg"></p>
+    </div>
+  </div>
   <script src="nova.js"></script>
 </body>
 </html>
