@@ -160,6 +160,13 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 | 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
 
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
+- **Stand 30 okt avond:** `GITHUB_DISPATCH_TOKEN` staat erin (Serkan); check 31 okt 05:45 of de robot om 05:30 startte.
+  PR #140 (modelnamen GROQ/GEMINI, versleepbare lipjes) wachtte nog op CI. Snelle nalooplijst voortaan: `/vergeten`.
+- **Gekozen door Serkan (30 okt): 3 en 4.** (3) Dagrapport uit Gmail: Serkan zet `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`
+  (Google-account → Beveiliging → Tweestapsverificatie aan → App-wachtwoorden → "ECO") in Supabase-secrets; privacy: mail
+  gaat dan via de gratis Groq/Gemini. (4) Mistral: console.mistral.ai → plan Experiment → API Keys → Create → Supabase-secret
+  `MISTRAL_API_KEY` (gratis plan traint op gesprekken). Code is er al; daarna controleren met "welk model gebruik je?".
+- **Ideeën (Serkan mag kiezen):** avondoverzicht (21:00 melding met morgen + open taken), studieplanner (leerschema naar toetsen/deadlines).
 - **Eigen sleutel voor de laptop (`NOVA_KEY`)** — Serkan: "oké, dat doen we zo" (30 okt). Bouwen: nova-acties (wacht/klaar/
   geheugen) en de pc-tool via Live alleen met `NOVA_KEY` zodra die bestaat; zonder `NOVA_KEY` blijft JARVIS_KEY werken (niets
   stuk). Laptop: veld bij ⚙ Instellingen → Verbinding. Serkan: lange geheime tekst in Supabase-secret `NOVA_KEY` + in de app.
@@ -171,6 +178,34 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` (dagrapport), Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen.
 - **Serkan testen** (zie "Later"): klappen op de laptop en de site, werkmodus, tv, Live praten, NOVA-stem.
 - **Beslissen:** muis-klikken (punt 15), `website-monitor.yml` weg (B6), welke ideeën (studieplanner, avondoverzicht).
+
+## Vervolg na chat 30 okt (klappen, werkmodus, MAXCODE, beveiliging)
+**Jij (Serkan) instellen**
+- Dagrapport (keuze 3): `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` in Supabase-secrets (stappen in "Nog open").
+- Mistral (keuze 4): `MISTRAL_API_KEY` in Supabase-secrets.
+- Laptop-app herstarten → "ja" bij bijwerken (klappen, werkmodus, modelnamen).
+- `NOVA_KEY` (eigen laptopsleutel): zodra de laptop er is; dan eerst bouwen (zeg "doe de laptopsleutel").
+- Eerder al: widget opnieuw in Scriptable, opdracht "ECO TV" op de iPhone, Brightspace-agendalink in `AGENDA_FEEDS`.
+**Jij testen**
+- 2× klappen (site + laptop, ook met muziek aan), werkmodus ("zoek de openingstijden van de AH"; laptop: "open Spotify" →
+  schermplaatje), Live: sneller? kapt hij je af bij nadenken? (dan `LIVE_STILTE_MS` 800), sarcasme goed zo (2 op 3)?
+- Na #139: is "STORING: SERVER · Geen toegang" bij het opstarten weg? Na #140: lipjes slepen, alleen GROQ/GEMINI in beeld.
+**Jij beslissen / antwoorden**
+- Muis-klikken door ECO (nu niet); `website-monitor.yml` weg (B6)?; merk van de lampen; avondoverzicht of studieplanner?
+- Melding als Groq's quotum op is (aangeboden, geen antwoord). Meerdere Groq-accounts: afgewezen (tegen de regels).
+- Nooit gevraagd (`/controle` C): start "speel mijn liked songs" vanzelf? vraagt de beginscherm-app nog om de microfoon?
+  kwam de briefing om 07:30 en las ECO hem voor? wat zegt ECO op "hoe staat je klok ervoor"? onderbreken, foto's/pdf's,
+  archief zoeken, WhatsApp klaarzetten, timer met melding terwijl ECO dicht is.
+**Ik (AI) kan zo doen**
+- Check 31 okt 05:45: startte ECO's klok de Brightspace-robot om 05:30 (`GITHUB_DISPATCH_TOKEN` staat erin)? Gepland.
+- Open PR's #140 (modelnamen, versleepbare lipjes) en #141 (skills /vergeten, /nieuwe-chat) groen krijgen en mergen.
+- Tests uitbreiden (`/controle` B2): cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini, meer UI.
+- Restrisico beveiliging: DNS-rebinding bij web_lezen (fetch kan het IP niet vastzetten); eigen laptopsleutel (zie boven).
+- Ideeën zodra Serkan kiest: avondoverzicht (21:00), studieplanner.
+**Afspraken uit deze chat**
+- Starten met 2× klappen, niet "Hé ECO". Humor: sarcasme ~2 op 3 antwoorden, af en toe een goede grap, nooit robotgrappen.
+- Interface toont alleen de dienst (GROQ, GEMINI, MISTRAL, CLAUDE), niet het hele model. Alles altijd opslaan via een PR.
+- Startcommando nieuwe chat: "Lees OVERDRACHT.md (vooral 'Vervolg na chat 30 okt') en voer /vergeten uit."
 
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
