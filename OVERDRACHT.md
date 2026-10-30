@@ -199,7 +199,8 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 **Ik (AI) kan zo doen**
 - Check 31 okt 05:45: startte ECO's klok de Brightspace-robot om 05:30 (`GITHUB_DISPATCH_TOKEN` staat erin)? Gepland.
 - (Gedaan: #138–#141 gemerged; geen open PR's meer bij het sluiten van deze chat.)
-- Tests uitbreiden (`/controle` B2): cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini, meer UI.
+- Tests uitbreiden (`/controle` B2): ✅ 30 okt (2e chat) cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini
+  (tests/functie_test.ts, met kleine nep-database `nepDb`). Nog over: meer UI-tests (tests/website.test.mjs).
 - Restrisico beveiliging: DNS-rebinding bij web_lezen (fetch kan het IP niet vastzetten); eigen laptopsleutel (zie boven).
 - Ideeën zodra Serkan kiest: avondoverzicht (21:00), studieplanner.
 **Afspraken uit deze chat**
