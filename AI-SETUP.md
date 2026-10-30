@@ -342,6 +342,7 @@ eerdere gesprekken en vat het samen met de datum. In het menu staat bij ARCHIEF 
 ## Live-gesprek (realtime, zoals JARVIS) — gratis
 Staat **LIVE** aan (BEDIENING, standaard aan), dan praat je realtime met ECO via **Gemini 3.8 Live** (gratis laag): hij hoort je
 stem rechtstreeks en antwoordt binnen een halve seconde met echte intonatie, en je kunt hem altijd onderbreken.
+Hij antwoordt na 0,6 seconde stilte (secret `LIVE_STILTE_MS`; hoger als hij je afkapt terwijl je nadenkt, lager voor nog sneller).
 - **Starten:** ECO openen (beginscherm, "Hé Siri, start Eco" of "Hé Eco") of op de microfoon tikken. Op de iPhone is soms één tik
   nodig voordat geluid mag (regel van Apple); dan verschijnt de knop *TIK OM LIVE TE PRATEN*.
 - **Stoppen:** zeg "stop", "oké stop maar", "dat was het" of "bedankt", of tik op de groene microfoon. Na een minuut stilte hangt

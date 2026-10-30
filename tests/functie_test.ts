@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, systemPrompt };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -18,7 +18,8 @@ const kvTabel = () => {
   let sleutel = "";
   const q: any = { select: () => q, eq: (_k: string, v: string) => { sleutel = v; return q; }, maybeSingle: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }),
     single: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }),
-    upsert: async (rij: { key: string; value: unknown }) => { nepKv[rij.key] = rij.value; return {}; } };
+    upsert: async (rij: { key: string; value: unknown }) => { nepKv[rij.key] = rij.value; return {}; },
+    order: () => q, limit: () => q, gte: () => q, lt: () => q, in: () => q, then: (ok: (x: unknown) => void) => ok({ data: [] }) };
   return q;
 };
 (globalThis as any).__admin = {
@@ -156,6 +157,23 @@ Deno.test("Brightspace-robot: de klok start hem één keer per dag, alleen met t
     gelijk(verzoeken.length, 2, "niet gekoppeld: niets");
     nepKv.bs_state = koppeling;
   } finally { globalThis.fetch = echt; Deno.env.delete("GITHUB_DISPATCH_TOKEN"); }
+});
+
+Deno.test("Live: sneller starten en antwoorden (toegangscode tegelijk, einde van de zin eerder herkend)", async () => {
+  const echt = globalThis.fetch;
+  let tokenAt = 0;
+  globalThis.fetch = (async (url: string) => {
+    if (String(url).includes("auth_tokens")) { tokenAt = performance.now(); return new Response(JSON.stringify({ name: "tok" }), { status: 200 }); }
+    return new Response("{}", { status: 404 });
+  }) as typeof fetch;
+  try {
+    const t0 = performance.now();
+    const r = await m.liveStart((globalThis as any).__admin, "u1", {}, null);
+    gelijk([r.token, r.api], ["tok", "v1beta"]);
+    waar(tokenAt - t0 < 50, "de toegangscode wordt meteen gevraagd, niet pas na agenda en weer");
+    const vad = r.setup.realtimeInputConfig.automaticActivityDetection;
+    gelijk([vad.endOfSpeechSensitivity, vad.silenceDurationMs], ["END_SENSITIVITY_HIGH", 600]);
+  } finally { globalThis.fetch = echt; }
 });
 
 Deno.test("karakter: vaak droog sarcasme, af en toe een grap, nooit robotgrappen, niet bij slecht nieuws (ook in Live)", () => {

@@ -2388,9 +2388,26 @@ async function gesprekkenBeheren(input: any, actions: Actions) {
 // De echte GEMINI_API_KEY blijft hier; de browser krijgt een code die alleen voor Live werkt, één gesprek start en na 30 minuten verloopt.
 // Tools voert de browser uit via { live: "tool" } (dezelfde runTool als in de chat); elke beurt wordt opgeslagen met { live: "opslaan" }.
 const LIVE_MODEL = env("LIVE_MODEL", "gemini-3.8-live");
+// Tijdelijke toegangscode voor Gemini Live: v1beta volgens de documentatie, v1alpha als terugval.
+async function liveToken() {
+  const nu = Date.now(), body = JSON.stringify({ uses: 1, expireTime: new Date(nu + 30 * 60000).toISOString(), newSessionExpireTime: new Date(nu + 2 * 60000).toISOString() });
+  let fout = "";
+  for (const v of ["v1beta", "v1alpha"]) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/${v}/auth_tokens`, {
+      method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" }, body, signal: AbortSignal.timeout(8000),
+    }).catch((e) => { fout = String(e); return null; });
+    if (r?.ok) { const token = (await r.json()).name ?? ""; if (token) return { token, api: v }; }
+    else if (r) fout = geminiFout("live-token", r.status, await r.text());
+  }
+  throw Object.assign(new Error(`Live-toegang lukte niet: ${fout}`), { status: 502 });
+}
+// Na hoeveel stilte ECO in Live gaat antwoorden. Korter = sneller, maar te kort knipt hem af als Serkan even nadenkt.
+const LIVE_STILTE_MS = Math.max(300, Number(env("LIVE_STILTE_MS", "600")) || 600);
 async function liveStart(admin: any, userId: string, meta: Record<string, unknown>, sent: Loc | null) {
   const loc = sent ?? (meta.eco_loc as Loc | undefined) ?? null;
   const dag = localParts(Date.now()).datum;
+  const toegang = liveToken(); // tegelijk met het verzamelen hieronder: scheelt een rondje wachten bij het starten
+  toegang.catch(() => {}); // fout komt hieronder via await
   const [{ data: mem }, wx, agenda, rapport, lijstjes] = await Promise.all([
     admin.from("ai_memory").select("fact").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
     loc ? cached(`wx:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}`, 10 * 60000, 1500, () => weather(loc)) : null,
@@ -2400,17 +2417,7 @@ async function liveStart(admin: any, userId: string, meta: Record<string, unknow
   ]);
   const context = [wx ? wxLine(wx) : "Locatie en weer onbekend.", agenda, rapport, lijstjes].filter(Boolean).join("\n\n");
   const memory = (mem ?? []).map((m: any) => `- ${m.fact}`).join("\n");
-  // Tijdelijke toegangscode: v1beta volgens de documentatie, v1alpha als terugval.
-  const nu = Date.now(), body = JSON.stringify({ uses: 1, expireTime: new Date(nu + 30 * 60000).toISOString(), newSessionExpireTime: new Date(nu + 2 * 60000).toISOString() });
-  let token = "", api = "", fout = "";
-  for (const v of ["v1beta", "v1alpha"]) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/${v}/auth_tokens`, {
-      method: "POST", headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" }, body, signal: AbortSignal.timeout(8000),
-    }).catch((e) => { fout = String(e); return null; });
-    if (r?.ok) { token = (await r.json()).name ?? ""; api = v; if (token) break; }
-    else if (r) fout = geminiFout("live-token", r.status, await r.text());
-  }
-  if (!token) throw Object.assign(new Error(`Live-toegang lukte niet: ${fout}`), { status: 502 });
+  const { token, api } = await toegang;
   // Live-tools moeten NON_BLOCKING zijn: ECO praat door terwijl de tool loopt. Webzoeken doet Live zelf (Google Search).
   const tools = toolsFor("live").filter((t) => t.name !== "web_zoeken")
     .map((t) => ({ name: t.name, description: t.description, parameters: t.input_schema, behavior: "NON_BLOCKING" }));
@@ -2422,6 +2429,8 @@ async function liveStart(admin: any, userId: string, meta: Record<string, unknow
       systemInstruction: { parts: [{ text: systemPrompt(memory, context, true) }] },
       tools: [{ functionDeclarations: tools }, { googleSearch: {} }],
       inputAudioTranscription: {}, outputAudioTranscription: {},
+      // Sneller antwoorden: einde van zijn zin eerder herkennen (standaard wacht Gemini langer op stilte).
+      realtimeInputConfig: { automaticActivityDetection: { endOfSpeechSensitivity: "END_SENSITIVITY_HIGH", silenceDurationMs: LIVE_STILTE_MS } },
       sessionResumption: {}, contextWindowCompression: { slidingWindow: {} },
     },
   };
