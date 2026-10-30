@@ -24,8 +24,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Pakketten installeren
@@ -77,14 +77,14 @@ jobs:
           if (-not ($titels -match "Nice Operating Variant Agent")) { throw "geen NOVA-venster gevonden" }
       - name: Screenshot bewaren
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nova-venster
           path: nova-venster.png
           if-no-files-found: ignore
       - name: Als download klaarzetten
         if: github.event_name != 'pull_request'  # bij een PR alleen bouwen en testen
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: nova-${{ github.run_number }}
           name: NOVA (build ${{ github.run_number }})

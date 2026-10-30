@@ -30,10 +30,10 @@ jobs:
         run: |
           if [ -z "$JARVIS_KEY" ]; then echo "::warning::Repository-secret JARVIS_KEY ontbreekt; Brightspace niet bijgewerkt."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.check.outputs.ok == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.check.outputs.ok == 'true'
         with:
           node-version: 22
