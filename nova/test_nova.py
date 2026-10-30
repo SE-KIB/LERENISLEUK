@@ -199,6 +199,21 @@ class TestPc(unittest.TestCase):
         (d / "boodschappen.txt").write_text("x")
         self.assertEqual([p.name for p in pc.bestand_zoeken("verslag", [d])], ["verslag water.docx"])
 
+    def test_nooit_programmas_openen(self):  # een naam uit een mail mag nooit een .exe of snelkoppeling starten
+        d = Path(tempfile.mkdtemp())
+        (d / "factuur_2026.exe").write_text("x")
+        (d / "factuur_2026.lnk").write_text("x")
+        with mock.patch.object(pc, "zoekmappen", lambda: [d]):
+            uit = pc.bestand_openen("factuur")
+        self.assertEqual(uit["status"], "mislukt")
+        self.assertIn("open ik niet", uit["fout"])
+        (d / "factuur_2026.pdf").write_text("x")
+        with mock.patch.object(pc, "zoekmappen", lambda: [d]), mock.patch.object(pc, "WINDOWS", True), \
+                mock.patch.object(pc.os, "startfile", lambda p: geopend.append(p), create=True):
+            geopend = []
+            pc.bestand_openen("factuur")
+        self.assertEqual([Path(p).suffix for p in geopend], [".pdf"])
+
     def test_onbekende_actie(self):
         self.assertEqual(pc.maak_uitvoerder()("rm -rf", {})["status"], "mislukt")
 

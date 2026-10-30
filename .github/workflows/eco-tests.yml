@@ -42,7 +42,7 @@ jobs:
           node-version: 22
       - name: Playwright installeren (zelfde versie als de Brightspace-robot)
         run: |
-          npm install --no-save --no-package-lock --silent playwright@1.63.0
+          npm install --no-save --no-package-lock --silent playwright@1.63.0 marked@12.0.2 dompurify@3.1.6
           npx playwright install --with-deps chromium > /dev/null
       - name: Tests
         run: node tests/website.test.mjs
