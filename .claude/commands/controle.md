@@ -65,7 +65,12 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
    met test); nagelopen en in orde: `x-cron-key` (≥32 tekens, vaste tijd), Spotify-`state` (eenmalig, 10 min), push alleen naar
    echte push-hosts, RLS op ai_items/ai_timers/ai_contacts/ai_planning (ai_kv bewust zonder policies), de `pc`-brug (login of
    sleutel; alleen vaste acties), de `tv`-tool (adressen ge-encodeerd, alleen http(s)), prompt-injectie-regels in de systeemprompt.
-   Nog niet: een volledige tweede-AI-review van alle PR's sinds #87.) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
+   Volledige tweede-AI-review van #87..main gedaan op 30 okt (code-review high, 10 punten; PR #137): opgelost met tests:
+   laptop opent alleen documenten/media (nooit .exe/.lnk/.ps1), web_lezen-exfiltratie na mail/web/agenda (`webLezenMag`),
+   SSRF met punt aan het eind, offline-brein zet agenda/geheugen tussen <<< >>> als informatie, pc-opdrachten per rij
+   (`pc_cmd:<id>`, geen verloren opdrachten), `kvDel` (value is not null), geen plaatjes in antwoorden (DOMPurify),
+   Spotify-tokencache max 2 min, robotronde voor planning-screenshots. Open (beslissing Serkan): eigen sleutel voor de
+   laptop-brug i.p.v. de gedeelde JARVIS_KEY. Restrisico: DNS-rebinding (fetch kan het IP niet vastzetten).) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
    (skill `code-review`, niveau high), met beveiliging voorop:
    - Spotify-terugkeer zonder login (eenmalige `state`).
    - `x-cron-key`.

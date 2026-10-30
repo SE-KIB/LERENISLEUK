@@ -5,7 +5,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_uzfw5GWuAc7ys44q4DNHsw_r9mDstF9";
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/smooth-service`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
-const md = (t) => DOMPurify.sanitize(marked.parse(t));
+// Geen plaatjes in antwoorden: een plaatje laadt vanzelf en kan zo gegevens naar buiten sturen (![](https://…?data=…)).
+const md = (t) => DOMPurify.sanitize(marked.parse(t), { FORBID_TAGS: ["img", "picture", "source", "video", "audio", "iframe", "form", "input", "style"] });
 const plain = (t) => t.replace(/```[\s\S]*?```/g, "").replace(/[*_#`>]/g, "").replace(/\[(.*?)\]\(.*?\)/g, "$1").trim();
 const hhmmss = () => new Date().toLocaleTimeString("nl-NL", { hour12: false });
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;

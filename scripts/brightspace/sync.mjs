@@ -54,7 +54,8 @@ for (const p of pages) {
     // daarna elke screenshot apart (rode afwijkende tijden, opmaak). Elk stuk vervangt alleen de dagen die erin staan.
     const tekst = files.filter((f) => f.mime === "text/plain"), shots = files.filter((f) => f.mime !== "text/plain");
     let gelukt = 0;
-    const lees = (deel) => eco({ planning: { vak: p.vak, files: deel, weken: WEKEN } });
+    const ronde = crypto.randomUUID(); // binnen één ronde vullen screenshots van dezelfde dag elkaar aan in plaats van te wissen
+    const lees = (deel) => eco({ planning: { vak: p.vak, files: deel, weken: WEKEN, ronde } });
     const mislukt = [], stapFouten = [];
     for (const deel of [tekst, ...shots.map((f) => [f])].filter((d) => d.length)) await lees(deel).then(() => gelukt++, () => mislukt.push(deel));
     // Gemini is soms even druk (503) of traag: mislukte delen na een halve minuut nog één keer.
