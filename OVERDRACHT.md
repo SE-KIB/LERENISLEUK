@@ -179,6 +179,34 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Serkan testen** (zie "Later"): klappen op de laptop en de site, werkmodus, tv, Live praten, NOVA-stem.
 - **Beslissen:** muis-klikken (punt 15), `website-monitor.yml` weg (B6), welke ideeën (studieplanner, avondoverzicht).
 
+## Vervolg na chat 30 okt (klappen, werkmodus, MAXCODE, beveiliging)
+**Jij (Serkan) instellen**
+- Dagrapport (keuze 3): `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` in Supabase-secrets (stappen in "Nog open").
+- Mistral (keuze 4): `MISTRAL_API_KEY` in Supabase-secrets.
+- Laptop-app herstarten → "ja" bij bijwerken (klappen, werkmodus, modelnamen).
+- `NOVA_KEY` (eigen laptopsleutel): zodra de laptop er is; dan eerst bouwen (zeg "doe de laptopsleutel").
+- Eerder al: widget opnieuw in Scriptable, opdracht "ECO TV" op de iPhone, Brightspace-agendalink in `AGENDA_FEEDS`.
+**Jij testen**
+- 2× klappen (site + laptop, ook met muziek aan), werkmodus ("zoek de openingstijden van de AH"; laptop: "open Spotify" →
+  schermplaatje), Live: sneller? kapt hij je af bij nadenken? (dan `LIVE_STILTE_MS` 800), sarcasme goed zo (2 op 3)?
+- Na #139: is "STORING: SERVER · Geen toegang" bij het opstarten weg? Na #140: lipjes slepen, alleen GROQ/GEMINI in beeld.
+**Jij beslissen / antwoorden**
+- Muis-klikken door ECO (nu niet); `website-monitor.yml` weg (B6)?; merk van de lampen; avondoverzicht of studieplanner?
+- Melding als Groq's quotum op is (aangeboden, geen antwoord). Meerdere Groq-accounts: afgewezen (tegen de regels).
+- Nooit gevraagd (`/controle` C): start "speel mijn liked songs" vanzelf? vraagt de beginscherm-app nog om de microfoon?
+  kwam de briefing om 07:30 en las ECO hem voor? wat zegt ECO op "hoe staat je klok ervoor"? onderbreken, foto's/pdf's,
+  archief zoeken, WhatsApp klaarzetten, timer met melding terwijl ECO dicht is.
+**Ik (AI) kan zo doen**
+- Check 31 okt 05:45: startte ECO's klok de Brightspace-robot om 05:30 (`GITHUB_DISPATCH_TOKEN` staat erin)? Gepland.
+- Open PR's #140 (modelnamen, versleepbare lipjes) en #141 (skills /vergeten, /nieuwe-chat) groen krijgen en mergen.
+- Tests uitbreiden (`/controle` B2): cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini, meer UI.
+- Restrisico beveiliging: DNS-rebinding bij web_lezen (fetch kan het IP niet vastzetten); eigen laptopsleutel (zie boven).
+- Ideeën zodra Serkan kiest: avondoverzicht (21:00), studieplanner.
+**Afspraken uit deze chat**
+- Starten met 2× klappen, niet "Hé ECO". Humor: sarcasme ~2 op 3 antwoorden, af en toe een goede grap, nooit robotgrappen.
+- Interface toont alleen de dienst (GROQ, GEMINI, MISTRAL, CLAUDE), niet het hele model. Alles altijd opslaan via een PR.
+- Startcommando nieuwe chat: "Lees OVERDRACHT.md (vooral 'Vervolg na chat 30 okt') en voer /vergeten uit."
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met
