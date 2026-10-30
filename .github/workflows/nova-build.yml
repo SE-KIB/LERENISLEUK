@@ -93,5 +93,5 @@ jobs:
           files: nova/dist/NOVA.exe
           body: |
             NOVA: ECO op je Windows-laptop. Download NOVA.exe en start hem; uitleg in NOVA.md.
-            NOVA werkt zichzelf daarna automatisch bij (bij het starten en elke 6 uur).
+            Daarna vraagt NOVA bij elke nieuwe versie of hij zich mag bijwerken (zodra hij verbonden is); bij "ja" doet hij het meteen.
             Windows kan waarschuwen ("Windows heeft uw pc beschermd") omdat de exe niet ondertekend is: kies "Meer info" → "Toch uitvoeren".
