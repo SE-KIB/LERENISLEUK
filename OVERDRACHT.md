@@ -2,6 +2,9 @@
 
 Lees dit eerst. Site: sekibar.nl · repo SE-KIB/LERENISLEUK · `main` = live.
 
+**Controlelijst (rapport 30 okt):** typ `/controle` (bestand `.claude/commands/controle.md`) en loop hem af: vergeten
+punten, ongeteste functies en technische klussen (Brightspace-robot op tijd, tests + CI, controle door een tweede AI).
+
 ## Werkwijze en regels
 - Elke wijziging op een branch → PR naar `main` → zelf mergen. `deploy-function.yml` rolt de Supabase-functie
   (slug `smooth-service`) en migraties uit; `nova-build.yml` bouwt NOVA.exe op Windows (tests, zelftest, venster-proef)
