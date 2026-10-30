@@ -6,12 +6,27 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst };\n";
+  "\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, gelijkGeheim };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
-// Nep-database: deze tests raken de database niet; een onbekende gebruiker is niet ingelogd.
-(globalThis as any).__admin = { auth: { getUser: async () => ({ data: { user: null }, error: { message: "geen sessie" } }) } };
+// Nep-database: deze tests raken de database niet. Token "serkan" = ingelogd als het toegestane account, de rest niet.
+Deno.env.set("ALLOWED_EMAILS", "serkan@voorbeeld.nl");
+Deno.env.set("JARVIS_KEY", "robot-geheim");
+const nepKv: Record<string, unknown> = { bs_state: { cookies: [{ name: "d2lSessionVal", value: "geheim" }] }, bs_pages: [] };
+const kvTabel = () => {
+  let sleutel = "";
+  const q: any = { select: () => q, eq: (_k: string, v: string) => { sleutel = v; return q; }, maybeSingle: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }),
+    single: async () => ({ data: sleutel in nepKv ? { value: nepKv[sleutel] } : null }), upsert: async () => ({}) };
+  return q;
+};
+(globalThis as any).__admin = {
+  auth: {
+    getUser: async (t: string) => ({ data: { user: t === "serkan" ? { id: "u1", email: "serkan@voorbeeld.nl" } : null } }),
+    admin: { listUsers: async () => ({ data: { users: [{ id: "u1", email: "serkan@voorbeeld.nl" }] } }) },
+  },
+  from: () => kvTabel(),
+};
 const m = await import("file://" + tijdelijk);
 
 function gelijk(a: unknown, b: unknown, wat = "") {
@@ -90,4 +105,16 @@ Deno.test("handler: CORS-voorvraag en geen toegang zonder sleutel", async () => 
   waar(pre.headers.get("access-control-allow-origin"), "CORS-kop ontbreekt");
   const zonder = await h(new Request("https://x/ai-chat", { method: "POST", body: JSON.stringify({ message: "hoi" }), headers: { "content-type": "application/json" } }));
   waar(zonder.status === 401 || zonder.status === 403, "zonder login/sleutel geeft " + zonder.status);
+});
+
+Deno.test("robot-sleutel: alleen een kloppende sleutel geeft de Brightspace-sessie, ook niet met een login ernaast", async () => {
+  const h = (globalThis as any).__handler;
+  const vraag = (kop: Record<string, string>) => h(new Request("https://x/ai-chat", { method: "POST", body: JSON.stringify({ bs: "get" }), headers: { "content-type": "application/json", ...kop } }));
+  gelijk((await vraag({ authorization: "Bearer serkan", "x-jarvis-key": "fout" })).status, 403, "login + verkeerde sleutel");
+  gelijk((await vraag({ authorization: "Bearer serkan" })).status, 403, "alleen login");
+  gelijk((await vraag({ "x-jarvis-key": "fout" })).status, 401, "verkeerde sleutel");
+  const goed = await vraag({ "x-jarvis-key": "robot-geheim" });
+  gelijk(goed.status, 200, "goede sleutel");
+  gelijk(m.gelijkGeheim("abc", "abc"), true);
+  gelijk([m.gelijkGeheim("abc", "abd"), m.gelijkGeheim("abc", "abcd"), m.gelijkGeheim("", ""), m.gelijkGeheim("x", "")], [false, false, false, false]);
 });

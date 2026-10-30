@@ -156,7 +156,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
 - **Tests + CI (`/controle` B2):** begonnen (PR #133, `tests/`, workflow `eco-tests.yml` op elke PR); uitbreiden met de lijst in
   `/controle` B2 (Web Push, cronTick, lijst/timer/spotify/whatsapp, foto's, planningImport, meer UI).
-- **Beveiligingscontrole (`/controle` B3)** van alles sinds PR #87, met de punten uit de controlelijst.
+- **Beveiligingscontrole (`/controle` B3):** begonnen (PR #133: robot-sleutel-lek dicht, SSRF getest); de rest van de punten open.
 - **Serkan instellen:** `GITHUB_DISPATCH_TOKEN` (robot op tijd), optioneel `MISTRAL_API_KEY`, Google-koppeling of
   `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` (dagrapport), Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen.
 - **Serkan testen** (zie "Later"): klappen op de laptop en de site, werkmodus, tv, Live praten, NOVA-stem.

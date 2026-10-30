@@ -59,7 +59,9 @@ Beperk je tot deel $ARGUMENTS als dat is opgegeven; anders alles, in volgorde A 
      (nep-microfoon met `--use-file-for-fake-audio-capture`), Spotify-koppelknop en open-knop.
    - Voeg een workflow `eco-tests.yml` toe die op elke PR draait. Chromium en Playwright zijn in de cloudomgeving al
      geïnstalleerd; installeer ze in GitHub Actions zelf.
-3. **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
+3. 🟡 (30 okt, PR #133: robot-sleutel gerepareerd — een verkeerde `x-jarvis-key` naast een login telde als robot en gaf zo de
+   Brightspace-sessie; nu alleen een kloppende sleutel, vergeleken in vaste tijd, met test. `web_lezen`-SSRF getest. De rest van
+   de lijst hieronder staat nog open.) **Controle door een tweede AI** (Serkans MAXCODE-wens), alleen gedaan bij PR #86. Laat PR #87 tot nu nakijken
    (skill `code-review`, niveau high), met beveiliging voorop:
    - Spotify-terugkeer zonder login (eenmalige `state`).
    - `x-cron-key`.

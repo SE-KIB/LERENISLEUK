@@ -3041,6 +3041,14 @@ const pcmResponse = (body: BodyInit, rate = 24000, voice = "") =>
 
 // ---------- Toegang (met cache, scheelt een netwerkronde per verzoek) ----------
 const authCache = new Map<string, { userId: string; until: number }>();
+// Geheimen vergelijken in vaste tijd (geen tijdverschil per goed teken). Leeg geheim = nooit gelijk.
+function gelijkGeheim(a: string, b: string) {
+  if (!a || !b) return false;
+  const [x, y] = [new TextEncoder().encode(a), new TextEncoder().encode(b)];
+  let verschil = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) verschil |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return verschil === 0;
+}
 async function authUser(admin: any, token: string): Promise<{ userId?: string; reason?: string }> {
   const hit = authCache.get(token);
   if (hit && hit.until > Date.now()) return { userId: hit.userId };
@@ -3336,7 +3344,8 @@ Deno.serve(async (req) => {
   // Wie vraagt er? Toegestaan: e-mail uit ALLOWED_EMAILS, of het account met id JARVIS_USER_ID.
   let userId: string | null = null, reason = "";
   const key = req.headers.get("x-jarvis-key");
-  if (key && env("JARVIS_KEY") && key === env("JARVIS_KEY")) {
+  const sleutelKlopt = !!key && gelijkGeheim(key, env("JARVIS_KEY"));
+  if (sleutelKlopt) {
     userId = await keyUserId(admin) || null;
     if (!userId) reason = "JARVIS_USER_ID ontbreekt in de secrets";
   } else {
@@ -3344,7 +3353,7 @@ Deno.serve(async (req) => {
     userId = a.userId ?? null; reason = a.reason ?? "";
   }
   if (!userId) return json({ error: "Geen toegang: " + reason }, 401);
-  const viaKey = !!key;
+  const viaKey = sleutelKlopt; // alleen een kloppende sleutel telt als robot/Siri, niet een willekeurige kop naast een login
   const fail = (e: unknown) => json({ error: String((e as Error)?.message ?? e) }, (e as any)?.status ?? 500);
 
   // Spraak: audio (multipart, veld "file"). Met veld "chat" meteen doorpraten (één verzoek, gestreamd).
