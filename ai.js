@@ -237,6 +237,7 @@ function showCheck(items) {
   document.querySelector("#sysTop .dot").className = `dot${kapot.length ? " bad" : ""}`;
   $("sysList").innerHTML = "";
   for (const x of items) {
+    if (x.id === "netwerk") continue; // staat al bovenaan in SYSTEEMSTATUS
     const li = document.createElement("li"), s = document.createElement("span"), b = document.createElement("b");
     s.textContent = x.naam.toUpperCase();
     b.textContent = x.ok === true ? x.tekst || "OK" : `${stTxt(x)}${x.tekst ? " · " + x.tekst : ""}`;
@@ -2467,13 +2468,15 @@ const LAB_PRESETS = {
   nl: "A calm, refined male AI assistant in his forties, native Dutch speaker. Polite, highly intelligent and subtly dry-humoured. Smooth, warm baritone with crisp, precise articulation and an unhurried pace. A faint polished, digital quality, like a sophisticated computer butler. Studio quality, close microphone.",
 };
 const LAB_TEXT = "Goedenavond, Serkan. Alle systemen zijn operationeel. Je hebt morgen om tien uur een afspraak bij de tandarts. Zal ik de route alvast klaarzetten?";
-async function callFn(payload) {
+async function callFn(payload, opnieuw = true) {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
     body: JSON.stringify(payload),
   });
+  // Bij het opstarten kan de bewaarde inlogcode net verlopen zijn (de browser vernieuwt hem pas iets later): één keer vernieuwen en opnieuw.
+  if (res.status === 401 && opnieuw && (await sb.auth.refreshSession().catch(() => ({}))).data?.session) return callFn(payload, false);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Fout ${res.status}`);
   return data;
