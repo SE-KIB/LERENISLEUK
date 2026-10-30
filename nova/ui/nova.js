@@ -94,7 +94,79 @@ klok(); setInterval(klok, 1000);
 
 // ---------- Toestand, ondertitel en transcript ----------
 const LABEL = { idle: "STAND-BY", listening: "LUISTEREN", thinking: "VERWERKEN", speaking: "SPREKEN", error: "STORING" };
-function setState(s) { document.body.dataset.state = s; $("stateLabel").textContent = LABEL[s] || s.toUpperCase(); }
+function setState(s) {
+  document.body.dataset.state = s; $("stateLabel").textContent = LABEL[s] || s.toUpperCase();
+  if (s === "idle") werk?.rust(); // werkmodus: na het antwoord schuift de reactor terug
+}
+
+// ---------- Werkmodus: zien wat ECO doet (zoals op de website) ----------
+// Gebruikt ECO een tool, dan schuift de reactor naar rechtsonder en komt elke stap live in beeld: wat, waarmee, wat eruit kwam.
+// Laptop-acties krijgen er een klein plaatje van het scherm bij, zodat je ziet wat er gebeurde.
+const WERK = {
+  web_zoeken: ["🔎", "Op internet zoeken"], web_lezen: ["📄", "Pagina lezen"], agenda_bekijken: ["📅", "Agenda bekijken"],
+  afspraak_maken: ["📅", "Afspraak inplannen"], pc: ["💻", "Laptop bedienen"], spotify: ["🎵", "Spotify"], tv: ["📺", "Tv bedienen"],
+  weer: ["🌦", "Weer ophalen"], mail_zoeken: ["✉", "Mail doorzoeken"], mail_lezen: ["✉", "Mail lezen"], nadenken: ["🧠", "Nadenken"],
+  diep_nadenken: ["🧠", "Diep nadenken"], onthouden: ["💾", "Onthouden"], route_plannen: ["🧭", "Route plannen"], rekenen: ["🧮", "Rekenen"],
+  lijst: ["📝", "Lijstje bijwerken"], timer: ["⏱", "Timer zetten"], archief_zoeken: ["🗂", "Archief doorzoeken"],
+};
+function flip(verander) {
+  const el = document.querySelector(".main-reactor"), voor = el?.getBoundingClientRect();
+  verander();
+  if (!el || !voor?.width || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const na = el.getBoundingClientRect();
+  if (!na.width) return;
+  el.animate([{ transformOrigin: "0 0", transform: `translate(${voor.left - na.left}px,${voor.top - na.top}px) scale(${voor.width / na.width})` },
+    { transformOrigin: "0 0", transform: "none" }], { duration: 480, easing: "cubic-bezier(.2,.8,.2,1)" });
+}
+var werk = {
+  kaarten: new Map(), timer: 0, vers: true,
+  open: () => document.body.dataset.werk === "on",
+  start(ev) {
+    if (inst.werkmodus === false) return;
+    clearTimeout(this.timer);
+    if (this.vers) { $("werkLijst").textContent = ""; this.kaarten.clear(); this.vers = false; }
+    if (!this.open()) flip(() => { document.body.dataset.werk = "on"; $("werk").hidden = false; });
+    const [icoon, label] = WERK[ev.name] || ["⚙", String(ev.name || "Bezig").replace(/_/g, " ")];
+    const li = document.createElement("li");
+    li.className = "werk-stap bezig";
+    li.innerHTML = "<i></i><div><b></b><span></span><em></em></div><time></time>";
+    li.querySelector("i").textContent = icoon;
+    li.querySelector("b").textContent = label;
+    li.querySelector("span").textContent = ev.info || "";
+    $("werkLijst").append(li);
+    this.kaarten.set(ev.id, { li, t: performance.now() });
+    $("werkLijst").scrollTop = $("werkLijst").scrollHeight;
+  },
+  klaar(ev) {
+    const k = this.kaarten.get(ev.id);
+    if (!k || !k.li.classList.contains("bezig")) return;
+    const { li } = k, em = li.querySelector("em");
+    li.classList.remove("bezig"); li.classList.add(ev.ok === false ? "mis" : "ok");
+    li.querySelector("time").textContent = `${((ev.ms ?? performance.now() - k.t) / 1000).toFixed(1)} s`;
+    em.textContent = ev.uit || "";
+    if (ev.url && /^https?:\/\//.test(ev.url)) {
+      const a = document.createElement("span");
+      try { a.textContent = " · " + new URL(ev.url).hostname.replace(/^www\./, ""); } catch { /* geen geldig adres */ }
+      em.append(a);
+    }
+    if (ev.bronnen?.length) {
+      const ul = document.createElement("ul");
+      for (const b of ev.bronnen) ul.appendChild(document.createElement("li")).textContent = b;
+      li.querySelector("div").append(ul);
+    }
+    if (ev.voorbeeld) li.querySelector("div").appendChild(document.createElement("q")).textContent = ev.voorbeeld;
+  },
+  beeld(ev) { // een klein plaatje van het scherm na een laptop-actie
+    const k = this.kaarten.get(ev.id);
+    if (!k || !/^[A-Za-z0-9+/=]+$/.test(ev.beeld || "")) return;
+    const img = document.createElement("img");
+    img.className = "werk-beeld"; img.alt = "Zo zag je scherm eruit na deze stap"; img.src = "data:image/jpeg;base64," + ev.beeld;
+    k.li.querySelector("div").append(img);
+  },
+  klaarAlles() { for (const id of this.kaarten.keys()) this.klaar({ id, ok: true }); },
+  rust() { if (this.open()) { this.klaarAlles(); this.vers = true; clearTimeout(this.timer); this.timer = setTimeout(() => this.sluit(), 9000); } },
+  sluit() { clearTimeout(this.timer); if (this.open()) flip(() => { document.body.dataset.werk = "off"; $("werk").hidden = true; }); },
+};
 function caption(tekst, cls = "") { const el = $("caption"); el.className = "caption " + cls; el.textContent = tekst; }
 const tijd = () => new Date().toLocaleTimeString("nl-NL", { hour12: false });
 function entry(rol, tekst, wanneer) {
@@ -152,7 +224,7 @@ function zetStatus(s) {
 window.nova = {
   ev(e) {
     if (e.t === "jij") { entry("user", e.tekst); caption("› " + e.tekst, "user"); }
-    else if (e.t === "nova_start") { huidig = entry("assistant", ""); }
+    else if (e.t === "nova_start") { huidig = entry("assistant", ""); werk.klaarAlles(); }
     else if (e.t === "delta") { if (!huidig) huidig = entry("assistant", ""); huidig.textContent += e.tekst; caption(huidig.textContent); $("messages").scrollTop = $("messages").scrollHeight; }
     else if (e.t === "nova_eind") { if (huidig && e.tekst && !huidig.textContent) huidig.textContent = e.tekst; huidig = null; }
     else if (e.t === "sys") { entry("sys", e.tekst); }
@@ -167,6 +239,7 @@ window.nova = {
       for (const r of e.transcript || []) entry(r.rol, r.tekst, r.tijd);
       if ((e.transcript || []).length) entry("sys", "— vorige sessie —");
     }
+    else if (e.t === "werk") { if (e.soort === "tool") werk.start(e); else if (e.soort === "tool_klaar") werk.klaar(e); else if (e.soort === "tool_beeld") werk.beeld(e); }
     else if (e.t === "inst") { inst = { ...inst, ...e.inst }; if (!$("instellingen").hidden) vulInstellingen(); }
     else if (e.t === "update") { // een nieuwe versie: vragen, en tijdens het bijwerken de voortgang tonen
       $("updateBalk").hidden = !e.tag;
@@ -198,7 +271,7 @@ document.querySelectorAll("[data-brein]").forEach((b) => { b.onclick = () => api
 
 // ---------- Instellingen (geluid, beeld, AI-volgorde, verbinding) ----------
 // inst = wat Python bewaart in config.json; elke wijziging gaat meteen terug via api().instellingen({...}).
-let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true, klappen: true };
+let inst = { volume: 100, stem: true, beeld: { verberg: [] }, volgorde: {}, indeling: {}, magneet: true, klappen: true, werkmodus: true };
 const bewaar = (patch) => { Object.assign(inst, patch); if (api()) api().instellingen(patch); };
 const PANELEN = { tijd: "LOKALE TIJD", status: "SYSTEEMSTATUS", transcript: "TRANSCRIPT", pc: "PC-ACTIES", ondertitel: "ONDERTITEL", visualisatie: "VISUALISATIE" };
 const RIJEN = { brein: "BREIN", eco: "ECO", model: "N.O.V.A.-MODEL", ollama: "OLLAMA", spraak: "SPRAAK", klappen: "2× KLAPPEN", stem: "STEM", laptop: "LAPTOP", activiteit: "ACTIVITEIT" };
@@ -255,6 +328,7 @@ function vulInstellingen() {
   $("volume").value = inst.volume ?? 100; $("volWaarde").textContent = `${$("volume").value}%`;
   $("magneet").checked = inst.magneet !== false;
   $("klappen").checked = inst.klappen !== false;
+  $("werkmodus").checked = inst.werkmodus !== false;
   vinkjes($("kiesPanelen"), PANELEN);
   vinkjes($("kiesRijen"), RIJEN);
   document.querySelectorAll("[data-volgorde]").forEach(volgordeLijst);
@@ -276,6 +350,8 @@ $("volume").onchange = () => bewaar({ volume: +$("volume").value });
 $("testStem").onclick = () => api() && api().test_stem();
 $("magneet").onchange = () => bewaar({ magneet: $("magneet").checked });
 $("klappen").onchange = () => bewaar({ klappen: $("klappen").checked });
+$("werkmodus").onchange = () => { bewaar({ werkmodus: $("werkmodus").checked }); if (!$("werkmodus").checked) werk.sluit(); };
+$("werkSluit").onclick = () => werk.sluit();
 $("standaardIndeling").onclick = () => { bewaar({ indeling: {} }); resetLayout(); };
 $("wisTranscript").onclick = () => {
   if (api()) api().wis_transcript();

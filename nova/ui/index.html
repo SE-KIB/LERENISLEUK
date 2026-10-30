@@ -71,6 +71,10 @@
           <div class="reactor" data-reactor></div>
           <div class="reactor-label"><b>E.C.O.</b><span id="stateLabel">STAND-BY</span></div>
         </div>
+        <section id="werk" class="werk" hidden aria-live="polite" aria-label="Waar ECO mee bezig is">
+          <header class="werk-kop"><span>ECO WERKT · LIVE</span><button type="button" id="werkSluit" class="werk-x" title="Sluiten">✕</button></header>
+          <ol id="werkLijst" class="werk-lijst"></ol>
+        </section>
         <div id="caption" class="caption" aria-live="polite"></div>
       </div>
       <form id="chatForm" class="cmd" data-win="cmd" data-title="OPDRACHT">
@@ -124,6 +128,10 @@
         <p class="nova-uitleg">Sleep een blok aan de kop om het te verplaatsen en aan de hoek rechtsonder om het te vergroten of te verkleinen.
           Met MAGNETISCH klikt het vast aan andere blokken en aan de rand.</p>
         <label class="switch"><input type="checkbox" id="magneet" checked><i></i><span>MAGNETISCH</span></label>
+        <h4>WERKMODUS</h4>
+        <p class="nova-uitleg">Gebruikt ECO een tool (zoeken, een pagina lezen, je agenda, de laptop bedienen), dan schuift de reactor naar
+          rechtsonder en zie je live elke stap, met een klein plaatje van je scherm na elke laptop-actie. Blijft op deze laptop.</p>
+        <label class="switch"><input type="checkbox" id="werkmodus" checked><i></i><span>WERKMODUS</span></label>
         <button type="button" id="standaardIndeling" class="chip">STANDAARDINDELING</button>
         <h4>GESCHIEDENIS</h4>
         <p class="nova-uitleg">ECO onthoudt het transcript, de PC-acties, het gesprek (12 uur) en de plek van het venster, ook als je hem uit en aan zet.</p>

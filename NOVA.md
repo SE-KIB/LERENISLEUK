@@ -44,6 +44,9 @@ bovendien bedienen zolang de laptop-app draait.
 - **2× klappen** = hetzelfde als 🎙: klap twee keer kort achter elkaar en ECO luistert. Wordt op de laptop zelf herkend (het geluid
   gaat nergens heen); één klap, applaus, praten en muziek tellen niet. Aan/uit bij Instellingen → GELUID, of zeg "zet klappen uit".
   SYSTEEMSTATUS → 2× KLAPPEN laat zien of het werkt (GEEN MICROFOON = geen microfoon gevonden).
+- **Werkmodus:** gebruikt ECO een tool, dan schuift de reactor naar rechtsonder en zie je live elke stap (zoekvraag, bronnen,
+  pagina, laptop-actie) met na elke laptop-actie een klein plaatje van je scherm (blijft op de laptop). Ook als ECO de laptop
+  vanaf je iPhone bedient. Aan/uit bij Instellingen → BEELD → WERKMODUS.
 - **Bovenin** zie je welk brein antwoordt: ● VERBONDEN MET ECO of ● VERBONDEN MET NOVA (groen = jouw keuze, oranje = het andere
   brein nam het over). Met NOVA als brein verstaat NOVA je online nog steeds met Whisper (via ECO), anders met Vosk.
 - **Je laptop bedienen**, ook via ECO op je iPhone ("open Spotify op mijn laptop"):
