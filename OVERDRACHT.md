@@ -210,6 +210,32 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - Interface toont alleen de dienst (GROQ, GEMINI, MISTRAL, CLAUDE), niet het hele model. Alles altijd opslaan via een PR.
 - Startcommando nieuwe chat: "Lees OVERDRACHT.md (vooral 'Vervolg na chat 30 okt') en voer /vergeten uit."
 
+## Planning bewaken = ECO's hoofdtaak (2 nov)
+- ECO legt rooster (MyTimetable, `AGENDA_FEEDS`), Brightspace-planning (soort les; gaat voor) en **schoolmail** over elkaar.
+  Klok: elke 30 min (06:00–22:00) `lesMailCheck`: mail van hhs.nl/Brightspace/MyTimetable (secret `LESMAIL_QUERY` om aan te passen)
+  → gratis model haalt wijzigingen eruit (vervalt/lokaal/tijd/online) → kv `lesmail` → melding "📅 Les gewijzigd" + widget
+  (VERVALT / GEWIJZIGD, nieuw lokaal of tijd; wat nergens bij past als "⚑ Mail: …"). Tool `lesmail_check` ("vallen er lessen uit?").
+- Widget: komende **6 uur** ook in middel (2 rijen van 3), tip (jas/paraplu) gecentreerd eronder. **Vanaf 19:00** alleen
+  morgen: lessen (+ soort les uit Brightspace in groot), mailwijzigingen, deadlines, weer van morgen (8:00, min–max, regen, tip).
+  Agenda-link niet bereikbaar → onderaan "⚠ Agenda …".
+- Niet in het echt gezien (Scriptable kan hier niet draaien; wel nagebootst in elke grootte). Tests in tests/functie_test.ts.
+
+## Nog open (lijst /vergeten, 2 nov)
+**Jij (Serkan) instellen**
+- Laptop-app herstarten → "ja" bij bijwerken. `NOVA_KEY` zodra de laptop er is (zeg dan "doe de laptopsleutel").
+- Controleer of je MyTimetable-link in `AGENDA_FEEDS` staat (ik kon het niet zien): vraag ECO "wat heb ik morgen?"; zegt hij
+  "volgens je schoolrooster", dan is het goed. Staat er "⚠ Agenda …" in de widget, dan is de link stuk.
+- Nog steeds: Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen, opdracht "ECO TV".
+**Jij testen**
+- Widget (middel en groot): 6 uur + tip in het midden; na 19:00 alleen morgen. Vraag ECO "vallen er lessen uit?".
+- Uit 30 okt: 2× klappen, werkmodus, Live (sneller? kapt hij af?), sarcasme (2 op 3), "STORING: SERVER" bij opstarten weg?
+**Jij beslissen**
+- Muis-klikken door ECO (nu niet); avondoverzicht als melding om 21:00 nu de widget het al 's avonds toont: nog nodig?;
+  studieplanner; melding als Groq's quotum op is.
+**Ik kan meteen bouwen**
+1. Lesmail ook in de ochtendbriefing laten noemen (staat al in de agenda-context; controleren na eerste echte wijziging).
+2. Meer UI-tests (tests/website.test.mjs). 3. Restrisico DNS-rebinding bij web_lezen.
+
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
   Microfoon → TEST; "hou het nieuws over de HHS in de gaten" + "maak dat ongedaan"; meekijken (oogknop); briefing met

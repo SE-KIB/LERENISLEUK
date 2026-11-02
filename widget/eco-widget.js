@@ -1,5 +1,6 @@
 // ECO-widget voor Scriptable (gratis app, App Store). Toont je volgende lessen (de Brightspace-planning gaat voor),
-// het weer per uur (zoals de iPhone-weerwidget) met een tip, deadlines en actiepunten uit het dagrapport. Tik op de widget om ECO te openen.
+// het weer voor de komende 6 uur (zoals de iPhone-weerwidget) met een tip, deadlines, lesuitval uit je schoolmail en actiepunten uit het
+// dagrapport. Vanaf 19:00 toont hij alleen morgen (lessen + het weer van morgenochtend). Tik op de widget om ECO te openen.
 // Werkt zichzelf één keer per dag bij vanaf sekibar.nl.
 // Formaten: klein, middel, groot op het beginscherm, en rechthoekig/rond/inline op het vergrendelscherm.
 // Installeren: zie AI-SETUP.md ("iPhone-widget"). Inloggen met je ECO-account (zelfde als sekibar.nl); alleen de
@@ -85,6 +86,7 @@ const short = (t) => String(t).replace(/^([^:]{16,}): /, (_, vak) => {
 function badge(it) {
   if (it.nu) return ["NU", C.cyan];
   if (/vervalt/.test(it.soort)) return ["VERVALT", C.red];
+  if (it.wijziging) return ["GEWIJZIGD", C.amber];
   if (/belangrijk|toets|deadline/.test(it.soort)) return ["!", C.amber];
   if (/zelfstudie/.test(it.soort)) return ["ZELFSTUDIE", C.muted];
   if (it.afwijking) return ["ANDERS", C.amber];
@@ -98,6 +100,7 @@ function header(w, data) {
   const now = new Date();
   txt(h, data.offline ? "offline" : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`, 10, C.muted, { mono: true });
 }
+let avondModus = false; // vanaf 19:00: alles gaat over morgen
 function itemRow(w, it, size) {
   const row = w.addStack();
   row.layoutHorizontally();
@@ -107,7 +110,7 @@ function itemRow(w, it, size) {
   const col = row.addStack();
   col.layoutVertically();
   txt(col, short(it.titel), size, C.text, { lines: 1, min: 0.75 });
-  const meta = [it.dag === "morgen" ? "morgen" : "", it.locatie].filter(Boolean).join(" · ");
+  const meta = [it.dag === "morgen" && !avondModus ? "morgen" : "", it.locatie, avondModus && size >= 14 ? it.info : ""].filter(Boolean).join(" · ");
   const b = badge(it);
   if (meta || b) {
     const m = col.addStack();
@@ -138,26 +141,51 @@ function weerStrip(stack, strip, kolommen, breedte, size) {
       kol.centerAlignContent();
       kol.size = new Size(breedte / kolommen, 0);
       txt(kol, u.t, size - 2, C.muted, { mono: true, min: 0.7 });
-      kol.addSpacer(2);
+      if (size > 9) kol.addSpacer(2);
       icon(kol, u.icoon, size + 4);
-      kol.addSpacer(2);
+      if (size > 9) kol.addSpacer(2);
       txt(kol, `${u.temp}°`, size, C.text, { bold: true });
     }
   }
 }
-// De hoek rechts: temperatuur met icoon, daaronder de uren, en een tip of de lopende timer.
-function weerHoek(right, wx, family, breedte) {
+// Tekst gecentreerd in de hoek (de jas/paraplu-tip onder de onderste rij uren).
+function midden(stack, s, size, color, lines) {
+  const r = stack.addStack();
+  r.layoutHorizontally();
+  r.addSpacer();
+  const t = txt(r, s, size, color, { lines, min: 0.8 });
+  t.centerAlignText();
+  r.addSpacer();
+}
+// De hoek rechts: temperatuur met icoon, daaronder de komende 6 uur (2 rijen van 3) en gecentreerd de tip (of de lopende timer).
+function weerHoek(right, wx, family, breedte, metTip) {
+  const groot = family === "large";
   const kop = right.addStack();
   kop.centerAlignContent();
-  txt(kop, `${wx.temp}°`, family === "large" ? 26 : 22, C.text, { bold: true });
+  txt(kop, `${wx.temp}°`, groot ? 26 : 20, C.text, { bold: true });
   kop.addSpacer(6);
-  icon(kop, wx.icoon, family === "large" ? 22 : 18);
-  if (family === "large") txt(right, wx.omschrijving, 11, C.muted, { lines: 1, min: 0.8 });
+  icon(kop, wx.icoon, groot ? 22 : 16);
+  if (groot) txt(right, wx.omschrijving, 11, C.muted, { lines: 1, min: 0.8 });
   const strip = wx.strip || [];
   if (strip.length) {
-    right.addSpacer(family === "large" ? 6 : 4);
-    weerStrip(right, strip.slice(0, family === "large" ? 6 : 3), 3, breedte, family === "large" ? 11 : 10);
+    right.addSpacer(groot ? 6 : 3);
+    weerStrip(right, strip.slice(0, 6), 3, breedte, groot ? 11 : 9);
   } else if (wx.regen >= 30) txt(right, `${wx.regen}% regen`, 10, C.muted);
+  if (metTip && wx.tip) { right.addSpacer(groot ? 5 : 3); midden(right, wx.tip, groot ? 11 : 10, C.amber, groot ? 2 : 1); }
+}
+// 's Avonds: het weer van morgen (ochtend om 8 uur, min–max, regen) met de tip voor morgen.
+function morgenHoek(right, m, family) {
+  const groot = family === "large";
+  if (groot) txt(right, "MORGEN", 9, C.muted, { mono: true }); // in de middelste staat het al links
+  const kop = right.addStack();
+  kop.centerAlignContent();
+  txt(kop, `${m.min}–${m.max}°`, groot ? 24 : 20, C.text, { bold: true, min: 0.7 });
+  kop.addSpacer(6);
+  icon(kop, m.icoon, groot ? 22 : 16);
+  txt(right, m.omschrijving || "", groot ? 11 : 10, C.muted, { lines: 1, min: 0.8 });
+  const r = [m.ochtend != null ? `8:00 ${m.ochtend}°` : "", m.regen >= 20 ? `${m.regen}% regen` : ""].filter(Boolean).join(" · ");
+  if (r) txt(right, r, groot ? 11 : 10, C.muted, { lines: 1, min: 0.8 });
+  if (m.tip) { right.addSpacer(groot ? 5 : 3); midden(right, m.tip, groot ? 11 : 10, C.amber, groot ? 2 : 1); }
 }
 
 function build(family, data) {
@@ -165,16 +193,20 @@ function build(family, data) {
   w.url = SITE;
   w.refreshAfterDate = new Date(Date.now() + 15 * 60000);
   const items = data.items || [];
-  const next = items[0];
+  avondModus = !!data.avond;
+  const next = items.find((i) => !/vervalt/.test(i.soort)) || items[0]; // een vervallen les is niet "volgende"
+  const wxKort = avondModus && data.weer && data.weer.morgen
+    ? { temp: `${data.weer.morgen.min}–${data.weer.morgen.max}`, tip: data.weer.morgen.tip, icoon: data.weer.morgen.icoon, omschrijving: `morgen ${data.weer.morgen.omschrijving || ""}`.trim() }
+    : data.weer;
 
   // Vergrendelscherm
   if (family === "accessoryInline") {
-    w.addText(next ? `${next.tijd.split("–")[0]} ${short(next.titel)}` : data.weer ? `${data.weer.temp}° ${data.weer.omschrijving}` : "ECO");
+    w.addText(next ? `${next.tijd.split("–")[0]} ${short(next.titel)}` : wxKort ? `${wxKort.temp}° ${wxKort.omschrijving}` : "ECO");
     return w;
   }
   if (family === "accessoryCircular") {
     const s = w.addStack(); s.layoutVertically(); s.centerAlignContent();
-    txt(s, data.weer ? `${data.weer.temp}°` : "–", 16, Color.white(), { bold: true });
+    txt(s, data.weer ? `${data.weer.temp}°` : "–", 16, Color.white(), { bold: true, min: 0.6 });
     txt(s, next ? next.tijd.split("–")[0] : "ECO", 10, Color.white(), { mono: true });
     return w;
   }
@@ -182,8 +214,8 @@ function build(family, data) {
     if (next) {
       txt(w, `${next.nu ? "NU" : next.dag === "morgen" ? "MORGEN" : "VOLGENDE"} · ${next.tijd}`, 11, Color.white(), { mono: true });
       txt(w, short(next.titel), 13, Color.white(), { bold: true, lines: 2, min: 0.8 });
-    } else txt(w, "Geen lessen meer", 13, Color.white(), { bold: true });
-    if (data.weer) txt(w, `${data.weer.temp}°${data.weer.tip ? " · " + data.weer.tip : ""}`, 11, Color.white(), { lines: 1 });
+    } else txt(w, avondModus ? "Morgen geen lessen" : "Geen lessen meer", 13, Color.white(), { bold: true });
+    if (wxKort) txt(w, `${wxKort.temp}°${wxKort.tip ? " · " + wxKort.tip : ""}`, 11, Color.white(), { lines: 1 });
     return w;
   }
 
@@ -203,14 +235,14 @@ function build(family, data) {
       txt(w, next.tijd, 18, next.nu ? C.cyan : C.text, { mono: true, min: 0.7 });
       txt(w, short(next.titel), 13, C.text, { bold: true, lines: 2, min: 0.8 });
       if (next.locatie) txt(w, next.locatie, 10, C.muted, { lines: 1 });
-    } else txt(w, "Geen lessen meer vandaag", 13, C.text, { bold: true, lines: 2 });
+    } else txt(w, avondModus ? "Morgen geen lessen" : "Geen lessen meer vandaag", 13, C.text, { bold: true, lines: 2 });
     w.addSpacer();
-    if (data.weer) {
+    if (wxKort) {
       const r = w.addStack();
       r.centerAlignContent();
-      icon(r, data.weer.icoon, 12);
-      if (data.weer.icoon) r.addSpacer(4);
-      txt(r, `${data.weer.temp}°${data.weer.tip ? " · " + data.weer.tip : ""}`, 10, data.weer.tip ? C.amber : C.muted, { lines: 1, min: 0.7 });
+      icon(r, wxKort.icoon, 12);
+      if (wxKort.icoon) r.addSpacer(4);
+      txt(r, `${wxKort.temp}°${wxKort.tip ? " · " + wxKort.tip : ""}`, 10, wxKort.tip ? C.amber : C.muted, { lines: 1, min: 0.7 });
     }
     return w;
   }
@@ -220,7 +252,8 @@ function build(family, data) {
   const left = body.addStack();
   left.layoutVertically();
   const rows = family === "large" ? 5 : 3;
-  if (!items.length) txt(left, "Geen lessen meer vandaag of morgen", 13, C.text, { lines: 2 });
+  if (avondModus) { txt(left, "MORGEN", 9, C.cyan, { mono: true }); left.addSpacer(3); }
+  if (!items.length) txt(left, avondModus ? "Morgen geen lessen" : "Geen lessen meer vandaag of morgen", 13, C.text, { lines: 2 });
   items.slice(0, rows).forEach((it, i) => { if (i) left.addSpacer(5); itemRow(left, it, family === "large" ? 14 : 13); });
   body.addSpacer(10);
   const right = body.addStack();
@@ -228,11 +261,9 @@ function build(family, data) {
   const breedte = family === "large" ? 136 : 116;
   right.size = new Size(breedte, 0);
   const timerLoopt = data.timer && new Date(data.timer.eind) > new Date();
-  if (data.weer) {
-    weerHoek(right, data.weer, family, breedte);
-    // In de middelste widget is er plek voor óf de tip óf de timer; de timer gaat voor.
-    if (data.weer.tip && (family === "large" || !timerLoopt)) { right.addSpacer(4); txt(right, data.weer.tip, 10, C.amber, { lines: family === "large" ? 2 : 1, min: 0.8 }); }
-  }
+  // In de middelste widget is er plek voor óf de tip óf de timer; de timer gaat voor.
+  if (avondModus && data.weer && data.weer.morgen) morgenHoek(right, data.weer.morgen, family);
+  else if (data.weer) weerHoek(right, data.weer, family, breedte, family === "large" || !timerLoopt);
   // Lopende timer: telt live af op het beginscherm.
   if (timerLoopt) {
     right.addSpacer(4);
@@ -242,9 +273,13 @@ function build(family, data) {
   }
   const extra = [...(data.deadlines || []).map((d) => `⚑ ${d}`), ...(family === "large" ? (data.actie || []).map((a) => `✉ ${a}`) : []),
     ...(family === "large" ? (data.taken || []).map((t) => `☐ ${t}`) : []), ...(data.melding ? [`⚠ ${data.melding}`] : [])];
-  if (extra.length) {
-    w.addSpacer(family === "large" ? 8 : 4);
-    extra.slice(0, family === "large" ? 6 : 1).forEach((e) => txt(w, e, family === "large" ? 11 : 10, e.startsWith("☐") ? C.text : C.amber, { lines: 1, min: 0.8 }));
+  // Groot: onderaan over de hele breedte. Middel: links onder de lessen (rechts staan nu 2 rijen weer, dus onderaan is geen plek).
+  if (extra.length && family === "large") {
+    w.addSpacer(8);
+    extra.slice(0, 6).forEach((e) => txt(w, e, 11, e.startsWith("☐") ? C.text : C.amber, { lines: 1, min: 0.8 }));
+  } else if (extra.length) {
+    left.addSpacer(4);
+    extra.slice(0, items.length >= 3 ? 1 : 2).forEach((e) => txt(left, e, 10, C.amber, { lines: 1, min: 0.8 }));
   }
   w.addSpacer();
   return w;
