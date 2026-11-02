@@ -1,0 +1,5 @@
+version: 1
+bundleID: nl.sekibar.eco
+product: ECO
+infoPath: Info.plist
+iconPath: Resources/AppIcon.png

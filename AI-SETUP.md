@@ -431,6 +431,12 @@ Brightspace, MyTimetable) naar uitval, een ander lokaal, een andere tijd of onli
 melding ("📅 Les gewijzigd") en zie je in de widget VERVALT of GEWIJZIGD (met het nieuwe lokaal of de nieuwe tijd). Vraag ook
 gewoon "vallen er lessen uit?". Nodig: `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` (of de Google-koppeling). Andere afzenders of
 woorden? Zet de secret `LESMAIL_QUERY` (Gmail-zoeksyntax). Is een agenda-link niet bereikbaar, dan staat dat onderaan de widget.
+Om **21:00** krijg je een melding "🌙 Morgen" met je lessen van morgen (VERVALT of het lokaal), deadlines en het weer met tip.
+Uitzetten of een andere tijd: database `ai_kv`, sleutel `avond_inst` = `{"tijd": "21:30", "aan": true}` (of vraag het de AI).
+
+## iPhone-app (eigen app in plaats van de beginscherm-app)
+Map `ios/`: een echte iPhone-app (gebouwd met xtool vanaf je Windows-laptop) die sekibar.nl opent met de microfoon en camera
+vast toegestaan. Stappen: zie `ios/LEESMIJ.md`.
 1. Installeer **Scriptable** uit de App Store (gratis).
 2. Open in Safari https://sekibar.nl/widget/installeer.js, kopieer alle tekst; in Scriptable → **+** → plak → tik **▶**.
    Er verschijnt een script **ECO**.

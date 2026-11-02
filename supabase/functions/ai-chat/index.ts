@@ -1146,6 +1146,12 @@ async function webLezen(ruw: string, vraag = "") {
       redirect: "manual", signal: AbortSignal.timeout(12000),
       headers: { "user-agent": "Mozilla/5.0 (compatible; ECO/1.0; +https://sekibar.nl)", accept: "text/html,application/xhtml+xml,text/plain,application/pdf;q=0.9,*/*;q=0.5", "accept-language": "nl-NL,nl;q=0.9,en;q=0.7" },
     }).catch((e) => { reden = String(e?.message ?? e); return null; });
+    // DNS-rebinding: fetch zoekt de naam zelf nog eens op. Wijst die na afloop (ook maar één keer) naar een intern adres,
+    // dan gooien we het antwoord weg. Een naam die tussen twee opzoekingen wisselt is precies die truc.
+    if (r && !/^\d+\.\d+\.\d+\.\d+$/.test(u.hostname) && !await openbaarAdres(u)) {
+      await r.body?.cancel().catch(() => {});
+      return { fout: "dat adres wijst (ook) naar een intern netwerk; dat open ik niet" };
+    }
     if (!r || r.status < 300 || r.status >= 400) break;
     const volgende = webAdres(new URL(r.headers.get("location") ?? "", u).href);
     await r.body?.cancel();
@@ -1823,6 +1829,20 @@ function bsOud(status: any): string {
   return uur > 36 ? `laatste geslaagde Brightspace-ronde is ${uur} uur geleden` : "";
 }
 
+// Avondoverzicht (21:00): één melding met morgen (lessen, wijzigingen uit mail, deadlines, weer). Uit te zetten via kv avond_inst.
+function avondTekst(w: any) {
+  const lessen = (w?.items ?? []).filter((i: any) => i.dag === "morgen").slice(0, 4).map((i: any) =>
+    `${i.tijd.split("–")[0]} ${String(i.titel).replace(/^([^:]{16,}): /, "")}${/vervalt/.test(i.soort) ? " VERVALT" : i.locatie ? ` (${i.locatie})` : ""}`);
+  const m = w?.weer?.morgen;
+  const delen = [lessen.length ? lessen.join(", ") : "geen lessen", ...(w?.deadlines ?? []).slice(0, 2),
+    m ? `${m.min}–${m.max}°${m.tip ? `, ${m.tip.replace(/^Morgen /, "").toLowerCase()}` : ""}` : ""].filter(Boolean);
+  return delen.join(" · ").slice(0, 180);
+}
+async function avondMelding(who: Who) {
+  const meta = metaCache.get(who.userId)?.meta ?? (await who.db.auth?.admin?.getUserById?.(who.userId).then((r: any) => r.data?.user?.app_metadata).catch(() => null)) ?? {};
+  const w = await widgetData(who.db, who.userId, meta).catch(() => null);
+  return await sendPush(who.db, { title: "🌙 Morgen", body: avondTekst(w) || "Tik voor je overzicht van morgen", url: "/" });
+}
 async function cronTick(who: Who) {
   const dag = localParts(Date.now()).datum, nu = localParts(Date.now()).min;
   const timers = await timersAfgaan(who).catch((e) => { console.error("timers", e); return 0; });
@@ -1836,6 +1856,12 @@ async function cronTick(who: Who) {
   if (nu >= 720 && nu < 1320) { // gevolgde onderwerpen: één keer per dag tussen 12:00 en 22:00
     const [vDag, volg] = await Promise.all([kvGet(who.db, "volgen_dag").catch(() => null), kvGet(who.db, "volgen").catch(() => null)]);
     if (vDag !== dag && (volg ?? []).length) { await kvSet(who.db, "volgen_dag", dag); bg(volgenCheck(who.db).catch((e) => console.error("volgen", e))); }
+  }
+  const avond = (await kvGet(who.db, "avond_inst").catch(() => null)) ?? { tijd: "21:00", aan: true };
+  const [ah, am] = String(avond.tijd ?? "21:00").split(":").map(Number);
+  if (avond.aan !== false && nu >= ah * 60 + am && nu <= ah * 60 + am + 90) {
+    const al = await kvGet(who.db, "avond_verstuurd").catch(() => null);
+    if (al !== dag) { await kvSet(who.db, "avond_verstuurd", dag); bg(avondMelding(who).catch((e) => console.error("avond", e))); } // eerst markeren: nooit twee keer
   }
   const inst = (await kvGet(who.db, "briefing_inst")) ?? { tijd: "07:30", aan: true };
   const [h, m] = String(inst.tijd ?? "07:30").split(":").map(Number), doel = h * 60 + m;

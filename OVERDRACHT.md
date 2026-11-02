@@ -220,6 +220,18 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   Agenda-link niet bereikbaar → onderaan "⚠ Agenda …".
 - Niet in het echt gezien (Scriptable kan hier niet draaien; wel nagebootst in elke grootte). Tests in tests/functie_test.ts.
 
+## "Doe maar van alles" + video xtool (2 nov, avond)
+- Avondoverzicht 21:00 (push "🌙 Morgen", kv `avond_inst` om uit te zetten/verzetten; `avondTekst` + test).
+- DNS-rebinding bij web_lezen: na het ophalen de naam nog eens opzoeken; wijst die dan intern → antwoord weggegooid (test).
+  Volledig vastzetten van het IP kan niet met Deno's fetch; dit dekt de wissel-truc.
+- UI-tests: widget nagebootst in alle formaten (dag/avond, 6 uur, VERVALT/GEWIJZIGD) + werkpaneel "Lesmail nalopen".
+  Let op: de test "systeemstatus is weggeschoven" is soms traag (animatie); faalde lokaal ook op main, in CI groen.
+- Video (TikTok "From AI to App Store") = **xtool**: iPhone-apps bouwen/ondertekenen/installeren vanaf Linux/WSL.
+  Gebouwd: `ios/` (SwiftPM + xtool.yml): WKWebView met sekibar.nl, microfoon/camera vast toegestaan voor sekibar.nl,
+  externe links naar apps/Safari, herladen bij netwerkfout. **Nooit gecompileerd** (geen Swift/Xcode in de cloud); Serkan
+  bouwt met `xtool dev` (stappen in ios/LEESMIJ.md). Gratis Apple ID = elke 7 dagen opnieuw; App Store = €99/jaar (gevraagd?).
+  Eventuele bouwfouten: Serkan plakt de foutmelding, dan repareren.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - Laptop-app herstarten → "ja" bij bijwerken. `NOVA_KEY` zodra de laptop er is (zeg dan "doe de laptopsleutel").
@@ -227,14 +239,15 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   "volgens je schoolrooster", dan is het goed. Staat er "⚠ Agenda …" in de widget, dan is de link stuk.
 - Nog steeds: Brightspace-agendalink in `AGENDA_FEEDS`, merk van de lampen, opdracht "ECO TV".
 **Jij testen**
+- iPhone-app bouwen met xtool (ios/LEESMIJ.md); fouten doorsturen. Avondmelding om 21:00 ontvangen?
 - Widget (middel en groot): 6 uur + tip in het midden; na 19:00 alleen morgen. Vraag ECO "vallen er lessen uit?".
 - Uit 30 okt: 2× klappen, werkmodus, Live (sneller? kapt hij af?), sarcasme (2 op 3), "STORING: SERVER" bij opstarten weg?
 **Jij beslissen**
-- Muis-klikken door ECO (nu niet); avondoverzicht als melding om 21:00 nu de widget het al 's avonds toont: nog nodig?;
+- Muis-klikken door ECO (nu niet); App Store (€99/jaar) of gratis (elke 7 dagen opnieuw installeren)?;
   studieplanner; melding als Groq's quotum op is.
 **Ik kan meteen bouwen**
 1. Lesmail ook in de ochtendbriefing laten noemen (staat al in de agenda-context; controleren na eerste echte wijziging).
-2. Meer UI-tests (tests/website.test.mjs). 3. Restrisico DNS-rebinding bij web_lezen.
+2. (Gedaan 2 nov: UI-tests, DNS-rebinding, avondoverzicht, iPhone-app.) Volgende: eigen widget in de iPhone-app (inlog delen).
 
 ## Later (door Serkan zo afgesproken)
 - **Testen door Serkan** (zei "mag later"): Live praten op de iPhone en "oké, stop maar"; in de auto MICROFOON → iPhone
