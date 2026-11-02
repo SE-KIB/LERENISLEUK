@@ -418,9 +418,19 @@ Ontkoppelen: tik op **SPOTIFY GEKOPPELD**.
 
 ## iPhone-widget (gratis, met Scriptable)
 Een widget op je beginscherm en vergrendelscherm met je volgende lessen (de Brightspace-planning gaat voor), het weer met een tip
-("Neem een paraplu mee"), deadlines en actiepunten uit het dagrapport. Tik erop om ECO te openen. Ververst ongeveer elk kwartier.
-Rechts in de hoek staat het weer zoals in de iPhone-weerwidget: de temperatuur met een icoon en de komende uren (middel: 3 uur,
-groot: 6 uur), met de tijd van zonsondergang of -opkomst als die ertussen valt.
+("Neem een paraplu mee"), deadlines, lesuitval uit je schoolmail en actiepunten uit het dagrapport. Tik erop om ECO te openen.
+Ververst ongeveer elk kwartier. Rechts in de hoek staat het weer zoals in de iPhone-weerwidget: de temperatuur met een icoon en de
+komende 6 uur (2 rijen van 3, middel en groot), met de tijd van zonsondergang of -opkomst als die ertussen valt; de tip (jas,
+paraplu) staat gecentreerd onder de onderste rij. **Vanaf 19:00** toont de widget alleen **morgen**: je lessen (met wat voor les
+het is, uit Brightspace), wijzigingen uit je mail, deadlines en het weer van morgen (8 uur 's ochtends, min–max, regen) met een tip.
+
+### Planning bewaken (ECO's hoofdtaak)
+ECO legt drie bronnen over elkaar: je **rooster** (MyTimetable via `AGENDA_FEEDS`), de **Brightspace-planning** (wat voor les het
+is; gaat voor het rooster) en je **schoolmail**. Elke 30 minuten (06:00–22:00) zoekt ECO in je mail van school (hhs.nl,
+Brightspace, MyTimetable) naar uitval, een ander lokaal, een andere tijd of online. Vindt hij iets nieuws, dan krijg je een
+melding ("📅 Les gewijzigd") en zie je in de widget VERVALT of GEWIJZIGD (met het nieuwe lokaal of de nieuwe tijd). Vraag ook
+gewoon "vallen er lessen uit?". Nodig: `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` (of de Google-koppeling). Andere afzenders of
+woorden? Zet de secret `LESMAIL_QUERY` (Gmail-zoeksyntax). Is een agenda-link niet bereikbaar, dan staat dat onderaan de widget.
 1. Installeer **Scriptable** uit de App Store (gratis).
 2. Open in Safari https://sekibar.nl/widget/installeer.js, kopieer alle tekst; in Scriptable → **+** → plak → tik **▶**.
    Er verschijnt een script **ECO**.

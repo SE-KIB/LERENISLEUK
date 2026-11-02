@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -420,9 +420,12 @@ Deno.test("klok: de briefing gaat één keer per dag, alleen rond de ingestelde 
   try {
     Date.now = () => Date.parse("2026-11-02T06:00:00Z"); // 07:00: te vroeg
     gelijk((await m.cronTick(who)).briefing, undefined, "voor 07:30 nog niet");
+    waar(db.kv.lesmail_klok, "planning bewaken: de lesmail-ronde is gestart");
+    const klok1 = db.kv.lesmail_klok;
     Date.now = () => Date.parse("2026-11-02T06:31:00Z"); // 07:31
     gelijk((await m.cronTick(who)).briefing, true, "om 07:31 wel");
     gelijk((db.kv.briefing_verstuurd as any).datum, "2026-11-02");
+    gelijk(db.kv.lesmail_klok, klok1, "binnen 30 minuten geen tweede lesmail-ronde");
     gelijk((await m.cronTick(who)).briefing, undefined, "geen tweede keer dezelfde dag");
     Date.now = () => Date.parse("2026-11-02T09:00:00Z"); // 10:00: te laat (meer dan 2 uur)
     db.kv.briefing_verstuurd = { datum: "2026-11-01" };
@@ -483,4 +486,59 @@ Deno.test("mail zonder Google-koppeling: zoeken en lezen via het app-wachtwoord 
     waar(!gezien.some((c) => /STORE|APPEND|EXPUNGE|COPY|MOVE/.test(c)), "niets aanpassen");
     gelijk((await m.runTool("mail_concept_maken", { aan: "x", onderwerp: "y", tekst: "z" }, acties())).fout?.startsWith("Een concept maken kan alleen"), true);
   } finally { (Deno as any).connectTls = echt; Deno.env.delete("GMAIL_EMAIL"); Deno.env.delete("GMAIL_APP_PASSWORD"); }
+});
+
+// ---------- Planning bewaken: lesmail (uitval, ander lokaal, andere tijd) ----------
+Deno.test("lesmail: alleen nette wijzigingen vanaf vandaag blijven over", () => {
+  const uit = m.lesWijzigingenUit({ wijzigingen: [
+    { datum: "2026-11-05", vak: "Wiskunde", soort: "vervalt", nieuw: "", kort: "Do 5 nov: Wiskunde vervalt" },
+    { datum: "2026-11-01", vak: "Oud", soort: "vervalt", kort: "gisteren" },          // voorbij
+    { datum: "morgen", vak: "Engels", soort: "lokaal", kort: "x" },                     // geen datum
+    { datum: "2026-11-06", vak: "Bouwfysica", soort: "raar", nieuw: "D1.05", kort: "Vr: Bouwfysica in D1.05" },
+    { datum: "2026-11-06", vak: "X", soort: "vervalt", kort: "te kort vak" },
+  ] }, "2026-11-02");
+  gelijk(uit.map((w: any) => [w.vak, w.soort]), [["Wiskunde", "vervalt"], ["Bouwfysica", "anders"]]);
+  gelijk(m.lesWijzigingenUit(null, "2026-11-02"), []);
+  gelijk(m.lesWijzigingenUit({ wijzigingen: "geen" }, "2026-11-02"), []);
+});
+
+Deno.test("lesmail: vaknaam uit de mail past bij de les (ook afkortingen), maar niet bij een ander vak", () => {
+  waar(m.vakPast("Water in de Stedelijke Delta", "Water in de Stedelijke Delta: Vragenuurtje"), "volle naam");
+  waar(m.vakPast("WSD", "Water in de Stedelijke Delta: Vragenuurtje"), "afkorting in de mail");
+  waar(m.vakPast("Water in de Stedelijke Delta", "WSD werkcollege"), "afkorting in het rooster");
+  waar(m.vakPast("werkcollege Bouwfysica", "Bouwfysica: hoofdstuk 3"), "extra woord 'werkcollege'");
+  waar(!m.vakPast("Wiskunde", "Water in de Stedelijke Delta: Vragenuurtje"), "ander vak");
+  waar(!m.vakPast("Engels", "Bouwfysica"), "ander vak 2");
+  waar(!m.vakPast("", "Bouwfysica"), "leeg");
+});
+
+Deno.test("lesmail: wijzigingen komen op de juiste les in de widget; de rest blijft over", () => {
+  const items = [
+    { titel: "Wiskunde", datum: "2026-11-05", tijd: "08:45–10:15", locatie: "A1.01", soort: "" },
+    { titel: "Bouwfysica", datum: "2026-11-05", tijd: "10:30–12:00", locatie: "B2.02", soort: "" },
+    { titel: "Wiskunde", datum: "2026-11-06", tijd: "08:45–10:15", locatie: "A1.01", soort: "" },
+  ];
+  const rest = m.lesWijzigingToepassen(items, [
+    { datum: "2026-11-05", vak: "Wiskunde", soort: "vervalt", nieuw: "", kort: "Do: Wiskunde vervalt" },
+    { datum: "2026-11-05", vak: "Bouwfysica", soort: "lokaal", nieuw: "D1.05", kort: "Do: Bouwfysica in D1.05" },
+    { datum: "2026-11-06", vak: "Wiskunde", soort: "tijd", nieuw: "11.00 - 12.30", kort: "Vr: Wiskunde later" },
+    { datum: "2026-11-05", vak: "Engels", soort: "online", nieuw: "", kort: "Do: Engels online" },
+  ]);
+  gelijk(items[0].soort, "vervalt");
+  gelijk(items[1].locatie, "D1.05");
+  gelijk(items[2].tijd, "11:00–12:30");
+  gelijk((items[2] as any).afwijking, "Vr: Wiskunde later");
+  gelijk(rest.map((w: any) => w.kort), ["Do: Engels online"]);
+});
+
+Deno.test("avondweergave: tip voor morgen uit morgenochtend", () => {
+  gelijk(m.morgenTip({ regenkans: 70, min: 8, max: 12 }, { temp: 9, regenkans: 40 }), "Morgen paraplu mee");
+  gelijk(m.morgenTip({ regenkans: 10, min: 2, max: 7 }, { temp: 3, regenkans: 0 }), "Morgen warme jas aan");
+  gelijk(m.morgenTip({ regenkans: 10, min: 8, max: 14 }, { temp: 10, regenkans: 0 }), "Morgen een jas aan");
+  gelijk(m.morgenTip({ regenkans: 0, min: 16, max: 22 }, { temp: 17, regenkans: 0 }), "");
+});
+
+Deno.test("lesmail: zonder gekoppelde mail een duidelijke fout, niets kapot", async () => {
+  const r = await m.lesMailCheck({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }), upsert: async () => ({}) }) }, false);
+  waar(/niet gekoppeld/.test(r.fout ?? ""), JSON.stringify(r));
 });
