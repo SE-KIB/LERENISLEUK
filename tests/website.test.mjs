@@ -14,6 +14,32 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 let fouten = 0;
 const ok = (c, m) => { console.log(c ? "OK  " : "FOUT", m); if (!c) fouten++; };
 
+// ---------- iPhone-widget (Scriptable): opbouw in elke grootte, overdag en 's avonds, met een nagebootste Scriptable ----------
+{
+  const src = fs.readFileSync(path.join(ROOT, "widget/eco-widget.js"), "utf8").replace(/\/\/ Start[\s\S]*$/, "");
+  let regels = [];
+  class Stapel { addStack() { return new Stapel(); } addText(t) { regels.push(String(t)); return { centerAlignText() {} }; } addSpacer() {} addImage() { return {}; }
+    addDate() { return { applyTimerStyle() {} }; } layoutHorizontally() {} layoutVertically() {} centerAlignContent() {} setPadding() {} }
+  const g = { ListWidget: class extends Stapel {}, Color: class { static white() { return new this(); } }, Font: new Proxy({}, { get: () => () => ({}) }),
+    LinearGradient: class {}, Size: class {}, SFSymbol: { named: () => ({ image: {}, applyFont() {} }) },
+    FileManager: { local: () => ({ joinPath: (a, b) => b, documentsDirectory: () => "", fileExists: () => false }) }, Keychain: {}, config: {}, Script: {}, module: {} };
+  const build = new Function(...Object.keys(g), src + ";return build;")(...Object.values(g));
+  const items = [{ titel: "Water in de Stedelijke Delta: Vragenuurtje", tijd: "08:45–10:15", locatie: "D1.05", soort: "", dag: "morgen", info: "Werkcollege", wijziging: "Do: WSD in D1.05" },
+    { titel: "Wiskunde", tijd: "10:30–12:00", soort: "vervalt", dag: "morgen", locatie: "A1" }];
+  const weer = { temp: 9, omschrijving: "Bewolkt", icoon: "cloud.fill", tip: "Trek een jas aan", regen: 10,
+    strip: Array.from({ length: 8 }, (_, i) => ({ t: String(15 + i), temp: 20 + i, icoon: "cloud.fill" })),
+    morgen: { min: 4, max: 11, regen: 60, omschrijving: "Regen", ochtend: 6, icoon: "cloud.rain.fill", tip: "Morgen paraplu mee" } };
+  const maak = (fam, avond) => { regels = []; build(fam, { avond, items, weer, deadlines: ["Mail: Vr: Engels online"], taken: [], actie: [], melding: "" }); return regels; };
+  for (const fam of ["small", "medium", "large", "accessoryRectangular", "accessoryInline", "accessoryCircular"])
+    for (const avond of [false, true]) ok(maak(fam, avond).length > 0, `widget ${fam}${avond ? " (avond)" : ""}: bouwt op zonder fouten`);
+  const middel = maak("medium", false);
+  ok(["20°", "25°"].every((t) => middel.includes(t)) && !middel.includes("26°"), "widget middel: precies de komende 6 uur");
+  ok(middel.includes("Trek een jas aan") && middel.includes("GEWIJZIGD") && middel.includes("VERVALT"), "widget middel: tip, GEWIJZIGD en VERVALT");
+  const avond = maak("medium", true);
+  ok(avond.includes("MORGEN") && avond.includes("4–11°") && avond.includes("Morgen paraplu mee") && !avond.includes("Trek een jas aan"), "widget avond: alleen morgen, met het weer van morgen");
+  ok(maak("small", false).includes("WSD: Vragenuurtje"), "widget klein: een vervallen les is niet de volgende");
+}
+
 // ---------- 2× klappen: de herkenning uit ai.js, los getest met nagebootst geluid ----------
 {
   const src = fs.readFileSync(path.join(ROOT, "ai.js"), "utf8");
@@ -112,12 +138,15 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
     werk.start({ t: "tool", name: "agenda_bekijken", id: "w3", info: "morgen" });
     werk.klaar({ id: "w3", ok: false, uit: "agenda niet bereikbaar" });
     werk.start({ t: "tool", name: "pc", id: "w4", info: "app_openen Spotify" });
+    werk.start({ t: "tool", name: "lesmail_check", id: "w5", info: "" });
+    werk.klaar({ id: "w5", ok: true, uit: "Do: Wiskunde vervalt" });
   });
   await page.waitForTimeout(650);
   const na = await plek();
   ok(na.width < voor.width * 0.6 && na.x > voor.x && na.y > voor.y, `${naam}: reactor naar rechtsonder (${Math.round(voor.width)}→${Math.round(na.width)} px)`);
   const stappen = await page.$$eval(".werk-stap", (l) => l.map((x) => x.className.replace("werk-stap ", "")));
-  ok(stappen.join(",") === "ok,ok,mis,bezig", `${naam}: stappen ok/ok/mis/bezig (${stappen})`);
+  ok(stappen.join(",") === "ok,ok,mis,bezig,ok", `${naam}: stappen ok/ok/mis/bezig/ok (${stappen})`);
+  ok(/Lesmail nalopen/.test(await page.$eval("#werk", (w) => w.textContent)), `${naam}: werkpaneel noemt "Lesmail nalopen"`);
   ok(!(await page.$(".werk-stap img, .werk-stap a[href^='javascript']")), `${naam}: tekst van buiten wordt nooit HTML of een javascript-link`);
   if (naam === "computer") {
     ok(await page.$eval("body", (b) => b.dataset.rustig === "on"), "rustig scherm: panelen opzij zodra ECO werkt");

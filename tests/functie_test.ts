@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -60,6 +60,20 @@ Deno.test("web_lezen: een naam die naar een intern adres wijst wordt niet geopen
     (Deno as any).resolveDns = undefined;
     gelijk(await m.openbaarAdres(new URL("https://nos.nl/")), true, "geen resolveDns in deze omgeving: niet crashen");
   } finally { (Deno as any).resolveDns = echt; }
+});
+
+Deno.test("web_lezen: DNS-rebinding (eerst openbaar, daarna intern) wordt weggegooid", async () => {
+  const echtDns = Deno.resolveDns, echtFetch = globalThis.fetch;
+  let keer = 0, wissel = true;
+  (Deno as any).resolveDns = async (_naam: string, soort: string) => soort !== "A" ? [] : (!wissel || keer++ === 0 ? ["93.184.215.14"] : ["169.254.169.254"]);
+  globalThis.fetch = (async () => new Response("<p>" + "geheime metadata ".repeat(40) + "</p>", { headers: { "content-type": "text/html" } })) as typeof fetch;
+  try {
+    const uit = await m.runTool("web_lezen", { url: "https://wissel.voorbeeld.nl/" } as any, { ...acties(), userId: "dns1" } as any);
+    waar(/intern netwerk/.test(String(uit.fout)) && !JSON.stringify(uit).includes("geheime"), JSON.stringify(uit).slice(0, 200));
+    wissel = false; // blijft openbaar: gewoon lezen
+    const goed = await m.runTool("web_lezen", { url: "https://vast.voorbeeld.nl/" } as any, { ...acties(), userId: "dns1" } as any);
+    waar(String(goed.tekst ?? "").includes("geheime metadata"), JSON.stringify(goed).slice(0, 200));
+  } finally { (Deno as any).resolveDns = echtDns; globalThis.fetch = echtFetch; }
 });
 
 Deno.test("htmlNaarTekst: rare tekens laten hem niet crashen", () => {
@@ -544,4 +558,31 @@ Deno.test("avondweergave: tip voor morgen uit morgenochtend", () => {
 Deno.test("lesmail: zonder gekoppelde mail een duidelijke fout, niets kapot", async () => {
   const r = await m.lesMailCheck({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }), upsert: async () => ({}) }) }, false);
   waar(/niet gekoppeld/.test(r.fout ?? ""), JSON.stringify(r));
+});
+
+Deno.test("avondoverzicht: korte melding met morgen", () => {
+  const tekst = m.avondTekst({ items: [
+    { dag: "morgen", tijd: "08:45–10:15", titel: "Water in de Stedelijke Delta: Vragenuurtje", locatie: "D1.05", soort: "" },
+    { dag: "morgen", tijd: "10:30–12:00", titel: "Wiskunde", soort: "vervalt" },
+  ], deadlines: ["Mail: Vr: Engels online"], weer: { morgen: { min: 4, max: 11, tip: "Morgen paraplu mee" } } });
+  gelijk(tekst, "08:45 Vragenuurtje (D1.05), 10:30 Wiskunde VERVALT · Mail: Vr: Engels online · 4–11°, paraplu mee");
+  gelijk(m.avondTekst({ items: [] }), "geen lessen");
+});
+
+Deno.test("klok: avondoverzicht één keer per dag rond 21:00", async () => {
+  const echtNu = Date.now, echtFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("{}", { status: 500 })) as typeof fetch;
+  const db = nepDb(), who = { db, userId: "u1" };
+  try {
+    Date.now = () => Date.parse("2026-11-02T19:30:00Z"); // 20:30
+    await m.cronTick(who);
+    gelijk(db.kv.avond_verstuurd, undefined, "20:30 nog niet");
+    Date.now = () => Date.parse("2026-11-02T20:05:00Z"); // 21:05
+    await m.cronTick(who);
+    gelijk(db.kv.avond_verstuurd, "2026-11-02", "om 21:05 wel");
+    db.kv.avond_verstuurd = "2026-11-01"; db.kv.avond_inst = { tijd: "21:00", aan: false };
+    Date.now = () => Date.parse("2026-11-03T20:05:00Z");
+    await m.cronTick(who);
+    gelijk(db.kv.avond_verstuurd, "2026-11-01", "uitgezet: niets");
+  } finally { Date.now = echtNu; globalThis.fetch = echtFetch; await new Promise((r) => setTimeout(r, 50)); }
 });
