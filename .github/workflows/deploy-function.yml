@@ -61,4 +61,4 @@ jobs:
         run: |
           set -euo pipefail
           cp -r supabase/functions/ai-chat "supabase/functions/$FUNCTION_SLUG"
-          supabase functions deploy "$FUNCTION_SLUG" --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy "$FUNCTION_SLUG" --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
