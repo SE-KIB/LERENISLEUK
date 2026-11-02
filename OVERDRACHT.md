@@ -160,7 +160,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 | 18 | Lijst maken, alles nalopen, gemiste punten oppakken | ✅ deze tabel; zie "Nog open" hieronder |
 
 **Nog open (gemist of overgeslagen, op volgorde van nut):**
-- **Stand 30 okt avond:** `GITHUB_DISPATCH_TOKEN` staat erin (Serkan); check 31 okt 05:45 of de robot om 05:30 startte.
+- **Stand 30 okt avond:** `GITHUB_DISPATCH_TOKEN` staat erin (Serkan); robot startte 31 okt om 05:30 via ECO's klok ✅.
   PR #140 (modelnamen GROQ/GEMINI, versleepbare lipjes) wachtte nog op CI. Snelle nalooplijst voortaan: `/vergeten`.
 - **Gekozen door Serkan (30 okt): 3 en 4.** (3) Dagrapport uit Gmail: Serkan zet `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`
   (Google-account → Beveiliging → Tweestapsverificatie aan → App-wachtwoorden → "ECO") in Supabase-secrets; privacy: mail
@@ -199,7 +199,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   kwam de briefing om 07:30 en las ECO hem voor? wat zegt ECO op "hoe staat je klok ervoor"? onderbreken, foto's/pdf's,
   archief zoeken, WhatsApp klaarzetten, timer met melding terwijl ECO dicht is.
 **Ik (AI) kan zo doen**
-- Check 31 okt 05:45: startte ECO's klok de Brightspace-robot om 05:30 (`GITHUB_DISPATCH_TOKEN` staat erin)? Gepland.
+- ✅ 31 okt: ECO's klok startte de Brightspace-robot om 05:30 (workflow_dispatch 04:30 UTC, geslaagd). Werkt; niets meer te doen.
 - (Gedaan: #138–#141 gemerged; geen open PR's meer bij het sluiten van deze chat.)
 - Tests uitbreiden (`/controle` B2): ✅ 30 okt (2e chat) cronTick-briefing één keer per dag, lijst/timer/spotify-tools, foto's naar Gemini
   (tests/functie_test.ts, met kleine nep-database `nepDb`). Nog over: meer UI-tests (tests/website.test.mjs).
