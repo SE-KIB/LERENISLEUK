@@ -422,10 +422,13 @@ Deno.test("klok: de briefing gaat één keer per dag, alleen rond de ingestelde 
     gelijk((await m.cronTick(who)).briefing, undefined, "voor 07:30 nog niet");
     waar(db.kv.lesmail_klok, "planning bewaken: de lesmail-ronde is gestart");
     const klok1 = db.kv.lesmail_klok;
+    Date.now = () => Date.parse("2026-11-02T06:10:00Z"); // 07:10
+    await m.cronTick(who);
+    gelijk(db.kv.lesmail_klok, klok1, "binnen 30 minuten geen tweede lesmail-ronde");
     Date.now = () => Date.parse("2026-11-02T06:31:00Z"); // 07:31
     gelijk((await m.cronTick(who)).briefing, true, "om 07:31 wel");
     gelijk((db.kv.briefing_verstuurd as any).datum, "2026-11-02");
-    gelijk(db.kv.lesmail_klok, klok1, "binnen 30 minuten geen tweede lesmail-ronde");
+    gelijk(db.kv.lesmail_klok, "2026-11-02T06:31:00.000Z", "na 30 minuten wel een nieuwe lesmail-ronde");
     gelijk((await m.cronTick(who)).briefing, undefined, "geen tweede keer dezelfde dag");
     Date.now = () => Date.parse("2026-11-02T09:00:00Z"); // 10:00: te laat (meer dan 2 uur)
     db.kv.briefing_verstuurd = { datum: "2026-11-01" };
