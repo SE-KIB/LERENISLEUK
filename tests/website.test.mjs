@@ -150,6 +150,8 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
   ok(!(await page.$(".werk-stap img, .werk-stap a[href^='javascript']")), `${naam}: tekst van buiten wordt nooit HTML of een javascript-link`);
   if (naam === "computer") {
     ok(await page.$eval("body", (b) => b.dataset.rustig === "on"), "rustig scherm: panelen opzij zodra ECO werkt");
+    // De animatie kan op een trage machine langer duren: wachten tot hij klaar is (hooguit 2 s).
+    await page.waitForFunction(() => +getComputedStyle(document.querySelector('[data-win="status"]')).opacity < 0.05, null, { timeout: 2000 }).catch(() => {});
     { const st = await page.$eval('[data-win="status"]', (w) => [getComputedStyle(w).opacity, getComputedStyle(w).pointerEvents, getComputedStyle(w).transform, w.className]); ok(+st[0] < 0.05 && st[1] === "none", `systeemstatus is weggeschoven (${st})`); }
     ok(await page.$eval('[data-win="cmd"]', (w) => getComputedStyle(w).opacity === "1"), "opdrachtregel blijft");
     ok(await page.$eval("#panelenTerug", (k) => !k.hidden), "knop PANELEN om ze terug te halen");

@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -585,4 +585,30 @@ Deno.test("klok: avondoverzicht één keer per dag rond 21:00", async () => {
     await m.cronTick(who);
     gelijk(db.kv.avond_verstuurd, "2026-11-01", "uitgezet: niets");
   } finally { Date.now = echtNu; globalThis.fetch = echtFetch; await new Promise((r) => setTimeout(r, 50)); }
+});
+
+Deno.test("Brightspace-aankondiging: wijziging eruit, niet twee keer lezen, één melding voor mail + Brightspace", async () => {
+  const echtFetch = globalThis.fetch, echtNu = Date.now;
+  Deno.env.set("GROQ_API_KEY", "nep");
+  let vragen = 0;
+  globalThis.fetch = (async (url: string) => {
+    if (String(url).includes("groq")) {
+      vragen++;
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ wijzigingen: [{ datum: "2026-11-05", vak: "Wiskunde", soort: "vervalt", nieuw: "", kort: "Do 5 nov: Wiskunde vervalt" }] }) } }] });
+    }
+    return new Response("{}", { status: 500 });
+  }) as typeof fetch;
+  Date.now = () => Date.parse("2026-11-03T10:00:00Z");
+  const db = nepDb();
+  try {
+    const bs = { id: "bs:111:9", bron: "Brightspace-aankondiging", vak: "Wiskunde", datum: "2026-11-03", onderwerp: "Les donderdag", tekst: "De les van donderdag gaat niet door." };
+    const r1 = await m.lesBerichtenVerwerken(db, [bs], false);
+    gelijk(r1.nieuw, ["Do 5 nov: Wiskunde vervalt"]);
+    await m.lesBerichtenVerwerken(db, [bs], false);
+    gelijk(vragen, 1, "al gelezen: niet nog eens naar het model");
+    const mail = { ...bs, id: "imap:5", bron: "e-mail" };
+    const r3 = await m.lesBerichtenVerwerken(db, [mail], false);
+    gelijk(r3.nieuw, [], "zelfde wijziging uit mail: geen tweede melding");
+    gelijk((db.kv.lesmail as any).wijzigingen.length, 1);
+  } finally { globalThis.fetch = echtFetch; Date.now = echtNu; Deno.env.delete("GROQ_API_KEY"); }
 });

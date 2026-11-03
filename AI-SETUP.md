@@ -429,7 +429,10 @@ ECO legt drie bronnen over elkaar: je **rooster** (MyTimetable via `AGENDA_FEEDS
 is; gaat voor het rooster) en je **schoolmail**. Elke 30 minuten (06:00–22:00) zoekt ECO in je mail van school (hhs.nl,
 Brightspace, MyTimetable) naar uitval, een ander lokaal, een andere tijd of online. Vindt hij iets nieuws, dan krijg je een
 melding ("📅 Les gewijzigd") en zie je in de widget VERVALT of GEWIJZIGD (met het nieuwe lokaal of de nieuwe tijd). Vraag ook
-gewoon "vallen er lessen uit?". Nodig: `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` (of de Google-koppeling). Andere afzenders of
+gewoon "vallen er lessen uit?". Nodig: `GMAIL_EMAIL` + `GMAIL_APP_PASSWORD` (of de Google-koppeling). Je HHS-mail komt
+standaard niet in Gmail: stuur hem door (outlook.office.com → Instellingen → E-mail → Doorsturen). Daarnaast leest de
+Brightspace-robot bij elke ronde de **aankondigingen** van je vakken (laatste 14 dagen) en haalt ECO daar dezelfde wijzigingen
+uit; dat werkt ook zonder doorsturen. Staat een wijziging in mail én in Brightspace, dan krijg je maar één melding. Andere afzenders of
 woorden? Zet de secret `LESMAIL_QUERY` (Gmail-zoeksyntax). Is een agenda-link niet bereikbaar, dan staat dat onderaan de widget.
 Om **21:00** krijg je een melding "🌙 Morgen" met je lessen van morgen (VERVALT of het lokaal), deadlines en het weer met tip.
 Uitzetten of een andere tijd: database `ai_kv`, sleutel `avond_inst` = `{"tijd": "21:30", "aan": true}` (of vraag het de AI).
