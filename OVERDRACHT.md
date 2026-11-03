@@ -234,6 +234,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
+- **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
+  Brightspace/MyTimetable/docenten. De lesmail-controle ziet dus nog niets. HHS-Outlook (outlook.office.com) → Instellingen →
+  E-mail → Doorsturen → serkanerenkibar07@gmail.com (kopie bewaren). Blokkeert de HHS dat, dan een regel "Doorsturen" of melden.
 - Laptop-app herstarten → "ja" bij bijwerken. `NOVA_KEY` zodra de laptop er is (zeg dan "doe de laptopsleutel").
 - Controleer of je MyTimetable-link in `AGENDA_FEEDS` staat (ik kon het niet zien): vraag ECO "wat heb ik morgen?"; zegt hij
   "volgens je schoolrooster", dan is het goed. Staat er "⚠ Agenda …" in de widget, dan is de link stuk.
