@@ -232,6 +232,13 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   bouwt met `xtool dev` (stappen in ios/LEESMIJ.md). Gratis Apple ID = elke 7 dagen opnieuw; App Store = €99/jaar (gevraagd?).
   Eventuele bouwfouten: Serkan plakt de foutmelding, dan repareren.
 
+## Brightspace-aankondigingen (3 nov)
+- Robot (sync.mjs) leest per vak de aankondigingen (API `/d2l/api/le/<versie>/<ou>/news/`, anders de aankondigingenpagina),
+  stuurt ze naar ECO (`bs.actie = "nieuws"`), ECO haalt er wijzigingen uit (zelfde als lesmail, `lesBerichtenVerwerken`).
+  Dubbele wijziging (mail + Brightspace) = één melding. Nog niet in het echt gezien: kijk na de volgende robotronde in de log
+  naar "Aankondigingen doorgegeven: N." (N > 0 = API werkt).
+- Ochtendbriefing noemt lesmail-wijzigingen al (zitten in de agenda-context). Animatietest website stabiel gemaakt.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
@@ -249,7 +256,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - Muis-klikken door ECO (nu niet); App Store (€99/jaar) of gratis (elke 7 dagen opnieuw installeren)?;
   studieplanner; melding als Groq's quotum op is.
 **Ik kan meteen bouwen**
-1. Lesmail ook in de ochtendbriefing laten noemen (staat al in de agenda-context; controleren na eerste echte wijziging).
+1. (Gedaan 3 nov: Brightspace-aankondigingen; briefing noemt wijzigingen.) Controleren na de eerste echte wijziging.
 2. (Gedaan 2 nov: UI-tests, DNS-rebinding, avondoverzicht, iPhone-app.) Volgende: eigen widget in de iPhone-app (inlog delen).
 
 ## Later (door Serkan zo afgesproken)

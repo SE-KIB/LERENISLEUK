@@ -35,7 +35,36 @@ async function capture(page) {
   return [...(text ? [{ mime: "text/plain", data: b64(text) }] : []), ...shots];
 }
 
-let klaar = 0;
+// Aankondigingen van het vak (docenten zetten daar "les vervalt", "ander lokaal" enz.). Eerst via de Brightspace-API (de robot
+// is al ingelogd, dus zelfde site + cookies), anders de tekst van de aankondigingenpagina. Alleen de laatste 14 dagen.
+const vakId = (url) => /[?&]ou=(\d+)/.exec(url)?.[1] ?? /\/d2l\/(?:le\/content|home|le\/lessons|lms\/[a-z]+|le\/[a-z]+)\/(\d+)/i.exec(url)?.[1] ?? null;
+async function aankondigingen(page, ou) {
+  const api = await page.evaluate(async (ou) => {
+    try {
+      const v = await fetch("/d2l/api/le/versions/", { credentials: "include" }).then((r) => r.ok ? r.json() : null).catch(() => null);
+      const versie = v?.LatestVersion ?? "1.67";
+      const r = await fetch(`/d2l/api/le/${versie}/${ou}/news/`, { credentials: "include", headers: { accept: "application/json" } });
+      if (!r.ok) return { fout: r.status };
+      const grens = Date.now() - 14 * 86400000;
+      return { items: (await r.json()).filter((n) => n.IsPublished !== false && Date.parse(n.StartDate ?? n.CreatedDate ?? 0) >= grens).slice(0, 15)
+        .map((n) => ({ id: `${ou}:${n.Id}`, titel: n.Title ?? "", tekst: (n.Body?.Text || (n.Body?.Html ?? "").replace(/<[^>]+>/g, " ")).slice(0, 4000), datum: n.StartDate ?? n.CreatedDate ?? "" })) };
+    } catch (e) { return { fout: String(e) }; }
+  }, ou).catch((e) => ({ fout: String(e) }));
+  if (api.items) return api.items;
+  // Geen API: de pagina met aankondigingen lezen (één stuk tekst; ECO onthoudt wat hij al las).
+  const p2 = await ctx.newPage();
+  try {
+    await p2.goto(`https://${host}/d2l/lms/news/main.d2l?ou=${ou}`, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await p2.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    if (onLogin(p2.url(), host)) return [];
+    const t = (await p2.evaluate(() => document.body?.innerText ?? "").catch(() => "")).trim();
+    if (t.length < 40) return [];
+    const hash = (await import("node:crypto")).createHash("sha1").update(t).digest("hex").slice(0, 16);
+    return [{ id: `${ou}:pagina:${hash}`, titel: "Aankondigingen", tekst: t.slice(0, 4000), datum: new Date().toISOString() }];
+  } finally { await p2.close(); }
+}
+
+let klaar = 0, nieuwsGelezen = 0;
 const fouten = [], deels = [];
 for (const p of pages) {
   const page = await ctx.newPage();
@@ -47,6 +76,14 @@ for (const p of pages) {
       console.log("Sessie verlopen.");
       await browser.close();
       process.exit(0);
+    }
+    // Aankondigingen apart: een fout hierin laat het vak niet mislukken.
+    const ou = vakId(page.url()) ?? vakId(p.url);
+    if (ou) {
+      try {
+        const items = await aankondigingen(page, ou);
+        if (items.length) { await eco({ bs: { actie: "nieuws", vak: p.vak, items } }); nieuwsGelezen += items.length; }
+      } catch (e) { console.log("Aankondigingen niet gelezen voor een vak."); }
     }
     const files = await capture(page);
     if (!files.length) throw new Error("pagina leeg");
@@ -72,6 +109,7 @@ for (const p of pages) {
     console.log(`Vak ${klaar + fouten.length}/${pages.length} mislukt.`);
   } finally { await page.close(); }
 }
+console.log(`Aankondigingen doorgegeven: ${nieuwsGelezen}.`);
 // Ververste cookies terugzetten, zodat de koppeling zo lang mogelijk geldig blijft.
 await eco({ bs: { actie: "save", state: await ctx.storageState() } }).catch(() => {});
 await browser.close();
