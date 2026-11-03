@@ -235,8 +235,8 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 ## Brightspace-aankondigingen (3 nov)
 - Robot (sync.mjs) leest per vak de aankondigingen (API `/d2l/api/le/<versie>/<ou>/news/`, anders de aankondigingenpagina),
   stuurt ze naar ECO (`bs.actie = "nieuws"`), ECO haalt er wijzigingen uit (zelfde als lesmail, `lesBerichtenVerwerken`).
-  Dubbele wijziging (mail + Brightspace) = één melding. Nog niet in het echt gezien: kijk na de volgende robotronde in de log
-  naar "Aankondigingen doorgegeven: N." (N > 0 = API werkt).
+  Dubbele wijziging (mail + Brightspace) = één melding. ✅ 3 nov 13:09 handmatige ronde: 2 vakken gelezen, "Aankondigingen
+  doorgegeven: 2." (of daar een wijziging in stond, ziet Serkan aan een melding / VERVALT in de widget).
 - Ochtendbriefing noemt lesmail-wijzigingen al (zitten in de agenda-context). Animatietest website stabiel gemaakt.
 
 ## Nog open (lijst /vergeten, 2 nov)
