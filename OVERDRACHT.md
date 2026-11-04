@@ -253,7 +253,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - Widget (middel en groot): 6 uur + tip in het midden; na 19:00 alleen morgen. Vraag ECO "vallen er lessen uit?".
 - Uit 30 okt: 2× klappen, werkmodus, Live (sneller? kapt hij af?), sarcasme (2 op 3), "STORING: SERVER" bij opstarten weg?
 **Jij beslissen**
-- Muis-klikken door ECO (nu niet); App Store (€99/jaar) of gratis (elke 7 dagen opnieuw installeren)?;
+- Muis-klikken door ECO (nu niet);
   studieplanner; melding als Groq's quotum op is.
 **Ik kan meteen bouwen**
 1. (Gedaan 3 nov: Brightspace-aankondigingen; briefing noemt wijzigingen.) Controleren na de eerste echte wijziging.
@@ -276,7 +276,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).
-- **Niet doen:** vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
+- **Niet doen:** betalen voor wat dan ook (Serkan 4 nov: "we gaan zeker niet betalen"; dus geen App Store/Apple Developer €99, iPhone-app gratis met elke 7 dagen `xtool dev`), vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
   meerdere Groq-accounts/sleutels om de gratis limiet te omzeilen (tegen de regels; 30 okt nogmaals gevraagd en afgewezen),
   ECO zelf met de muis laten klikken (tenzij Serkan dat later expliciet beslist).
 
