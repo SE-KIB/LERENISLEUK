@@ -239,6 +239,17 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   doorgegeven: 2." (of daar een wijziging in stond, ziet Serkan aan een melding / VERVALT in de widget).
 - Ochtendbriefing noemt lesmail-wijzigingen al (zitten in de agenda-context). Animatietest website stabiel gemaakt.
 
+## Fouten 4 nov (schermafbeelding Serkan) + zelf verbeteren
+- Gemini 2.5 Flash is uitgezet ("no longer available to new users", 404): overal uit de standaardlijsten; 404 = model een dag
+  overslaan; GEMINI_MODELS eindigt altijd met gemini-3.8-flash en gemini-flash-latest (ook als een oud secret 2.5 noemt).
+- Groq 429 per minuut (8000 TPM gratis): als Groq ≤10 s wachttijd noemt, wacht ECO en probeert het één keer opnieuw.
+- Foutmelding in beeld is nu kort en in het Nederlands; de technische details staan in de functie-log.
+- Dubbele les (rooster + Brightspace-planning, "Water in de Stedelijke Delta"): planning vervangt nu de roosterles bij
+  vakPast (ook afkortingen) of dezelfde begintijd op die dag.
+- **Zelf verbeteren:** tool `zelf_verbeteren` (eerst vragen, pas na ja; nooit na mail/web) → workflow `eco-verzoek.yml` → issue
+  met label `eco-verzoek` door github-actions[bot] → geplande Claude-taak "ECO-verzoeken bouwen" (elke avond) bouwt via PR,
+  merget alleen bij groene tests en sluit het issue met uitleg.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
