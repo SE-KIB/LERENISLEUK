@@ -2978,7 +2978,7 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
   }
   if (name === "dagrapport") return await dagrapport(input.dag);
   if (name === "lesmail_check") return await lesMailCheck(actions.db);
-  if (name === "zelf_verbeteren") return await zelfVerbeteren(input, actions.userId);
+  if (name === "zelf_verbeteren") return await zelfVerbeteren(input, actions.userId ?? "");
   if (name === "web_zoeken") return await webZoeken(String(input.vraag ?? ""));
   if (name === "web_lezen") return await webLezen(String(input.url ?? ""), String(input.vraag ?? ""));
   if (name === "rekenen") { try { return { expressie: input.expressie, uitkomst: calc(String(input.expressie ?? "")) }; } catch (e) { return { fout: (e as Error).message }; } }
