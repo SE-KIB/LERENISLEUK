@@ -250,6 +250,13 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   met label `eco-verzoek` door github-actions[bot] → geplande Claude-taak "ECO-verzoeken bouwen" (elke 2 uur 09:41–23:41) bouwt via PR,
   merget alleen bij groene tests en sluit het issue met uitleg.
 
+## Initiatief 4 nov (Serkan: "doe alles wat handig is alvast")
+- **Bijlagen lezen** (Serkan: "pdf lezen super handig voor mails checken"): `mimeParse` geeft bijlagen; `mail_lezen` toont de lijst;
+  tool `bijlage_lezen` (PDF/foto → Gemini inlineData, .docx zelf uitgepakt, tekst/CSV direct). Werkt via Google en via IMAP. Tests.
+- **Vooruitkijken** (Pulse-idee, gratis): avondmelding noemt toetsen/deadlines van de komende week; zondag 19:00 "Komende week".
+- Keuzepagina "AI-hulpgids" (claude.ai artifact 7W9Z31BEYWwNpyoazjA9mm): Serkan kiest per punt Wil ik/Niet en stuurt door;
+  de keuzes staan dan in die pagina (JSON-blok `keuzes`). Nog niet doorgestuurd bij het schrijven hiervan.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
