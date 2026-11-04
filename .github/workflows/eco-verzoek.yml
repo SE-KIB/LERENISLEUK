@@ -1,6 +1,6 @@
 name: ECO-verzoek (zichzelf verbeteren)
 
-# ECO start dit als Serkan zelf zegt dat iets aan ECO beter moet, en daarna "ja" zegt op ECO's vraag of hij het mag doorgeven.
+# ECO start dit meteen als Serkan zelf zegt dat iets aan ECO beter moet (toestemming 4 nov: eigen code direct, geen vraag).
 # Hier wordt alleen een issue gemaakt (label eco-verzoek). Een geplande Claude-sessie bouwt het daarna via een PR; die gaat
 # alleen live als alle tests groen zijn. Alleen issues van github-actions[bot] met dit label tellen (anderen kunnen geen
 # labels zetten in deze repo).
@@ -27,5 +27,5 @@ jobs:
         run: |
           gh label create eco-verzoek --color 00E1FF --description "Verzoek van Serkan via ECO" --force >/dev/null
           titel="ECO-verzoek: $(printf '%s' "$VERZOEK" | tr '\n' ' ' | cut -c1-70)"
-          body="$(printf 'Serkan vroeg via ECO (en bevestigde het):\n\n> %s\n\n_Gemaakt door ECO. Wordt opgepakt door de geplande Claude-sessie._' "$VERZOEK")"
+          body="$(printf 'Serkan vroeg via ECO:\n\n> %s\n\n_Gemaakt door ECO. Wordt opgepakt door de geplande Claude-sessie._' "$VERZOEK")"
           gh issue create --title "$titel" --body "$body" --label eco-verzoek
