@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -625,4 +625,44 @@ Deno.test("zelf verbeteren: meteen doorgeven, maar nooit na mail/web", async () 
     waar(ok.doorgegeven === true, JSON.stringify(ok));
     waar(verzoeken[0].url.endsWith("/actions/workflows/eco-verzoek.yml/dispatches") && verzoeken[0].body.inputs.verzoek.includes("dubbele lessen"), JSON.stringify(verzoeken));
   } finally { globalThis.fetch = echt; Deno.env.delete("GITHUB_DISPATCH_TOKEN"); }
+});
+
+// Kleine zip (zonder compressie) met word/document.xml, zoals een .docx.
+function nepDocx(xml: string) {
+  const enc = new TextEncoder(), naam = enc.encode("word/document.xml"), data = enc.encode(xml);
+  const lok = new Uint8Array(30 + naam.length), dl = new DataView(lok.buffer);
+  dl.setUint32(0, 0x04034b50, true); dl.setUint16(8, 0, true); dl.setUint32(18, data.length, true); dl.setUint32(22, data.length, true); dl.setUint16(26, naam.length, true); lok.set(naam, 30);
+  const cen = new Uint8Array(46 + naam.length), dc = new DataView(cen.buffer);
+  dc.setUint32(0, 0x02014b50, true); dc.setUint16(10, 0, true); dc.setUint32(20, data.length, true); dc.setUint32(24, data.length, true); dc.setUint16(28, naam.length, true); dc.setUint32(42, 0, true); cen.set(naam, 46);
+  const eocd = new Uint8Array(22), de = new DataView(eocd.buffer);
+  de.setUint32(0, 0x06054b50, true); de.setUint16(8, 1, true); de.setUint16(10, 1, true); de.setUint32(12, cen.length, true); de.setUint32(16, lok.length + data.length, true);
+  const uit = new Uint8Array(lok.length + data.length + cen.length + eocd.length);
+  uit.set(lok, 0); uit.set(data, lok.length); uit.set(cen, lok.length + data.length); uit.set(eocd, lok.length + data.length + cen.length);
+  return uit;
+}
+
+Deno.test("mail-bijlagen: PDF en Word uit een mail halen, tekst blijft de tekst", async () => {
+  const docx = nepDocx("<w:document><w:body><w:p><w:r><w:t>Toets &amp; inleveren</w:t></w:r></w:p><w:p><w:r><w:t>Vrijdag 6 november</w:t></w:r></w:p></w:body></w:document>");
+  const raw = [
+    "From: docent@hhs.nl", "Subject: Opdracht", 'Content-Type: multipart/mixed; boundary="XX"', "",
+    "--XX", "Content-Type: text/plain; charset=utf-8", "", "Zie de bijlagen.",
+    "--XX", 'Content-Type: application/pdf; name="rooster.pdf"', 'Content-Disposition: attachment; filename="rooster.pdf"', "Content-Transfer-Encoding: base64", "", "JVBERi0xLjQK",
+    "--XX", "Content-Type: application/octet-stream", 'Content-Disposition: attachment; filename="opdracht.docx"', "Content-Transfer-Encoding: base64", "", m.bytesB64(docx),
+    "--XX--", "",
+  ].join("\r\n");
+  const msg = m.mimeParse(raw);
+  gelijk(msg.text.trim(), "Zie de bijlagen.");
+  gelijk(msg.bijlagen.map((b: any) => [b.naam, b.type]), [["rooster.pdf", "application/pdf"], ["opdracht.docx", "application/octet-stream"]]);
+  gelijk(m.bijlageSoort("opdracht.docx", "application/octet-stream"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  gelijk(m.bijlageSoort("x.pdf", "application/pdf"), "application/pdf");
+  const bytes = Uint8Array.from(atob(msg.bijlagen[1].b64), (c) => c.charCodeAt(0));
+  gelijk(await m.docxTekst(bytes), "Toets & inleveren\nVrijdag 6 november");
+});
+
+Deno.test("vooruitkijken: toetsen over een paar dagen en de week in één melding", () => {
+  const bel = [{ datum: "2026-11-05", titel: "Morgen-ding" }, { datum: "2026-11-07", titel: "Toets Wiskunde" }, { datum: "2026-11-10", titel: "Deadline verslag" }];
+  gelijk(m.vooruitRegels(bel, "2026-11-04"), ["over 3 dagen: Toets Wiskunde", "over 6 dagen: Deadline verslag"]);
+  const w = { datums: ["2026-11-08", "2026-11-09", "2026-11-10"], perDag: new Map([["2026-11-09", { lessen: 3, eerste: "08:45" }]]), belangrijk: [{ datum: "2026-11-10", titel: "Deadline verslag" }] };
+  const tekst = m.weekTekst(w);
+  waar(/08:45 \(3\)/.test(tekst) && /⚑ .*Deadline verslag/.test(tekst), tekst);
 });

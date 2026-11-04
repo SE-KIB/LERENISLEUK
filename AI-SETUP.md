@@ -437,6 +437,12 @@ woorden? Zet de secret `LESMAIL_QUERY` (Gmail-zoeksyntax). Is een agenda-link ni
 Om **21:00** krijg je een melding "🌙 Morgen" met je lessen van morgen (VERVALT of het lokaal), deadlines en het weer met tip.
 Uitzetten of een andere tijd: database `ai_kv`, sleutel `avond_inst` = `{"tijd": "21:30", "aan": true}` (of vraag het de AI).
 
+## Bijlagen en vooruitkijken (4 nov)
+- ECO leest **bijlagen** van je mail: PDF en foto's (via de gratis Gemini), Word (.docx) en tekst/CSV. Vraag bv. "wat staat er in
+  de pdf van de docent?" of "check mijn mail" (dan noemt hij ook wat er in belangrijke bijlagen staat).
+- **Avondmelding** (21:00) noemt ook toetsen en deadlines van de komende week ("over 3 dagen: Toets Wiskunde").
+- **Zondag 19:00**: melding "📅 Komende week" (eerste les per dag, aantal lessen, toetsen/deadlines). Uit: `ai_kv` `week_inst` = `{"aan": false}`.
+
 ## ECO verbetert zichzelf
 Zeg tegen ECO wat er beter moet ("haal dubbele lessen uit mijn rooster", "de widget moet ook X tonen"). ECO geeft het
 **meteen** door als taak op GitHub (workflow `eco-verzoek.yml`, label `eco-verzoek`), zonder eerst te vragen.
