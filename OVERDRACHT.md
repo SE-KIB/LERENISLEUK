@@ -246,8 +246,8 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - Foutmelding in beeld is nu kort en in het Nederlands; de technische details staan in de functie-log.
 - Dubbele les (rooster + Brightspace-planning, "Water in de Stedelijke Delta"): planning vervangt nu de roosterles bij
   vakPast (ook afkortingen) of dezelfde begintijd op die dag.
-- **Zelf verbeteren:** tool `zelf_verbeteren` (eerst vragen, pas na ja; nooit na mail/web) → workflow `eco-verzoek.yml` → issue
-  met label `eco-verzoek` door github-actions[bot] → geplande Claude-taak "ECO-verzoeken bouwen" (elke avond) bouwt via PR,
+- **Zelf verbeteren:** tool `zelf_verbeteren` (Serkan 4 nov: direct, zonder vragen; nooit na mail/web) → workflow `eco-verzoek.yml` → issue
+  met label `eco-verzoek` door github-actions[bot] → geplande Claude-taak "ECO-verzoeken bouwen" (elke 2 uur 09:41–23:41) bouwt via PR,
   merget alleen bij groene tests en sluit het issue met uitleg.
 
 ## Nog open (lijst /vergeten, 2 nov)
@@ -287,6 +287,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - **Instellen door Serkan:** dagrapport (`GMAIL_EMAIL` + `GMAIL_APP_PASSWORD`), merk van de lampen doorgeven,
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).
+- **Toestemming (Serkan 4 nov):** alles op zijn eigen apparaten en in ECO's eigen code meteen doen (apps openen op telefoon/laptop, zichzelf verbeteren), zonder te vragen. Nooit zelf iets naar anderen versturen wat niet terug kan (berichten, mails): alleen klaarzetten.
 - **Niet doen:** betalen voor wat dan ook (Serkan 4 nov: "we gaan zeker niet betalen"; dus geen App Store/Apple Developer €99, iPhone-app gratis met elke 7 dagen `xtool dev`), vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
   meerdere Groq-accounts/sleutels om de gratis limiet te omzeilen (tegen de regels; 30 okt nogmaals gevraagd en afgewezen),
   ECO zelf met de muis laten klikken (tenzij Serkan dat later expliciet beslist).

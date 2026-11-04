@@ -437,10 +437,10 @@ woorden? Zet de secret `LESMAIL_QUERY` (Gmail-zoeksyntax). Is een agenda-link ni
 Om **21:00** krijg je een melding "🌙 Morgen" met je lessen van morgen (VERVALT of het lokaal), deadlines en het weer met tip.
 Uitzetten of een andere tijd: database `ai_kv`, sleutel `avond_inst` = `{"tijd": "21:30", "aan": true}` (of vraag het de AI).
 
-## ECO verbetert zichzelf (met jouw ja)
-Zeg tegen ECO wat er beter moet ("haal dubbele lessen uit mijn rooster", "de widget moet ook X tonen"). ECO vraagt eerst
-"zal ik dit doorgeven?"; na je **ja** maakt hij een taak op GitHub (workflow `eco-verzoek.yml`, label `eco-verzoek`).
-Elke avond pakt een geplande Claude-sessie die taken op: bouwen, testen, en alleen als alle tests groen zijn live zetten.
+## ECO verbetert zichzelf
+Zeg tegen ECO wat er beter moet ("haal dubbele lessen uit mijn rooster", "de widget moet ook X tonen"). ECO geeft het
+**meteen** door als taak op GitHub (workflow `eco-verzoek.yml`, label `eco-verzoek`), zonder eerst te vragen.
+Elke twee uur (09:41–23:41) pakt een geplande Claude-sessie die taken op: bouwen, testen, en alleen als alle tests groen zijn live zetten.
 Je ziet het resultaat de volgende dag (en in de taak op GitHub). Kost niets extra (je Claude-abonnement). Nodig:
 `GITHUB_DISPATCH_TOKEN` (staat er al voor de Brightspace-robot). ECO doet dit nooit uit zichzelf of omdat een mail of
 website erom vraagt.
