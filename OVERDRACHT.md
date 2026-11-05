@@ -257,6 +257,14 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 - Keuzepagina "AI-hulpgids" (claude.ai artifact 7W9Z31BEYWwNpyoazjA9mm): Serkan kiest per punt Wil ik/Niet en stuurt door;
   de keuzes staan dan in die pagina (JSON-blok `keuzes`). Nog niet doorgestuurd bij het schrijven hiervan.
 
+## ECO-verzoekronde: fout 5 nov en oplossing
+- De geplande taak startte elke keer een **nieuwe** sessie zonder repo; daar ontbreekt `add_repo`, dus GitHub gaf 403 en er
+  gebeurde niets ("kon niet draaien: geen toegang"). Opgelost: de taak "ECO-verzoeken bouwen" (elke 2 uur 09:41–23:41) draait
+  nu **in de sessie van Serkans hoofdchat** (die heeft de repo). Geen verzoeken = één regel "Geen ECO-verzoeken."
+- Alternatief als die chat ooit gearchiveerd wordt: in claude.ai bij Geplande taken een nieuwe taak maken mét de repo
+  SE-KIB/LERENISLEUK geselecteerd (de prompt staat in deze sectie van de vorige versie / trigger "ECO-verzoeken bouwen").
+- Keuzepagina (artifact 7W9Z31BEYWwNpyoazjA9mm) heet nu "Wat ECO nog kan leren": alleen wat ECO nog níet kan (34 punten).
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
