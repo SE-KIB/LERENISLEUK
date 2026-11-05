@@ -549,3 +549,14 @@ body[data-werk=on] .hud .core .caption{flex:none;min-height:2.6em;max-height:5.6
   .right>.panel.mob-open{max-height:55vh}
   .right>.panel.mob-open[data-win=transcript]{max-height:60vh}
 }
+
+/* ECO wijst een plek aan (interface → wijs) */
+@keyframes wijsPuls { 0%,100% { box-shadow: 0 0 0 2px var(--c), 0 0 10px var(--c) } 50% { box-shadow: 0 0 0 4px var(--amber), 0 0 22px var(--amber) } }
+.wijs { animation: wijsPuls 1.2s ease-in-out infinite; position: relative; z-index: 3 }
+.wijs-pop { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60;
+  width: min(92vw, 460px); background: var(--bg2); border: 1px solid var(--amber); box-shadow: 0 0 18px rgba(255,177,42,.35);
+  padding: 12px 14px; display: flex; gap: 12px; align-items: center; color: var(--text); font-size: .95rem }
+.wijs-pop p { margin: 0; flex: 1; line-height: 1.4 }
+.wijs-pop .link { color: var(--amber) }
+.inst-rooster { margin-top: 14px; padding-top: 10px; border-top: 1px dashed rgba(0,225,255,.18) }
+@media (prefers-reduced-motion: reduce) { .wijs { animation: none; box-shadow: 0 0 0 3px var(--amber) } }

@@ -159,23 +159,9 @@
       <div class="panel rooster" data-win="rooster">
         <div class="panel-h"><span>ROOSTER</span><i class="rs-nav"><button type="button" id="rsPrev" class="link" aria-label="Vorige dag">‹</button><b id="rsDay">VANDAAG</b><button type="button" id="rsNext" class="link" aria-label="Volgende dag">›</button></i></div>
         <ul id="rsList" class="rs-list"><li class="empty">Laden…</li></ul>
-        <div class="rs-foot">
-          <button type="button" id="rsAdd" class="chip" title="Screenshots of PDF van een lesplanning uit Brightspace inlezen">+ PLANNING</button>
-          <span id="rsVakken"></span>
-          <input type="file" id="rsFile" accept="image/*,application/pdf" multiple hidden>
-        </div>
-        <div class="rs-bs">
-          <div class="rs-bs-h"><b>BRIGHTSPACE</b><span id="bsStatus">—</span></div>
-          <div class="rs-foot">
-            <button type="button" id="bsPage" class="chip" title="Link van een Rooster-pagina in Brightspace toevoegen">+ PAGINA</button>
-            <button type="button" id="bsUpload" class="chip" title="Sessiebestand (brightspace.json) uploaden, zie AI-SETUP.md">SESSIE UPLOADEN</button>
-            <span id="bsPages"></span>
-            <input type="file" id="bsFile" accept=".json,application/json" hidden>
-          </div>
-        </div>
       </div>
       <div class="panel lists" data-win="lijstjes">
-        <div class="panel-h"><span>LIJSTJES</span><i id="lsCount" title="Open punten">0</i></div>
+        <div class="panel-h"><span>DEADLINES</span><i id="lsCount" title="Open punten">0</i></div>
         <ul id="lsList" class="mem-list ls-list"></ul>
         <form id="lsForm" class="mem-add"><input id="lsInput" placeholder="Toevoegen… (bv. boodschappen: melk, brood)" maxlength="500" autocomplete="off"><button type="submit" class="chip" aria-label="Toevoegen">+</button></form>
       </div>
@@ -224,6 +210,22 @@
           <div class="push-row"><div class="push-row"><button type="button" id="spBtn" class="link" title="Koppel Spotify zodat ECO muziek kan bedienen (Premium nodig)">SPOTIFY KOPPELEN</button></div></div>
           <p id="spMsg" class="login-msg push-msg"></p>
           <button type="button" id="labOpen" class="link" title="Eigen stem ontwerpen met ElevenLabs">STEMLAB</button>
+          <div class="inst-rooster"><p class="inst-uitleg">ROOSTER-BRONNEN: lesplanning uit Brightspace en de koppeling met de Brightspace-robot.</p>
+        <div class="rs-foot">
+          <button type="button" id="rsAdd" class="chip" title="Screenshots of PDF van een lesplanning uit Brightspace inlezen">+ PLANNING</button>
+          <span id="rsVakken"></span>
+          <input type="file" id="rsFile" accept="image/*,application/pdf" multiple hidden>
+        </div>
+        <div class="rs-bs">
+          <div class="rs-bs-h"><b>BRIGHTSPACE</b><span id="bsStatus">—</span></div>
+          <div class="rs-foot">
+            <button type="button" id="bsPage" class="chip" title="Link van een Rooster-pagina in Brightspace toevoegen">+ PAGINA</button>
+            <button type="button" id="bsUpload" class="chip" title="Sessiebestand (brightspace.json) uploaden, zie AI-SETUP.md">SESSIE UPLOADEN</button>
+            <span id="bsPages"></span>
+            <input type="file" id="bsFile" accept=".json,application/json" hidden>
+          </div>
+        </div>
+          </div>
         </section>
         <section data-blad="beeld" class="inst-blad" hidden>
           <label class="switch" title="Gebruikt ECO een tool (zoeken, een pagina lezen, je agenda, de laptop), dan schuift de reactor naar rechtsonder en zie je live elke stap."><input type="checkbox" id="werkmodus" checked><i></i><span>WERKMODUS</span></label>

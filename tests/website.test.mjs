@@ -179,6 +179,14 @@ for (const [naam, vp] of [["computer", { width: 1440, height: 900 }], ["telefoon
     await page.click('.mob-tabs [data-mob="rooster"]');
     ok(await page.$eval('[data-win="rooster"]', (p) => getComputedStyle(p).display === "none"), "telefoon: nog eens tikken sluit");
   }
+  // Rooster toont alleen het rooster; bronnen staan bij INSTELLINGEN → KOPPELINGEN. LIJSTJES heet DEADLINES.
+  ok(!(await page.$('[data-win="rooster"] #bsUpload, [data-win="rooster"] #rsAdd')) && !!(await page.$('#instellingen [data-blad="koppelingen"] #bsUpload')), `${naam}: rooster zonder knoppen, bronnen bij koppelingen`);
+  ok(/DEADLINES/.test(await page.$eval('[data-win="lijstjes"] .panel-h', (h) => h.textContent)), `${naam}: lijstjes heten DEADLINES`);
+  // ECO wijst een plek aan: venster open, knop licht op, uitleg in beeld
+  await page.evaluate(() => applyUi({ onderdeel: "wijs", plek: "sessie_uploaden", uitleg: "Tik hier en kies brightspace.json." }, []));
+  ok(await page.$eval("#instellingen", (m) => !m.hidden) && await page.$eval("#bsUpload", (b) => b.classList.contains("wijs") && b.offsetParent !== null), `${naam}: wijs opent koppelingen en laat SESSIE UPLOADEN oplichten`);
+  ok(/brightspace\.json/.test(await page.$eval(".wijs-pop", (p) => p.textContent)), `${naam}: uitleg-pop-up in beeld`);
+  await page.evaluate(() => { document.querySelector(".wijs-pop .link").click(); document.getElementById("instellingen").hidden = true; });
   // Een antwoord blijft staan als ECO weer gaat luisteren
   await page.evaluate(() => { setCaption("Morgen heb je om 08:45 werkcollege en om 11:00 een vragenuur."); micOn(true); micOn(false); });
   ok(/werkcollege/.test(await page.$eval("#caption", (c) => c.textContent)), `${naam}: antwoord blijft staan tijdens luisteren`);

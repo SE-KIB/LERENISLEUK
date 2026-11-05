@@ -1092,6 +1092,34 @@ function applyUi(ev, afterDone) {
   else if (ev.onderdeel === "lijstjes") loadLists();
   else if (ev.onderdeel === "spotify") { setTimeout(loadSpotify, 4000); setTimeout(loadSpotify, 25000); }
   else if (ev.onderdeel === "timer" || ev.onderdeel === "timers") loadTimers();
+  else if (ev.onderdeel === "wijs") wijsAan(ev.plek, ev.uitleg);
+}
+// ECO wijst een plek in de app aan: opent het juiste venster of tabblad, laat de knop oplichten en zet er een uitleg bij.
+const WIJS = {
+  sessie_uploaden: { inst: "koppelingen", el: "bsUpload" }, brightspace_pagina: { inst: "koppelingen", el: "bsPage" },
+  planning: { inst: "koppelingen", el: "rsAdd" }, spotify: { inst: "koppelingen", el: "spBtn" }, meldingen: { inst: "meldingen" },
+  microfoon: { inst: "microfoon", el: "micSel" }, stem: { inst: "spraak" }, rooster: { mob: "rooster" }, deadlines: { mob: "lijstjes" },
+  profiel: { mob: "profiel" }, gesprek: { mob: "transcript" },
+};
+function wijsAan(plek, uitleg) {
+  const w = WIJS[plek];
+  if (!w) return;
+  if (w.inst) instOpen(w.inst);
+  else if (w.mob) document.querySelector(`.mob-tabs [data-mob="${w.mob}"][aria-pressed="false"]`)?.click();
+  document.querySelector(".wijs-pop")?.remove();
+  document.querySelectorAll(".wijs").forEach((x) => x.classList.remove("wijs"));
+  const doel = w.el ? $(w.el) : w.inst ? document.querySelector(`#instellingen [data-blad="${w.inst}"]`) : document.querySelector(`[data-win="${w.mob}"]`);
+  if (!doel) return;
+  doel.classList.add("wijs");
+  setTimeout(() => doel.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+  const pop = document.createElement("div");
+  pop.className = "wijs-pop"; pop.setAttribute("role", "status");
+  const t = document.createElement("p"); t.textContent = uitleg || "Hier.";
+  const k = document.createElement("button"); k.type = "button"; k.className = "link"; k.textContent = "OKÉ";
+  k.onclick = () => { pop.remove(); doel.classList.remove("wijs"); };
+  pop.append(t, k);
+  document.body.append(pop);
+  setTimeout(() => { pop.remove(); doel.classList.remove("wijs"); }, 45000);
 }
 async function ask({ text = "", audio = null }) {
   const my = ++turn;
@@ -2760,7 +2788,7 @@ function rustig(aan) {
 // ---------- iPhone: de panelen onder de reactor als tabbladen, standaard dicht (rustig); één tegelijk open ----------
 {
   const rechts = document.querySelector(".col.right"), MOB = matchMedia("(max-width: 900px)");
-  const tabs = [["transcript", "GESPREK"], ["rooster", "ROOSTER"], ["lijstjes", "LIJSTJES"], ["profiel", "PROFIEL"]];
+  const tabs = [["transcript", "GESPREK"], ["rooster", "ROOSTER"], ["lijstjes", "DEADLINES"], ["profiel", "PROFIEL"]];
   const balk = document.createElement("nav");
   balk.className = "mob-tabs"; balk.setAttribute("aria-label", "Panelen");
   balk.innerHTML = tabs.map(([w, t]) => `<button type="button" data-mob="${w}" aria-pressed="false">${t}</button>`).join("");

@@ -281,6 +281,14 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   `focus` (timer + niet-dringende meldingen wachten; titels met ⏰/📅/⏱/⚠️ komen altijd door), `regelzaken` (pakketjes + abonnementen
   uit mail om 08:30 en 16:30; melding pakket "vandaag" en abonnement ≤3 dagen, elk één keer).
 
+## Interface 5 nov (schermafbeeldingen Serkan)
+- ECO zei vaag "upload via de ECO-app of web-interface". Nu: `interface` met onderdeel **wijs** (plek + uitleg) opent de plek
+  (instellingen-tab of mobiele tab), laat de knop oplichten en toont een uitleg-pop-up. Systeemprompt: nooit vaag; stappen
+  voor een verlopen Brightspace-sessie staan erin.
+- ROOSTER-tab toont alleen het rooster; + PLANNING, + PAGINA, SESSIE UPLOADEN en de Brightspace-status staan nu bij
+  INSTELLINGEN → KOPPELINGEN. LIJSTJES heet **DEADLINES**.
+- Brightspace-sessie was 5 nov verlopen (do 14:20): Serkan moet een nieuwe uploaden (stappen in AI-SETUP.md, Brightspace).
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
