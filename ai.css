@@ -560,3 +560,6 @@ body[data-werk=on] .hud .core .caption{flex:none;min-height:2.6em;max-height:5.6
 .wijs-pop .link { color: var(--amber) }
 .inst-rooster { margin-top: 14px; padding-top: 10px; border-top: 1px dashed rgba(0,225,255,.18) }
 @media (prefers-reduced-motion: reduce) { .wijs { animation: none; box-shadow: 0 0 0 3px var(--amber) } }
+
+/* Reistijd tussen afspraken in het rooster */
+.rs-list li.reis { font-family: var(--f-mono); font-size: .72rem; color: var(--amber); border: 0; padding: 2px 0 2px 12px; letter-spacing: .02em }
