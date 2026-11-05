@@ -289,6 +289,11 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   INSTELLINGEN → KOPPELINGEN. LIJSTJES heet **DEADLINES**.
 - Brightspace-sessie was 5 nov verlopen (do 14:20): Serkan moet een nieuwe uploaden (stappen in AI-SETUP.md, Brightspace).
 
+## NS / reizen (5 nov)
+- Serkan zette `NS_API_KEY` in Supabase (Ns-App, apiportal.ns.nl). Tool `reis`: NS v3 trips met coördinaten (deur tot deur, ook tram/bus),
+  auto en lopen via routing.openstreetmap.de, adressen via Nominatim. Antwoord: "🚗 5 min · 🚶 15 min · 🚊 24 min" + eerstvolgende reis.
+  Zelfcontrole (maandag) test de NS-sleutel. Nog te bouwen: melding "tijd om te gaan" en reistijd tussen afspraken vanzelf in het rooster.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van

@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen, geldSaldo, cijferGemiddelde, cijferNodig, regelUit, regelMeldingen };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen, geldSaldo, cijferGemiddelde, cijferNodig, regelUit, regelMeldingen, nsReisKort };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -703,4 +703,29 @@ Deno.test("regelzaken: pakket vandaag en abonnement 3 dagen van tevoren, elk é�
   const m1 = m.regelMeldingen({ ...r, gemeld: [] }, "2026-11-05");
   gelijk(m1.meldingen, ["📦 bol komt vandaag (14:00-16:00)", "💳 Netflix verlengt over 2 dagen (€13,99)"]);
   gelijk(m.regelMeldingen({ ...r, gemeld: m1.gemeld }, "2026-11-05").meldingen, [], "niet nog eens");
+});
+
+Deno.test("reis: NS-reis kort met vertraging, spoor en vervoer; plus auto en lopen", async () => {
+  const trip = { plannedDurationInMinutes: 24, transfers: 1, status: "NORMAL", legs: [
+    { product: { type: "TRAIN", shortCategoryName: "SPR" }, origin: { name: "Den Haag Centraal", plannedTrack: "4", plannedDateTime: "2026-11-05T17:02:00+0100", actualDateTime: "2026-11-05T17:05:00+0100" },
+      destination: { name: "Delft", plannedDateTime: "2026-11-05T17:15:00+0100" } },
+    { product: { type: "TRAM", shortCategoryName: "Tram 19" }, origin: { name: "Delft", plannedDateTime: "2026-11-05T17:18:00+0100" }, destination: { name: "Delft, TU", plannedDateTime: "2026-11-05T17:26:00+0100" } }] };
+  const k = m.nsReisKort(trip);
+  gelijk([k.vertrek, k.aankomst, k.duur_min, k.overstappen], ["17:02 (+3)", "17:26", 24, 1]);
+  gelijk(k.route, ["🚆 SPR Den Haag Centraal spoor 4 → Delft", "🚊 Tram 19 Delft → Delft, TU"]);
+  const echt = globalThis.fetch;
+  Deno.env.set("NS_API_KEY", "nep");
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const u = String(url);
+    if (u.includes("nominatim")) return Response.json([{ lat: "52.08", lon: "4.32", display_name: "Plek, Den Haag" }]);
+    if (u.includes("routed-car")) return Response.json({ routes: [{ duration: 300 }] });
+    if (u.includes("routed-foot")) return Response.json({ routes: [{ duration: 900 }] });
+    if (u.includes("/v3/trips")) { waar((init?.headers as any)["Ocp-Apim-Subscription-Key"] === "nep", "sleutel in de header"); return Response.json({ trips: [trip] }); }
+    return new Response("{}", { status: 404 });
+  }) as typeof fetch;
+  try {
+    const r = await m.runTool("reis", { van: "school", naar: "dokter" } as any, { ...acties(), userId: "r1" } as any);
+    gelijk(r.kort, "🚗 5 min · 🚶 15 min · 🚊 24 min");
+    gelijk(r.ov[0].vertrek, "17:02 (+3)");
+  } finally { globalThis.fetch = echt; Deno.env.delete("NS_API_KEY"); }
 });
