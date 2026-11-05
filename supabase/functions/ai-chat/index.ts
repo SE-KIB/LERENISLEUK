@@ -2056,7 +2056,7 @@ async function reisTool(input: any, actions: Actions) {
   const om = String(input.om ?? "").trim();
   if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(om)) wanneer = om;
   else if (/^\d{1,2}[:.]\d\d$/.test(om)) { const [h, m] = om.split(/[:.]/).map(Number), [y, mo, d] = localParts(Date.now()).datum.split("-").map(Number); wanneer = new Date(localToUtc(y, mo - 1, d, h, m, TZ)).toISOString(); }
-  const [auto, lopen, ov] = await Promise.all([
+  const [auto, lopen, ov]: [number | null, number | null, any] = await Promise.all([
     rijTijd("car", van, naar), rijTijd("foot", van, naar),
     env("NS_API_KEY") ? nsGet(`/v3/trips?${new URLSearchParams({ originLat: String(van.lat), originLng: String(van.lon), destinationLat: String(naar.lat), destinationLng: String(naar.lon),
       ...(wanneer ? { dateTime: wanneer, searchForArrival: String(!!input.aankomst) } : {}) })}`).then((j) => (j?.trips ?? []).slice(0, 3).map(nsReisKort)).catch((e) => ({ fout: (e as Error).message }))
