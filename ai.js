@@ -460,7 +460,7 @@ addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 // ---------- Lijstjes (taken, boodschappen, notities) ----------
 const lijstNaam = (t) => t.trim().toLowerCase().replace(/^(de|het|mijn)\s+/, "").replace(/\s*lijst(je)?$/, "").trim().slice(0, 60);
 async function loadLists() {
-  const sinds = new Date(Date.now() - 12 * 3600000).toISOString(); // afgevinkt: nog even zichtbaar (terugzetten met een tik)
+  const sinds = new Date(Date.now() - 7 * 86400000).toISOString(); // afgevinkt: een week doorgestreept zichtbaar (Serkan: "in lijst behouden, alleen doorstrepen")
   const { data, error } = await sb.from("ai_items").select("id,lijst,tekst,klaar").or(`klaar.eq.false,klaar_at.gt."${sinds}"`).order("created_at").limit(300);
   const list = $("lsList");
   list.innerHTML = "";

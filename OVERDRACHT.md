@@ -265,6 +265,19 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   SE-KIB/LERENISLEUK geselecteerd (de prompt staat in deze sectie van de vorige versie / trigger "ECO-verzoeken bouwen").
 - Keuzepagina (artifact 7W9Z31BEYWwNpyoazjA9mm) heet nu "Wat ECO nog kan leren": alleen wat ECO nog níet kan (34 punten).
 
+## Keuzes Serkan 5 nov (pagina "Wat ECO nog kan leren") en bouwlijst
+- Serkan leest lange antwoorden bijna nooit: **chat kort houden**; de stand staat op de bouwlijst-pagina (artifact 7W9Z31BEYWwNpyoazjA9mm).
+- **Wil ik:** focusmodus, cijfers, deadline-wekker, Brightspace-opdrachten op takenlijst (afgevinkt doorgestreept laten staan),
+  wekker (iPhone-Opdracht), iPhone-app + eigen widget, bestanden zoeken en Downloads opruimen (laptop), maandoverzicht uitgaven,
+  abonnementen-waakhond, wie-moet-wie-geld, pakketjes volgen, NS-vertrektijd (ook reistijd tussen afspraken met auto/lopen/tram
+  + icoontjes), "tijd om te gaan", melding AI-limiet, wekelijkse zelfcontrole, afbeeldingen maken, grafieken (vanzelf, bv. 's avonds).
+- **Niet:** studieplanner, oefentoets, bedtijd-tip, gewoontes, vaste herinneringen, aanbiedingen, weekmenu, verjaardagen, fietsweer,
+  nieuwssamenvatting, eigen skills ("ECO is voor dagelijkse taken; dat doet Claude"), ander karakter (wel: **altijd sarcastisch**).
+- **Lampen:** QAZQA plafondventilator met licht, alleen infrarood-afstandsbediening (GYLED01-IR, 38 kHz), geen wifi →
+  kan alleen met een betaald IR-kastje; Serkan betaalt niet, dus niet doen.
+- Gebouwd 5 nov (deel 1): sarcasme altijd, melding AI-limiet (met wachttijd), zelfcontrole maandag 08:00, deadline-wekker
+  (2 dagen + 2 uur), Brightspace-opdrachten op de takenlijst (📚 …), afgevinkte items een week doorgestreept zichtbaar.
+
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
 - **Schoolmail doorsturen naar Gmail** (check 3 nov): in Gmail staan in 60 dagen alleen 2 incasso-mails van hhs.nl, niets van
@@ -303,7 +316,7 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   Brightspace-agendalink in `AGENDA_FEEDS`, widget één keer opnieuw installeren in Scriptable (daarna werkt hij zichzelf bij).
 - **Ideeën om te bouwen:** studieplanner (leerschema voor toetsen/deadlines), avondoverzicht (melding met morgen + taken).
 - **Toestemming (Serkan 4 nov):** alles op zijn eigen apparaten en in ECO's eigen code meteen doen (apps openen op telefoon/laptop, zichzelf verbeteren), zonder te vragen. Nooit zelf iets naar anderen versturen wat niet terug kan (berichten, mails): alleen klaarzetten.
-- **Niet doen:** betalen voor wat dan ook (Serkan 4 nov: "we gaan zeker niet betalen"; dus geen App Store/Apple Developer €99, iPhone-app gratis met elke 7 dagen `xtool dev`), vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
+- **Niet doen:** lampen koppelen (IR, kost een kastje), betalen voor wat dan ook (Serkan 4 nov: "we gaan zeker niet betalen"; dus geen App Store/Apple Developer €99, iPhone-app gratis met elke 7 dagen `xtool dev`), vertrekwekker, Telegram, Oracle-server, een server huren, het brein lokaal als standaard (cloud is slimmer en gratis),
   meerdere Groq-accounts/sleutels om de gratis limiet te omzeilen (tegen de regels; 30 okt nogmaals gevraagd en afgewezen),
   ECO zelf met de muis laten klikken (tenzij Serkan dat later expliciet beslist).
 
