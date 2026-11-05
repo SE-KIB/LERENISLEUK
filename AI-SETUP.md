@@ -120,7 +120,7 @@ andere tijd voor hetzelfde vak, dan geeft ECO die tijd en zegt hij dat het roost
 
 **Lesplanning van de docent (de "Rooster"-pagina in een Brightspace-cursus):** zo'n tabel per week staat niet in een agenda-link.
 Maak er screenshots van (op de iPhone liefst in de breedte, of op de computer; een brede tabel mag in delen) of sla hem op als PDF,
-en kies in ECO bij **ROOSTER → + PLANNING** de bestanden en het vak. Gemini leest alle weken uit, ook rode afwijkende tijden,
+en kies in ECO bij **INSTELLINGEN → KOPPELINGEN → + PLANNING** de bestanden en het vak. Gemini leest alle weken uit, ook rode afwijkende tijden,
 zelfstudie, toetsen en inleverdata. Die planning is daarna **leidend**: de roosterles van dat vak op die dag wordt doorgestreept.
 Opnieuw uploaden vervangt alleen de dagen die op de nieuwe screenshots staan. Wissen kan met ✕ naast de vaknaam.
 
@@ -132,11 +132,11 @@ een model op, dan probeert ECO het volgende model (`PLANNING_MODEL`, standaard `
 misging zie je kort per model bij BRIGHTSPACE (bv. "3.8-flash 429 quotum op"). Eenmalig instellen:
 1. **Sleutel:** verzin een lange geheime tekst. Zet hem in Supabase als secret `JARVIS_KEY` én in GitHub → repository
    **LERENISLEUK** → Settings → Secrets and variables → Actions → **New repository secret** `JARVIS_KEY` (dezelfde waarde).
-2. **Pagina's:** open in Brightspace de Rooster-pagina van een vak, kopieer het adres, en kies in ECO **ROOSTER → + PAGINA**.
+2. **Pagina's:** open in Brightspace de Rooster-pagina van een vak, kopieer het adres, en kies in ECO **INSTELLINGEN → KOPPELINGEN → + PAGINA**.
 3. **Sessie (één keer, op een computer):** installeer Node.js (nodejs.org) en typ in een terminal
    `npx playwright@1.63.0 codegen --save-storage=brightspace.json https://brightspace.hhs.nl`
    Log in het venster dat opent in (HHS + tweestapsverificatie, kies "Aangemeld blijven"), wacht tot je je Brightspace-startpagina
-   ziet en sluit dan het browservenster. Upload het bestand `brightspace.json` in ECO met **ROOSTER → SESSIE UPLOADEN**.
+   ziet en sluit dan het browservenster. Upload het bestand `brightspace.json` in ECO met **INSTELLINGEN → KOPPELINGEN → SESSIE UPLOADEN**.
 4. Meteen proberen: GitHub → **Actions** → *Brightspace bijwerken* → **Run workflow**. Het resultaat zie je in ECO bij BRIGHTSPACE.
 5. **Op tijd (aanrader):** GitHub start geplande taken vaak uren te laat, waardoor de briefing van 07:30 geen verse planning heeft.
    Laat ECO's eigen klok de robot om 05:30 starten: maak op https://github.com/settings/personal-access-tokens/new een

@@ -1,6 +1,6 @@
 name: Brightspace bijwerken
 
-# Elke ochtend: opent met de bewaarde Brightspace-sessie de ingestelde Rooster-pagina's (ROOSTER → + PAGINA in ECO)
+# Elke ochtend: opent met de bewaarde Brightspace-sessie de ingestelde Rooster-pagina's (INSTELLINGEN → KOPPELINGEN → + PAGINA in ECO)
 # en laat ECO er de lesplanning van maken. Gratis: GitHub Actions + Playwright + Gemini (gratis laag).
 # De sessie zet je één keer in ECO via SESSIE UPLOADEN (zie AI-SETUP.md). Verlopen? Dan meldt ECO dat.
 # Deze repo is openbaar en dus ook de logs: het script print alleen aantallen, nooit inhoud of links.

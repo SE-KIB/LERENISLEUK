@@ -1,11 +1,11 @@
 // Brightspace bijwerken: opent met de bewaarde sessie elke ingestelde Rooster-pagina, pakt tekst + screenshots
-// en laat ECO er de lesplanning van maken (dezelfde import als ROOSTER → + PLANNING). Ververst daarna de sessie.
+// en laat ECO er de lesplanning van maken (dezelfde import als INSTELLINGEN → KOPPELINGEN → + PLANNING). Ververst daarna de sessie.
 import { chromium } from "playwright";
 import { eco, status, onLogin } from "./common.mjs";
 
 const { state, pages = [], host } = await eco({ bs: "get" });
-if (!state?.cookies?.length) { await status(false, "niet gekoppeld: upload eerst een sessie (ROOSTER → SESSIE UPLOADEN)"); process.exit(0); }
-if (!pages.length) { await status(false, "geen Rooster-pagina's ingesteld (ROOSTER → + PAGINA)"); process.exit(0); }
+if (!state?.cookies?.length) { await status(false, "niet gekoppeld: upload eerst een sessie (INSTELLINGEN → KOPPELINGEN → SESSIE UPLOADEN)"); process.exit(0); }
+if (!pages.length) { await status(false, "geen Rooster-pagina's ingesteld (INSTELLINGEN → KOPPELINGEN → + PAGINA)"); process.exit(0); }
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ storageState: state, viewport: { width: 1600, height: 1000 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
@@ -72,7 +72,7 @@ for (const p of pages) {
     await page.goto(p.url, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
     if (onLogin(page.url(), host)) {
-      await status(false, "Brightspace-sessie verlopen: upload een nieuwe sessie (ROOSTER → SESSIE UPLOADEN)");
+      await status(false, "Brightspace-sessie verlopen: upload een nieuwe sessie (INSTELLINGEN → KOPPELINGEN → SESSIE UPLOADEN)");
       console.log("Sessie verlopen.");
       await browser.close();
       process.exit(0);
