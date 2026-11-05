@@ -277,6 +277,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
   kan alleen met een betaald IR-kastje; Serkan betaalt niet, dus niet doen.
 - Gebouwd 5 nov (deel 1): sarcasme altijd, melding AI-limiet (met wachttijd), zelfcontrole maandag 08:00, deadline-wekker
   (2 dagen + 2 uur), Brightspace-opdrachten op de takenlijst (📚 …), afgevinkte items een week doorgestreept zichtbaar.
+- Gebouwd 5 nov (deel 2): tools `geld` (wie moet wie, kv geld_schulden), `cijfers` (gewogen gemiddelde + wat nog nodig, kv cijfers),
+  `focus` (timer + niet-dringende meldingen wachten; titels met ⏰/📅/⏱/⚠️ komen altijd door), `regelzaken` (pakketjes + abonnementen
+  uit mail om 08:30 en 16:30; melding pakket "vandaag" en abonnement ≤3 dagen, elk één keer).
 
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**

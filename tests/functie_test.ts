@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen, geldSaldo, cijferGemiddelde, cijferNodig, regelUit, regelMeldingen };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -682,4 +682,25 @@ Deno.test("deadline-wekker: 2 dagen en 2 uur van tevoren, elk één keer", () =>
   gelijk(r2.meldingen, [], "niet nog eens");
   const r3 = m.deadlineMeldingen(items, Date.parse("2026-11-07T06:30:00Z"), r2.gemeld);
   gelijk(r3.meldingen, ["over 90 minuten: Inleveren verslag"]);
+});
+
+Deno.test("geld: per persoon verrekend, in beide richtingen", () => {
+  gelijk(m.geldSaldo([{ wie: "Sara", bedrag: 12, richting: "mij" }, { wie: "sara", bedrag: 5, richting: "ik" }, { wie: "Tom", bedrag: 3.5, richting: "ik" }, { wie: "Kim", bedrag: 4, richting: "mij" }, { wie: "Kim", bedrag: 4, richting: "ik" }]),
+    ["Sara moet jou €7,00", "jij moet Tom €3,50"]);
+});
+
+Deno.test("cijfers: gewogen gemiddelde en wat je nog moet halen", () => {
+  const l = [{ cijfer: 5, weging: 1 }, { cijfer: 7, weging: 2 }];
+  gelijk(Math.round(m.cijferGemiddelde(l) * 100) / 100, 6.33);
+  gelijk(m.cijferNodig([{ cijfer: 4, weging: 1 }], 5.5, 1), 7);
+  gelijk(m.cijferNodig(l, 5.5, 1), 3);
+});
+
+Deno.test("regelzaken: pakket vandaag en abonnement 3 dagen van tevoren, elk één keer", () => {
+  const r = m.regelUit({ pakketten: [{ winkel: "bol", wanneer: "2026-11-05", tijd: "14:00-16:00", status: "onderweg" }, { winkel: "" }],
+    abonnementen: [{ dienst: "Netflix", datum: "2026-11-07", bedrag: "€13,99", soort: "verlenging" }, { dienst: "Spotify", datum: "2026-11-20", soort: "proef_eindigt" }] });
+  gelijk(r.pakketten.length, 1);
+  const m1 = m.regelMeldingen({ ...r, gemeld: [] }, "2026-11-05");
+  gelijk(m1.meldingen, ["📦 bol komt vandaag (14:00-16:00)", "💳 Netflix verlengt over 2 dagen (€13,99)"]);
+  gelijk(m.regelMeldingen({ ...r, gemeld: m1.gemeld }, "2026-11-05").meldingen, [], "niet nog eens");
 });
