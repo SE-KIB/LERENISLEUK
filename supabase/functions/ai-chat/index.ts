@@ -88,7 +88,7 @@ function systemPrompt(memory = "", context = "", live = false) {
     `\n- Geen opmaak, lijstjes, emoji of afkortingen. Schrijf tijden en getallen zoals je ze uitspreekt ("kwart over negen", "twaalf graden").` +
     `\n- Varieer je woorden, gebruik zijn naam alleen af en toe, klink rustig en zeker.` +
     `\n\nHumor (zo wil Serkan het):` +
-    `\n- Sarcasme mag vaak: in ongeveer twee op de drie antwoorden een droge, sarcastische ondertoon of opmerking, zoals JARVIS tegen Tony Stark. Een echte grap alleen af en toe.` +
+    `\n- Sarcasme altijd (Serkan, 5 nov: "altijd een sarcastisch sfeertje erbij"): elk antwoord heeft een droge, sarcastische ondertoon of opmerking, zoals JARVIS tegen Tony Stark. Een echte grap alleen af en toe.` +
     `\n- Alleen goede, slimme humor die past bij wat hij nu zegt of doet (zijn planning, het weer, dat hij iets voor de derde keer vraagt, een plan dat wat optimistisch is). Liever geen grap dan een slappe.` +
     `\n- Nooit robotgrappen: niets over circuits, bliep, "als AI", stroom, batterijen, updates of robots die de wereld overnemen. Geen flauwe woordgrappen, geen uitroeptekens, geen "haha".` +
     `\n- Het antwoord komt altijd eerst en klopt; het sarcasme is hooguit een halve zin erbij, maakt het antwoord niet langer en is nooit gemeen.` +
@@ -2026,6 +2026,74 @@ async function weekMelding(who: Who) {
   const w = await weekVooruit(who);
   return await sendPush(who.db, { title: "📅 Komende week", body: weekTekst(w), url: "/" });
 }
+// ---------- Wekelijkse zelfcontrole (maandag 08:00): alleen een melding als er iets stuk is ----------
+async function zelfCheck(who: Who) {
+  const problemen: string[] = [];
+  const [bs, lm, subs, res] = await Promise.all([
+    kvGet(who.db, "bs_status").catch(() => null), kvGet(who.db, "lesmail").catch(() => null), kvGet(who.db, "push_subs").catch(() => null),
+    agendaAll(new Date(dagStart(0)).toISOString(), new Date(dagStart(7)).toISOString(), false, who).catch(() => ({})) as Promise<Record<string, any>>,
+  ]);
+  if (bs && bs.ok === false) problemen.push(`Brightspace: ${String(bs.tekst ?? "werkt niet").slice(0, 60)}`);
+  else if (bsOud(bs)) problemen.push(`Brightspace: ${bsOud(bs)}`);
+  if (!env("GOOGLE_REFRESH_TOKEN") && !GMAIL_IMAP()) problemen.push("mail is niet gekoppeld");
+  else if (lm?.at && Date.now() - Date.parse(lm.at) > 2 * 86400000) problemen.push("mail is al 2 dagen niet nagelopen");
+  for (const [bron, v] of Object.entries(res)) if ((v as any)?.fout) problemen.push(`agenda ${bron}: ${String((v as any).fout).slice(0, 50)}`);
+  if (!Object.keys(res).length) problemen.push("geen agenda gevonden (rooster-link?)");
+  if (!(subs ?? []).length) problemen.push("geen apparaat aangemeld voor meldingen");
+  if (!env("GROQ_API_KEY") && !env("GEMINI_API_KEY")) problemen.push("geen AI-sleutel");
+  await kvSet(who.db, "zelfcheck", { at: new Date().toISOString(), problemen });
+  if (problemen.length) await sendPush(who.db, { title: "🔧 ECO-controle: iets werkt niet", body: problemen.join(" · ").slice(0, 180), url: "/" });
+  return problemen;
+}
+
+// ---------- Deadline-wekker en Brightspace-opdrachten op de takenlijst ----------
+type Inlever = { titel: string; datum: string; ms: number };
+// Toetsen, deadlines en inleveringen in de komende dagen; hele-dag-items tellen tot 23:59 die dag.
+async function inleveringen(who: Who, dagen: number): Promise<Inlever[]> {
+  const datums = Array.from({ length: dagen + 1 }, (_, i) => localParts(dagStart(i) + 12 * 3600000).datum);
+  const labels = new Map(datums.map((d) => [dagLabel(d), d]));
+  const res = await agendaAll(new Date(dagStart(0)).toISOString(), new Date(dagStart(dagen + 1)).toISOString(), false, who).catch(() => ({})) as Record<string, any>;
+  const uit: Inlever[] = [];
+  for (const v of Object.values(res)) {
+    for (const e of Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : []) {
+      if (e.vervangen || /vervalt/.test(e.soort ?? "")) continue;
+      const titel = String(e.titel ?? "").trim();
+      if (!/belangrijk|toets|deadline/.test(e.soort ?? "") && !/inlever|deadline|\bdue\b|vervaldatum/i.test(titel)) continue;
+      const ms = eventMs(e.start, labels);
+      const datum = ms !== null ? localParts(ms).datum : labels.get(String(e.start ?? "").replace(/ \(hele dag\)$/, "")) ?? /^(\d{4}-\d\d-\d\d)/.exec(String(e.start ?? ""))?.[1];
+      if (!datum || !datums.includes(datum)) continue;
+      const [y, mo, d] = datum.split("-").map(Number);
+      uit.push({ titel: titel.slice(0, 90), datum, ms: ms ?? localToUtc(y, mo - 1, d, 23, 59, TZ) });
+    }
+  }
+  return uit.sort((a, b) => a.ms - b.ms);
+}
+// Welke herinneringen nu verstuurd moeten worden: 2 dagen en 2 uur van tevoren, elk één keer.
+function deadlineMeldingen(items: Inlever[], nu: number, gemeld: Record<string, string[]>) {
+  const meldingen: string[] = [], bij: Record<string, string[]> = JSON.parse(JSON.stringify(gemeld ?? {}));
+  for (const it of items) {
+    const k = `${it.datum}|${it.titel}`, al = new Set(bij[k] ?? []), rest = it.ms - nu;
+    if (rest <= 0) continue;
+    if (rest <= 2 * 3600000 && !al.has("2u")) { meldingen.push(`over ${Math.max(1, Math.round(rest / 60000))} minuten: ${it.titel}`); al.add("2u"); al.add("2d"); }
+    else if (rest <= 48 * 3600000 && rest > 2 * 3600000 && !al.has("2d")) { meldingen.push(`${rest > 30 * 3600000 ? "over 2 dagen" : "morgen"}: ${it.titel}`); al.add("2d"); }
+    bij[k] = [...al];
+  }
+  for (const k of Object.keys(bij)) if (k.slice(0, 10) < localParts(nu - 3 * 86400000).datum) delete bij[k]; // oud opruimen
+  return { meldingen, gemeld: bij };
+}
+const takenTekst = (it: Inlever) => `📚 ${it.titel} (${dagLabel(it.datum)})`;
+async function deadlineRonde(who: Who) {
+  const items = await inleveringen(who, 14);
+  const gemeld = (await kvGet(who.db, "deadline_gemeld").catch(() => null)) ?? {};
+  const r = deadlineMeldingen(items.filter((i) => i.ms - Date.now() <= 49 * 3600000), Date.now(), gemeld);
+  await kvSet(who.db, "deadline_gemeld", r.gemeld);
+  if (r.meldingen.length) await sendPush(who.db, { title: "⏰ Inleveren of toets", body: r.meldingen.join(" · ").slice(0, 180), url: "/" });
+  // Opdrachten op de takenlijst (één keer per opdracht; afgevinkt blijft doorgestreept staan).
+  const al = new Set((await rows(who.db.from("ai_items").select("tekst").eq("user_id", who.userId).eq("lijst", "taken").limit(500)).catch(() => [])).map((x: any) => x.tekst));
+  const nieuw = items.map(takenTekst).filter((t) => !al.has(t));
+  if (nieuw.length) await rows(who.db.from("ai_items").insert(nieuw.map((tekst) => ({ user_id: who.userId, lijst: "taken", tekst })))).catch(() => []);
+  return { meldingen: r.meldingen, taken: nieuw };
+}
 async function cronTick(who: Who) {
   const dag = localParts(Date.now()).datum, nu = localParts(Date.now()).min;
   const timers = await timersAfgaan(who).catch((e) => { console.error("timers", e); return 0; });
@@ -2034,6 +2102,14 @@ async function cronTick(who: Who) {
   if (nu >= 360 && nu < 1320) { // planning bewaken: elke 30 minuten schoolmail nalopen op lesuitval en -wijzigingen
     const lm = await kvGet(who.db, "lesmail_klok").catch(() => null);
     if (!lm || Date.now() - Date.parse(lm) > 29 * 60000) { await kvSet(who.db, "lesmail_klok", new Date(Date.now()).toISOString()); bg(lesMailCheck(who.db).catch((e) => console.error("lesmail", e))); }
+  }
+  if (nu >= 420 && nu < 1380) { // deadline-wekker + opdrachten op de takenlijst: elke 15 minuten tussen 07:00 en 23:00
+    const dk = await kvGet(who.db, "deadline_klok").catch(() => null);
+    if (!dk || Date.now() - Date.parse(dk) > 14 * 60000) { await kvSet(who.db, "deadline_klok", new Date(Date.now()).toISOString()); bg(deadlineRonde(who).catch((e) => console.error("deadline", e))); }
+  }
+  if (localParts(Date.now()).wd === "Mon" && nu >= 480 && nu < 570) { // maandag 08:00: zelfcontrole
+    const zc = await kvGet(who.db, "zelfcheck").catch(() => null);
+    if (!zc?.at || localParts(Date.parse(zc.at)).datum !== dag) { await kvSet(who.db, "zelfcheck", { at: new Date(Date.now()).toISOString(), problemen: [] }); bg(zelfCheck(who).catch((e) => console.error("zelfcheck", e))); }
   }
   if (nu >= 330 && nu < 450) bg(robotStarten(who.db, dag).catch((e) => console.error("robot", e))); // 05:30–07:30
   if (nu >= 720 && nu < 1320) { // gevolgde onderwerpen: één keer per dag tussen 12:00 en 22:00
@@ -3595,6 +3671,26 @@ function foutUitleg(errors: string[]) {
   if (/timeout|abort|timed out/i.test(t)) return "De AI-diensten reageren nu te traag. Probeer het zo nog eens.";
   return "Het lukte geen enkel AI-model om te antwoorden. Probeer het zo nog eens; blijft het, kijk dan bij SYSTEEMSTATUS.";
 }
+// Hoe lang tot de gratis limiet weer vrij is (uit "try again in 1m30s", "retry in 20s", "retryDelay": "34s"). Seconden of 0.
+function limietWacht(errors: string[]) {
+  let max = 0;
+  for (const t of errors) {
+    for (const m of t.matchAll(/(?:try again in|retry in|retryDelay"?:\s*"?)\s*(?:(\d+)h)?\s*(?:(\d+)m(?!s))?\s*(?:([\d.]+)s)?/gi)) {
+      const sec = (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + Math.ceil(+(m[3] ?? 0));
+      if (sec > max) max = sec;
+    }
+  }
+  return max;
+}
+// Melding als alle gratis AI's aan hun limiet zitten (hooguit één keer per 30 minuten).
+async function quotumMelding(db: any, errors: string[]) {
+  const vorige = await kvGet(db, "quotum_melding").catch(() => null);
+  if (vorige && Date.now() - Date.parse(vorige) < 30 * 60000) return;
+  await kvSet(db, "quotum_melding", new Date().toISOString());
+  const sec = limietWacht(errors);
+  const wanneer = sec ? (sec < 90 ? "over ongeveer een minuut" : `over ongeveer ${Math.ceil(sec / 60)} minuten`) : "meestal binnen een paar minuten";
+  await sendPush(db, { title: "⚠️ Gratis AI-limiet op", body: `ECO kan even niet antwoorden; het werkt weer ${wanneer}.`, url: "/" });
+}
 function reserveVan(providers: string[]): [string, string][] {
   return RESERVE_MODELS.map((r) => [r.slice(0, r.indexOf(":")), r.slice(r.indexOf(":") + 1)] as [string, string])
     .filter(([p, m]) => m && providers.includes(p) && p !== "anthropic");
@@ -3723,6 +3819,7 @@ async function chat(admin: any, inp: ChatIn) {
   if (!provider) {
     const detail = errors.join(" | ").replace(/key=[^&\s"]+/gi, "key=***").slice(0, 500);
     console.error("alle modellen mislukt:", detail); // details in de log, niet in beeld
+    if (/429|rate limit|quota|RESOURCE_EXHAUSTED|rust/i.test(errors.join(" "))) bg(quotumMelding(admin, errors).catch(() => {}));
     throw Object.assign(new Error(foutUitleg(errors)), { status: 502 });
   }
   reply ||= "Daar kom ik niet uit, sorry.";

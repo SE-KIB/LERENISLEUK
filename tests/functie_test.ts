@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -665,4 +665,21 @@ Deno.test("vooruitkijken: toetsen over een paar dagen en de week in één meldin
   const w = { datums: ["2026-11-08", "2026-11-09", "2026-11-10"], perDag: new Map([["2026-11-09", { lessen: 3, eerste: "08:45" }]]), belangrijk: [{ datum: "2026-11-10", titel: "Deadline verslag" }] };
   const tekst = m.weekTekst(w);
   waar(/08:45 \(3\)/.test(tekst) && /⚑ .*Deadline verslag/.test(tekst), tekst);
+});
+
+Deno.test("limiet: wachttijd uit de foutmeldingen van Groq en Gemini", () => {
+  gelijk(m.limietWacht(["Groq 429: Please try again in 1m30.5s.", "gemini 429 \"retryDelay\": \"34s\""]), 91);
+  gelijk(m.limietWacht(["iets anders"]), 0);
+});
+
+Deno.test("deadline-wekker: 2 dagen en 2 uur van tevoren, elk één keer", () => {
+  const nu = Date.parse("2026-11-05T10:00:00Z");
+  const items = [{ titel: "Inleveren verslag", datum: "2026-11-07", ms: Date.parse("2026-11-07T08:00:00Z") },
+    { titel: "Toets Wiskunde", datum: "2026-11-05", ms: Date.parse("2026-11-05T11:30:00Z") }];
+  const r1 = m.deadlineMeldingen(items, nu, {});
+  gelijk(r1.meldingen, ["over 2 dagen: Inleveren verslag", "over 90 minuten: Toets Wiskunde"]);
+  const r2 = m.deadlineMeldingen(items, nu + 60000, r1.gemeld);
+  gelijk(r2.meldingen, [], "niet nog eens");
+  const r3 = m.deadlineMeldingen(items, Date.parse("2026-11-07T06:30:00Z"), r2.gemeld);
+  gelijk(r3.meldingen, ["over 90 minuten: Inleveren verslag"]);
 });
