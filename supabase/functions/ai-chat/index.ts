@@ -2016,7 +2016,7 @@ async function geldTool(input: any, db: any) {
 function geldSaldo(lijst: any[]) {
   const per = new Map<string, { wie: string; netto: number; waarvoor: string[] }>();
   for (const x of lijst) {
-    const k = String(x.wie).toLowerCase(), p = per.get(k) ?? { wie: x.wie, netto: 0, waarvoor: [] };
+    const k = String(x.wie).toLowerCase(), p = per.get(k) ?? { wie: String(x.wie), netto: 0, waarvoor: [] as string[] };
     p.netto += x.richting === "ik" ? -x.bedrag : x.bedrag; if (x.waarvoor) p.waarvoor.push(x.waarvoor); per.set(k, p);
   }
   return [...per.values()].filter((p) => Math.abs(p.netto) >= 0.01)
