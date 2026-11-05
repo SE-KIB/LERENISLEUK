@@ -198,9 +198,9 @@ Deno.test("Live: sneller starten en antwoorden (toegangscode tegelijk, einde van
   } finally { globalThis.fetch = echt; }
 });
 
-Deno.test("karakter: vaak droog sarcasme, af en toe een grap, nooit robotgrappen, niet bij slecht nieuws (ook in Live)", () => {
+Deno.test("karakter: altijd droog sarcasme (Serkan 5 nov), af en toe een grap, nooit robotgrappen, niet bij slecht nieuws (ook in Live)", () => {
   for (const p of [m.systemPrompt("", "", false), m.systemPrompt("", "", true)]) {
-    waar(/twee op de drie antwoorden/.test(p) && /echte grap alleen af en toe/.test(p), "hoe vaak");
+    waar(/Sarcasme altijd/.test(p) && /elk antwoord heeft een droge, sarcastische ondertoon/.test(p) && /echte grap alleen af en toe/.test(p), "hoe vaak");
     waar(/Nooit robotgrappen/.test(p) && /Geen sarcasme bij slecht nieuws/.test(p), "grenzen");
     waar(!/een licht grapje mag als het past/.test(p), "geen oude, tegenstrijdige regel");
   }
