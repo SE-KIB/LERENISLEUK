@@ -741,7 +741,10 @@ async function loadRooster() {
     list.replaceChildren();
     if (data.fout) list.append(li("empty", data.fout));
     else if (!items.length) list.append(li("empty", "Niets gepland"));
+    const reis = new Map((data.reistijden || []).map((r) => [r.voor, r]));
     for (const e of items) {
+      const rt = reis.get(`${hm(e.start)}|${e.titel}`);
+      if (rt) { const r = li("reis", `${rt.van === "thuis" ? "vanaf thuis" : "erheen"}: ${rt.kort}`); list.append(r); }
       const el = document.createElement("li");
       if (/^\(vervallen\)/.test(e.titel) || e.soort === "vervalt") el.className = "off";
       if (e.vervangen) el.className = "replaced";
@@ -965,7 +968,7 @@ const dienstNaam = (m) => /^gemini|^models\/gemini/i.test(m) ? "GEMINI" : /^clau
 const TOOL_LABEL = {
   agenda_bekijken: "Agenda bekijken", afspraak_maken: "Afspraak inplannen", weer: "Weer ophalen", web_zoeken: "Op internet zoeken",
   rekenen: "Rekenen", valuta: "Koers ophalen", tijd: "Tijd opzoeken", mail_zoeken: "Mail doorzoeken", mail_lezen: "Mail lezen",
-  mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", lesmail_check: "Lesmail nalopen", zelf_verbeteren: "Verbetering doorgeven", bijlage_lezen: "Bijlage lezen", reis: "Reis plannen", geld: "Geld bijhouden", cijfers: "Cijfers", focus: "Focusmodus", regelzaken: "Pakketjes en abonnementen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
+  mail_concept_maken: "Concept schrijven", dagrapport: "Dagrapport lezen", lesmail_check: "Lesmail nalopen", zelf_verbeteren: "Verbetering doorgeven", bijlage_lezen: "Bijlage lezen", reis: "Reis plannen", reis_instellingen: "Reisgegevens opslaan", geld: "Geld bijhouden", cijfers: "Cijfers", focus: "Focusmodus", regelzaken: "Pakketjes en abonnementen", onthouden: "Onthouden", vergeten: "Vergeten", route_plannen: "Route plannen",
   lijst: "Lijstje bijwerken", timer: "Timer zetten", spotify: "Spotify", whatsapp: "WhatsApp klaarzetten", ochtendbriefing: "Briefing maken", gesprekken_beheren: "Archief bijwerken", eco_status: "Status bekijken",
   nadenken: "Nadenken", diep_nadenken: "Diep nadenken", archief_zoeken: "Archief doorzoeken", volgen: "Onderwerp volgen", ongedaan_maken: "Ongedaan maken",
   web_lezen: "Pagina lezen", pc: "Laptop bedienen", tv: "Tv bedienen", interface: "Interface aanpassen",
@@ -977,7 +980,7 @@ const TOOL_LABEL = {
 const WERK_ICOON = { web_zoeken: "🔎", web_lezen: "📄", agenda_bekijken: "📅", afspraak_maken: "📅", pc: "💻", spotify: "🎵", tv: "📺",
   weer: "🌦", mail_zoeken: "✉", mail_lezen: "✉", mail_concept_maken: "✉", nadenken: "🧠", diep_nadenken: "🧠", onthouden: "💾",
   vergeten: "🗑", route_plannen: "🧭", rekenen: "🧮", valuta: "💱", lijst: "📝", timer: "⏱", archief_zoeken: "🗂", whatsapp: "💬",
-  tijd: "🕒", dagrapport: "📊", lesmail_check: "📅", zelf_verbeteren: "🛠", bijlage_lezen: "📎", reis: "🚆", geld: "💶", cijfers: "🎓", focus: "🎧", regelzaken: "📦", ochtendbriefing: "☀", volgen: "👁", ongedaan_maken: "↩", eco_status: "📟", interface: "🎛", gesprekken_beheren: "🗂" };
+  tijd: "🕒", dagrapport: "📊", lesmail_check: "📅", zelf_verbeteren: "🛠", bijlage_lezen: "📎", reis: "🚆", reis_instellingen: "🏠", geld: "💶", cijfers: "🎓", focus: "🎧", regelzaken: "📦", ochtendbriefing: "☀", volgen: "👁", ongedaan_maken: "↩", eco_status: "📟", interface: "🎛", gesprekken_beheren: "🗂" };
 // Schuift de reactor vloeiend naar zijn nieuwe plek (FLIP): eerst meten, dan veranderen, dan het verschil wegspelen.
 function flip(verander) {
   const el = document.querySelector(".main-reactor"), voor = el?.getBoundingClientRect();

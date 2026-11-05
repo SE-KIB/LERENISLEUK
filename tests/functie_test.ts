@@ -6,7 +6,7 @@ const bron = await Deno.readTextFile(new URL("../supabase/functions/ai-chat/inde
 const code = bron
   .replace(/import \{ createClient \} from "[^"]+";/, "const createClient = () => (globalThis as any).__admin;")
   .replace("Deno.serve(async (req) => {", "(globalThis as any).__handler = (async (req: Request) => {") +
-"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen, geldSaldo, cijferGemiddelde, cijferNodig, regelUit, regelMeldingen, nsReisKort };\n";
+"\nexport { webAdres, werkInfo, werkUitkomst, reserveVan, volgordeVan, bsOud, runTool, runToolLive, htmlNaarTekst, safeEqual, openbaarAdres, robotStarten, liveStart, systemPrompt, webLezenMag, urlsOnthouden, planningImport, waNummer, pushSub, encryptPush, vapidAuth, cronTick, lijstTool, timerTool, spotifyTool, askGemini, lesWijzigingenUit, vakPast, lesWijzigingToepassen, morgenTip, lesMailCheck, avondTekst, lesBerichtenVerwerken, mimeParse, docxTekst, bijlageSoort, bytesB64, vooruitRegels, weekTekst, limietWacht, deadlineMeldingen, geldSaldo, cijferGemiddelde, cijferNodig, regelUit, regelMeldingen, nsReisKort, afspraakPlek, reisKortTekst };\n";
 if (code === bron) throw new Error("index.ts is veranderd: het testpatroon past niet meer");
 const tijdelijk = await Deno.makeTempFile({ suffix: ".ts" });
 await Deno.writeTextFile(tijdelijk, code);
@@ -728,4 +728,15 @@ Deno.test("reis: NS-reis kort met vertraging, spoor en vervoer; plus auto en lop
     gelijk(r.kort, "🚗 5 min · 🚶 15 min · 🚊 24 min");
     gelijk(r.ov[0].vertrek, "17:02 (+3)");
   } finally { globalThis.fetch = echt; Deno.env.delete("NS_API_KEY"); }
+});
+
+Deno.test("reizen: lokaalcodes en lessen gaan naar school, echte adressen blijven, online telt niet", () => {
+  const inst = { school: "Haagse Hogeschool Delft", thuis: "Thuis 1, Den Haag" };
+  gelijk(m.afspraakPlek({ locatie: "D1.05", bron: "Schoolrooster" }, inst), "Haagse Hogeschool Delft");
+  gelijk(m.afspraakPlek({ locatie: "", bron: "Brightspace-planning" }, inst), "Haagse Hogeschool Delft");
+  gelijk(m.afspraakPlek({ locatie: "Huisartsenpraktijk, Laan 5 Delft", bron: "icloud" }, inst), "Huisartsenpraktijk, Laan 5 Delft");
+  gelijk(m.afspraakPlek({ locatie: "Teams", bron: "Schoolrooster" }, inst), null);
+  gelijk(m.afspraakPlek({ locatie: "", bron: "icloud" }, inst), null);
+  gelijk(m.reisKortTekst(5, 15, [{ duur_min: 12, route: ["🚊 Tram 1 A → B"] }]), "🚗 5 min · 🚶 15 min · 🚊 12 min");
+  gelijk(m.reisKortTekst(40, 300, { fout: "x" }), "🚗 40 min");
 });

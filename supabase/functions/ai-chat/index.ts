@@ -126,6 +126,7 @@ function systemPrompt(memory = "", context = "", live = false) {
     `\n- Ingesproken berichten worden automatisch uitgeschreven en kunnen verkeerd verstaan zijn. Klinkt zo'n bericht onlogisch of vreemd (een onbekende naam, iemand die zich voorstelt, een zin die nergens op slaat), ga er dan niet op in maar vraag kort of je het goed verstond.` +
     `\n- Route: roep route_plannen aan en zeg kort dat je Google Maps opent; de reistijd weet je niet.` +
     `\n- Mail versturen kan niet: je maakt alleen concepten, die Serkan zelf verstuurt.` +
+    `\n- Weet je zijn thuisadres of school nog niet en gaat het over reizen of "tijd om te gaan": vraag het één keer en sla het op met reis_instellingen.` +
     `\n- Reizen (welke trein, hoe laat weg, reistijd tussen afspraken, school → dokter): reis. Toon de reistijden met icoontjes: 🚗 auto · 🚶 lopen · 🚆/🚊 OV.` +
     `\n- Geld dat iemand hem schuldig is (of andersom): geld. Cijfers en "wat moet ik nog halen": cijfers. "Ik ga studeren"/"focus": focus, daarna rustige muziek met spotify. Pakketjes en abonnementen: regelzaken.` +
     `\n- Heeft een mail bijlagen (PDF, foto, Word) en gaat de vraag over de inhoud ("wat staat er in die pdf", "wanneer moet ik inleveren"): lees ze meteen met bijlage_lezen en vat samen. Bij "check mijn mail" noem je ook kort wat er in belangrijke bijlagen staat.` +
@@ -294,6 +295,11 @@ const TOOLS = [
       om: { type: "string", description: "Optioneel tijdstip HH:MM (of JJJJ-MM-DDTHH:MM)" },
       aankomst: { type: "boolean", description: "true = 'om' is de gewenste aankomsttijd" },
     }, required: ["naar"] },
+  },
+  {
+    name: "reis_instellingen",
+    description: "Slaat Serkans reisgegevens op voor reistijden en 'tijd om te gaan': thuisadres, adres van zijn school (lessen met een lokaalcode gaan daarheen), vervoer (ov, auto of lopen) en marge in minuten. Vraag dit één keer als het ontbreekt.",
+    input_schema: { type: "object", properties: { thuis: { type: "string" }, school: { type: "string" }, vervoer: { type: "string", enum: ["ov", "auto", "lopen"] }, marge: { type: "number" } } },
   },
   {
     name: "geld",
@@ -2056,18 +2062,116 @@ async function reisTool(input: any, actions: Actions) {
   const om = String(input.om ?? "").trim();
   if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(om)) wanneer = om;
   else if (/^\d{1,2}[:.]\d\d$/.test(om)) { const [h, m] = om.split(/[:.]/).map(Number), [y, mo, d] = localParts(Date.now()).datum.split("-").map(Number); wanneer = new Date(localToUtc(y, mo - 1, d, h, m, TZ)).toISOString(); }
+  const r = await reisBerekenen(van, naar, wanneer, !!input.aankomst);
+  return { van: van.name ?? "je locatie", naar: naar.name ?? naarTxt, kort: r.kort, ov: r.ov,
+    uitleg: "Noem de 'kort'-regel met de icoontjes en de eerstvolgende OV-reis (vertrek, spoor, vertraging)." };
+}
+async function reisBerekenen(van: Loc, naar: Loc, wanneer = "", aankomst = false) {
   const [auto, lopen, ov]: [number | null, number | null, any] = await Promise.all([
     rijTijd("car", van, naar), rijTijd("foot", van, naar),
     env("NS_API_KEY") ? nsGet(`/v3/trips?${new URLSearchParams({ originLat: String(van.lat), originLng: String(van.lon), destinationLat: String(naar.lat), destinationLng: String(naar.lon),
-      ...(wanneer ? { dateTime: wanneer, searchForArrival: String(!!input.aankomst) } : {}) })}`).then((j) => (j?.trips ?? []).slice(0, 3).map(nsReisKort)).catch((e) => ({ fout: (e as Error).message }))
+      ...(wanneer ? { dateTime: wanneer, searchForArrival: String(aankomst) } : {}) })}`).then((j) => (j?.trips ?? []).slice(0, 3).map((t: any) => ({ ...nsReisKort(t), _vertrek: Date.parse(t?.legs?.[0]?.origin?.actualDateTime ?? t?.legs?.[0]?.origin?.plannedDateTime ?? "") })))
+      .catch((e) => ({ fout: (e as Error).message }))
       : Promise.resolve({ fout: "NS_API_KEY ontbreekt in Supabase" }),
   ]);
-  const ovMin = Array.isArray(ov) && ov[0]?.duur_min ? ov[0].duur_min : null;
-  return {
-    van: van.name ?? "je locatie", naar: naar.name ?? naarTxt,
-    kort: [auto ? `🚗 ${auto} min` : "", lopen && lopen <= 120 ? `🚶 ${lopen} min` : "", ovMin ? `${ov[0].route.some((r: string) => r.startsWith("🚊")) ? "🚊" : "🚆"} ${ovMin} min` : ""].filter(Boolean).join(" · "),
-    ov, uitleg: "Noem de 'kort'-regel met de icoontjes en de eerstvolgende OV-reis (vertrek, spoor, vertraging).",
-  };
+  return { auto, lopen, ov, kort: reisKortTekst(auto, lopen, ov) };
+}
+// "🚗 5 min · 🚶 15 min · 🚊 12 min" (lopen alleen tot 2 uur; OV-icoon tram als er een tram in zit).
+function reisKortTekst(auto: number | null, lopen: number | null, ov: any) {
+  const o = Array.isArray(ov) ? ov[0] : null;
+  return [auto ? `🚗 ${auto} min` : "", lopen && lopen <= 120 ? `🚶 ${lopen} min` : "",
+    o?.duur_min ? `${(o.route ?? []).some((r: string) => r.startsWith("🚊")) ? "🚊" : (o.route ?? []).some((r: string) => r.startsWith("🚌")) ? "🚌" : "🚆"} ${o.duur_min} min` : ""].filter(Boolean).join(" · ");
+}
+// ---------- Reisinstellingen, reistijd tussen afspraken en "tijd om te gaan" ----------
+type ReisInst = { thuis?: string; school?: string; vervoer?: "ov" | "auto" | "lopen"; marge?: number };
+async function reisInstTool(input: any, db: any) {
+  const oud: ReisInst = (await kvGet(db, "reis_inst").catch(() => null)) ?? {};
+  const nieuw: ReisInst = { ...oud };
+  if (input.thuis) nieuw.thuis = String(input.thuis).slice(0, 120);
+  if (input.school) nieuw.school = String(input.school).slice(0, 120);
+  if (["ov", "auto", "lopen"].includes(input.vervoer)) nieuw.vervoer = input.vervoer;
+  if (Number(input.marge) >= 0) nieuw.marge = Math.min(30, Number(input.marge));
+  await kvSet(db, "reis_inst", nieuw);
+  return { opgeslagen: nieuw };
+}
+// Waar is een afspraak? Lokaalcodes (D1.05, SC-2.12) en lessen uit rooster/planning = school; anders de locatie zelf.
+function afspraakPlek(e: { locatie?: string; bron?: string; titel?: string }, inst: ReisInst) {
+  const loc = String(e.locatie ?? "").trim();
+  const isLokaal = !loc || /^[A-Z]{0,4}[ .-]?\d{1,2}([.,-]\d{1,3})?[a-z]?$/i.test(loc) || /^(online|teams|zoom)$/i.test(loc);
+  if (/online|teams|zoom/i.test(loc)) return null;
+  if (/rooster|planning|brightspace/i.test(String(e.bron ?? "")) && isLokaal) return inst.school ?? null;
+  return isLokaal ? null : loc;
+}
+const reisCache = new Map<string, { at: number; kort: string; vertrek?: number; detail?: string }>();
+async function reisTussen(vanTxt: string, naarTxt: string, aankomstIso: string) {
+  const k = `${vanTxt}|${naarTxt}|${aankomstIso.slice(0, 13)}`, c = reisCache.get(k);
+  if (c && Date.now() - c.at < 30 * 60000) return c;
+  const [van, naar] = await Promise.all([plekZoeken(vanTxt), plekZoeken(naarTxt)]);
+  if (!van || !naar) return null;
+  const r = await reisBerekenen(van, naar, aankomstIso, true);
+  const ov = Array.isArray(r.ov) ? r.ov[r.ov.length - 1] : null; // bij aankomst-zoeken: de laatste reis die op tijd is
+  const uit = { at: Date.now(), kort: r.kort, vertrek: ov?._vertrek || undefined, detail: ov ? `${ov.route?.[0] ?? ""} (vertrek ${ov.vertrek})` : "" };
+  reisCache.set(k, uit);
+  return uit;
+}
+// Reistijden voor een dag in het rooster: vanaf thuis naar de eerste afspraak, en tussen afspraken op verschillende plekken.
+async function dagReistijden(bronnen: Record<string, any>, inst: ReisInst, dag: string) {
+  const labels = new Map([[dagLabel(dag), dag]]);
+  const items: { titel: string; start: string; ms: number; plek: string }[] = [];
+  for (const [bron, v] of Object.entries(bronnen)) {
+    for (const e of Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : []) {
+      if (e.vervangen || /vervalt/.test(e.soort ?? "")) continue;
+      const ms = eventMs(e.start, labels), plek = afspraakPlek({ ...e, bron }, inst);
+      if (ms === null || !plek) continue;
+      items.push({ titel: String(e.titel ?? ""), start: timeOf(e.start), ms, plek });
+    }
+  }
+  items.sort((a, b) => a.ms - b.ms);
+  const uit: { voor: string; kort: string; van: string }[] = [];
+  let vorige = inst.thuis ?? "";
+  for (const it of items) {
+    if (uit.length >= 4) break;
+    if (vorige && vorige.toLowerCase() !== it.plek.toLowerCase()) {
+      const r = await reisTussen(vorige, it.plek, new Date(it.ms).toISOString()).catch(() => null);
+      if (r?.kort) uit.push({ voor: `${it.start}|${it.titel}`, kort: r.kort, van: vorige === inst.thuis ? "thuis" : vorige });
+    }
+    vorige = it.plek;
+  }
+  return uit;
+}
+// Wanneer moet Serkan weg voor de eerstvolgende afspraak (binnen 3 uur)? Melding 10 minuten van tevoren, één keer.
+async function vertrekRonde(who: Who) {
+  const inst: ReisInst = (await kvGet(who.db, "reis_inst").catch(() => null)) ?? {};
+  if (!inst.thuis && !inst.school) return { niets: "geen reisinstellingen" };
+  const dag = localParts(Date.now()).datum, labels = new Map([[dagLabel(dag), dag]]);
+  const res = await agendaAll(new Date(dagStart(0)).toISOString(), new Date(dagStart(1)).toISOString(), false, who).catch(() => ({})) as Record<string, any>;
+  const kandidaten: { titel: string; ms: number; plek: string }[] = [];
+  for (const [bron, v] of Object.entries(res)) for (const e of Array.isArray(v) ? v : Array.isArray(v?.afspraken) ? v.afspraken : []) {
+    if (e.vervangen || /vervalt/.test(e.soort ?? "")) continue;
+    const ms = eventMs(e.start, labels), plek = afspraakPlek({ ...e, bron }, inst);
+    if (ms !== null && plek && ms > Date.now() && ms - Date.now() < 3 * 3600000) kandidaten.push({ titel: String(e.titel ?? ""), ms, plek });
+  }
+  kandidaten.sort((a, b) => a.ms - b.ms);
+  const doel = kandidaten[0];
+  if (!doel) return { niets: "geen afspraak binnen 3 uur" };
+  const gemeld: string[] = (await kvGet(who.db, "vertrek_gemeld").catch(() => null)) ?? [], sleutel = `${dag}|${doel.titel}|${doel.ms}`;
+  if (gemeld.includes(sleutel)) return { al: true };
+  // Waar is hij nu? Zelfde plek als de vorige afspraak van vandaag, anders thuis.
+  const vorige = Object.values(res).flatMap((v: any) => Array.isArray(v) ? v : v?.afspraken ?? []).map((e: any) => ({ ms: eventMs(e.eind ?? e.start, labels), plek: afspraakPlek(e, inst) }))
+    .filter((x: any) => x.ms !== null && x.plek && x.ms <= Date.now()).sort((a: any, b: any) => b.ms - a.ms)[0]?.plek;
+  const van = vorige ?? inst.thuis;
+  if (!van || van.toLowerCase() === doel.plek.toLowerCase()) return { niets: "al op de plek" };
+  const marge = (inst.marge ?? 5) * 60000;
+  const r = await reisTussen(van, doel.plek, new Date(doel.ms - marge).toISOString());
+  if (!r) return { fout: "reis niet te berekenen" };
+  const m = /🚗 (\d+)/.exec(r.kort)?.[1], l = /🚶 (\d+)/.exec(r.kort)?.[1];
+  const vertrek = inst.vervoer === "auto" && m ? doel.ms - marge - +m * 60000 : inst.vervoer === "lopen" && l ? doel.ms - marge - +l * 60000 : r.vertrek ?? (m ? doel.ms - marge - +m * 60000 : null);
+  if (!vertrek) return { fout: "geen vertrektijd" };
+  if (Date.now() < vertrek - 10 * 60000) return { wacht_tot: new Date(vertrek - 10 * 60000).toISOString() };
+  await kvSet(who.db, "vertrek_gemeld", [...gemeld, sleutel].slice(-30));
+  await sendPush(who.db, { title: "🚶 Tijd om te gaan", dringend: true, url: "/",
+    body: `Om ${hhmm(localParts(vertrek).min)} weg voor ${doel.titel.replace(/^([^:]{16,}): /, "")} (${hhmm(localParts(doel.ms).min)})${inst.vervoer !== "auto" && r.detail ? ` · ${r.detail}` : ""} · ${r.kort}`.slice(0, 180) });
+  return { gemeld: true };
 }
 
 // ---------- Geld: wie moet wie wat ----------
@@ -2352,6 +2456,10 @@ async function cronTick(who: Who) {
   if (nu >= 420 && nu < 1380) { // deadline-wekker + opdrachten op de takenlijst: elke 15 minuten tussen 07:00 en 23:00
     const dk = await kvGet(who.db, "deadline_klok").catch(() => null);
     if (!dk || Date.now() - Date.parse(dk) > 14 * 60000) { await kvSet(who.db, "deadline_klok", new Date(Date.now()).toISOString()); bg(deadlineRonde(who).catch((e) => console.error("deadline", e))); }
+  }
+  if (nu >= 360 && nu < 1320) { // 06:00–22:00: elke 5 minuten kijken of hij weg moet voor de volgende afspraak
+    const vk = await kvGet(who.db, "vertrek_klok").catch(() => null);
+    if (!vk || Date.now() - Date.parse(vk) > 4 * 60000) { await kvSet(who.db, "vertrek_klok", new Date(Date.now()).toISOString()); bg(vertrekRonde(who).catch((e) => console.error("vertrek", e))); }
   }
   if ((nu >= 510 && nu < 600) || (nu >= 990 && nu < 1080)) { // 08:30 en 16:30: pakketjes en abonnementen uit de mail
     const rk = await kvGet(who.db, "regel_klok").catch(() => null), deel = `${dag}|${nu < 800 ? "o" : "m"}`;
@@ -3461,6 +3569,7 @@ async function runToolOnce(name: string, input: Record<string, string>, actions:
   if (name === "lesmail_check") return await lesMailCheck(actions.db);
   if (name === "geld") return await geldTool(input, actions.db);
   if (name === "reis") return await reisTool(input, actions);
+  if (name === "reis_instellingen") return await reisInstTool(input, actions.db);
   if (name === "cijfers") return await cijferTool(input, actions.db);
   if (name === "focus") return await focusTool(input, actions);
   if (name === "regelzaken") return input.actie === "nu" ? await regelRonde(actions.db, false) : await regelzakenBekijken(actions.db);
@@ -4268,7 +4377,10 @@ Deno.serve(async (req) => {
     const dag = /^\d{4}-\d{2}-\d{2}$/.test(String(body.agenda)) ? String(body.agenda) : localParts(Date.now()).datum;
     const [y, m, d] = dag.split("-").map(Number);
     const van = new Date(localToUtc(y, m - 1, d, 0, 0, TZ)).toISOString(), tot = new Date(localToUtc(y, m - 1, d + 1, 0, 0, TZ)).toISOString();
-    return json({ dag, bronnen: await agendaAll(van, tot, true, { db: admin, userId }) });
+    const bronnen = await agendaAll(van, tot, true, { db: admin, userId });
+    const inst: ReisInst = (await kvGet(admin, "reis_inst").catch(() => null)) ?? {};
+    const reistijden = inst.thuis || inst.school ? await Promise.race([dagReistijden(bronnen, inst, dag).catch(() => []), new Promise<any[]>((r) => setTimeout(() => r([]), 9000))]) : [];
+    return json({ dag, bronnen, reistijden });
   }
 
   // Brightspace-koppeling (gratis, via GitHub Actions + Playwright):

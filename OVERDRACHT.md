@@ -292,7 +292,9 @@ Genoemd in eerdere chats maar nergens meer vastgelegd:
 ## NS / reizen (5 nov)
 - Serkan zette `NS_API_KEY` in Supabase (Ns-App, apiportal.ns.nl). Tool `reis`: NS v3 trips met coördinaten (deur tot deur, ook tram/bus),
   auto en lopen via routing.openstreetmap.de, adressen via Nominatim. Antwoord: "🚗 5 min · 🚶 15 min · 🚊 24 min" + eerstvolgende reis.
-  Zelfcontrole (maandag) test de NS-sleutel. Nog te bouwen: melding "tijd om te gaan" en reistijd tussen afspraken vanzelf in het rooster.
+  Zelfcontrole (maandag) test de NS-sleutel.
+- 5 nov avond: `reis_instellingen` (kv reis_inst: thuis, school, vervoer ov/auto/lopen, marge). Rooster toont reistijd vanaf thuis en
+  tussen afspraken (lokaalcode/les = school). "🚶 Tijd om te gaan": elke 5 min 06–22, NS aankomst-zoeken, melding 10 min voor vertrek.
 
 ## Nog open (lijst /vergeten, 2 nov)
 **Jij (Serkan) instellen**
